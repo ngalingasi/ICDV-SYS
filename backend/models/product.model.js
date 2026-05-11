@@ -32,7 +32,7 @@ const getProducts = async ({ page, limit, search, product_type, category_id, sta
     `${BASE_SELECT}${filter} ORDER BY p.created_at DESC LIMIT ? OFFSET ?`,
     [...params, l, offset]
   );
-  return { results: rows, ...paginate(countRow.total) };
+  return paginate(rows, countRow.total);
 };
 
 const getProductById = async (id) => {

@@ -90,11 +90,13 @@ export const deliveriesApi = {
 
 // ── Users ─────────────────────────────────────────────────────────────────────
 export const usersApi = {
-  list:   (params?: any)                          => client.get<PaginatedResponse<UserRecord>>('/users', { params }),
-  get:    (id: number)                            => client.get<UserRecord>(`/users/${id}`),
-  create: (data: Partial<UserRecord> & { password?: string }) => client.post<UserRecord>('/users', data),
-  update: (id: number, data: Partial<UserRecord>) => client.patch<UserRecord>(`/users/${id}`, data),
-  delete: (id: number)                            => client.delete(`/users/${id}`),
+  list:         (params?: any)                                        => client.get<PaginatedResponse<UserRecord>>('/users', { params }),
+  get:          (id: number)                                          => client.get<UserRecord>(`/users/${id}`),
+  create:       (data: Partial<UserRecord> & { password?: string })   => client.post<UserRecord>('/users', data),
+  update:       (id: number, data: Partial<UserRecord>)               => client.patch<UserRecord>(`/users/${id}`, data),
+  delete:       (id: number)                                          => client.delete(`/users/${id}`),
+  getSkills:    ()                                                     => client.get('/users/meta/skills'),
+  updateSkills: (userId: number, skillIds: number[])                  => client.put(`/users/${userId}/skills`, { skillIds }),
 };
 
 // ── Lookups ───────────────────────────────────────────────────────────────────

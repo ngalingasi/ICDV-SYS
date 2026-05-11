@@ -142,7 +142,7 @@ const getProjects = async ({ page, limit, sector_id, search }) => {
      WHERE ${where} ORDER BY p.created_at DESC LIMIT ? OFFSET ?`,
     [...params, l, offset]
   );
-  return { results: projects, ...paginate(countRow.total) };
+  return paginate(projects, countRow.total);
 };
 
 const getProjectById = async (id, conn = null) => {

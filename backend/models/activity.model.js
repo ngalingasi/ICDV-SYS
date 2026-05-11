@@ -97,7 +97,7 @@ const getActivities = async ({ page, limit, target_id, region_id, status, assign
     [...params, l, offset]
   );
 
-  return { results: activities, ...paginate(countRow.total) };
+  return paginate(activities, countRow.total);
 };
 
 /**

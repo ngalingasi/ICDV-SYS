@@ -31,7 +31,7 @@ const getSuppliers = async ({ page, limit, search, region_id, status }) => {
     `${BASE_SELECT}${filter} ORDER BY s.created_at DESC LIMIT ? OFFSET ?`,
     [...params, l, offset]
   );
-  return { results: rows, ...paginate(countRow.total) };
+  return paginate(rows, countRow.total);
 };
 
 const getSupplierById = async (id) => {

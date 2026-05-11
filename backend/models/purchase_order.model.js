@@ -88,7 +88,7 @@ const getPurchaseOrders = async ({ page, limit, search, status, supplier_id, pro
     `${BASE_SELECT}${filter} ORDER BY po.created_at DESC LIMIT ? OFFSET ?`,
     [...params, l, offset]
   );
-  return { results: rows, ...paginate(countRow.total) };
+  return paginate(rows, countRow.total);
 };
 
 // ── Get single ────────────────────────────────────────────────────────────────

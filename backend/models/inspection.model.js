@@ -40,7 +40,7 @@ const getChecklists = async ({ page, limit, search, inspection_type, status }) =
      ORDER BY cl.created_at DESC LIMIT ? OFFSET ?`,
     [...params, l, offset]
   );
-  return { results: rows, ...paginate(countRow.total) };
+  return paginate(rows, countRow.total);
 };
 
 const getChecklistById = async (id) => {
@@ -175,7 +175,7 @@ const getRequests = async ({ page, limit, search, inspection_type, status, proje
     });
   }
 
-  return { results: rows, ...paginate(countRow.total) };
+  return paginate(rows, countRow.total);
 };
 
 const getRequestById = async (id, conn = null) => {

@@ -42,7 +42,7 @@ const getTransfers = async ({ page, limit, search, status, source_store_id, dest
   const filter = where.length ? ' AND ' + where.join(' AND ') : '';
   const [countRow] = await query(`SELECT COUNT(*) AS total FROM stock_transfers t JOIN stores ss ON ss.store_id=t.source_store_id JOIN stores ds ON ds.store_id=t.destination_store_id WHERE t.deleted_at IS NULL${filter}`, params);
   const rows = await query(`${BASE}${filter} ORDER BY t.created_at DESC LIMIT ? OFFSET ?`, [...params, l, offset]);
-  return { results: rows, ...paginate(countRow.total) };
+  return paginate(rows, countRow.total);
 };
 
 // ── Get single with items ─────────────────────────────────────────────────────

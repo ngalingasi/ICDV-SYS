@@ -4,13 +4,17 @@ const { query } = require('../config/database');
 const ApiError = require('../utils/ApiError');
 const { buildPagination } = require('../utils/paginate');
 
-const SAFE_FIELDS = 'user_id, full_name, username, email, mobile, gender, avatar, role, status, must_change_password, last_password_changed, next_password_change, created_at, created_by';
+const SAFE_FIELDS = 'user_id, full_name, username, email, mobile, gender, avatar, role, icdv_id, status, must_change_password, last_password_changed, next_password_change, created_at, created_by';
 
 /**
  * Create a user
  */
 const createUser = async (body, creatorId = null) => {
-  const { full_name, username, email = null, mobile = null, gender = 'male', role = 'user', password } = body;
+  const {
+    full_name, username, email = null, mobile = null,
+    gender = 'male', role = 'user', password,
+    icdv_id = null,   // tenant scoping — null for super_admin
+  } = body;
 
   // Check uniqueness
   const existing = await query('SELECT user_id FROM users WHERE username = ? OR email = ?', [username, email]);
@@ -20,9 +24,9 @@ const createUser = async (body, creatorId = null) => {
 
   const hash = await bcrypt.hash(password, 10);
   const result = await query(
-    `INSERT INTO users (full_name, username, email, mobile, gender, password_hash, role, status, must_change_password, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 'active', 1, ?)`,
-    [full_name, username, email || null, mobile || null, gender || 'male', hash, role || 'user', creatorId]
+    `INSERT INTO users (full_name, username, email, mobile, gender, password_hash, role, icdv_id, status, must_change_password, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', 1, ?)`,
+    [full_name, username, email || null, mobile || null, gender || 'male', hash, role || 'user', icdv_id || null, creatorId]
   );
   return getUserById(result.insertId);
 };
@@ -61,7 +65,7 @@ const getUsers = async ({ page, limit, role, status, search }) => {
       [user.user_id]
     );
   }
-  return { results: users, ...paginate(total) };
+  return paginate(users, total);
 };
 
 /**

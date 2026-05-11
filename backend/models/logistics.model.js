@@ -36,7 +36,7 @@ const getCompanies = async ({ page, limit, search, status, company_type }) => {
      ${filter} ORDER BY lc.created_at DESC LIMIT ? OFFSET ?`,
     [...params, l, offset]
   );
-  return { results: rows, ...paginate(countRow.total) };
+  return paginate(rows, countRow.total);
 };
 
 const getCompanyById = async (id) => {
@@ -113,7 +113,7 @@ const getTransactions = async ({ page, limit, search, status, source_type, logis
 
   const [countRow] = await query(`SELECT COUNT(*) AS total FROM logistics_transactions lt JOIN logistics_companies lc ON lc.logistics_company_id = lt.logistics_company_id${filter}`, params);
   const rows = await query(`${TXN_BASE}${filter} ORDER BY lt.created_at DESC LIMIT ? OFFSET ?`, [...params, l, offset]);
-  return { results: rows, ...paginate(countRow.total) };
+  return paginate(rows, countRow.total);
 };
 
 const getTransactionById = async (id) => {
