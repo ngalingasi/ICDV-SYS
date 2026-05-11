@@ -1,8 +1,9 @@
 /**
- * ICDV — Role & permissions
- * operator  : day-to-day port operations
- * supervisor: can approve operations, manage drivers, manage manifests
- * admin     : full access including user management and lookups
+ * ICDV — Role & permissions (multi-tenant)
+ * operator    : day-to-day port operations (read + update ops)
+ * supervisor  : manage drivers, manifests, operations, deliveries
+ * admin       : full ICDV access including user management and lookups
+ * super_admin : platform-wide, not tied to any tenant — has every right
  */
 const allRoles = {
   operator: [
@@ -33,9 +34,25 @@ const allRoles = {
     'getDeliveries',   'manageDeliveries',
     'getLookups',      'manageLookups',
   ],
+  super_admin: [
+    // Platform management
+    'getIcdvs',        'manageIcdvs',
+    // All tenant rights
+    'getUsers',        'manageUsers',
+    'getVessels',      'manageVessels',
+    'getManifests',    'manageManifests',
+    'getVehicles',     'manageVehicles',
+    'getDrivers',      'manageDrivers',
+    'getOperations',   'manageOperations', 'updateOperations',
+    'getDeliveries',   'manageDeliveries',
+    'getLookups',      'manageLookups',
+  ],
 };
 
-const roles = Object.keys(allRoles);
+const roles      = Object.keys(allRoles);
 const roleRights = new Map(Object.entries(allRoles));
 
-module.exports = { roles, roleRights };
+/** Returns true when the user is platform super admin */
+const isSuperAdmin = (user) => user && user.role === 'super_admin';
+
+module.exports = { roles, roleRights, isSuperAdmin };

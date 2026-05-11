@@ -3,52 +3,50 @@ const { query } = require('../config/database');
 const ApiError = require('../utils/ApiError');
 const { buildPagination } = require('../utils/paginate');
 
-const createDriver = async (body, creatorId, photoPath = null) => {
+const createDriver = async (body, creatorId, photoPath = null, icdvId) => {
   const {
     full_name, license_number, phone = null,
     email = null, id_number = null, status = 'active', notes = null,
   } = body;
+  if (!icdvId) throw new ApiError(httpStatus.BAD_REQUEST, 'icdv_id is required');
+
+  // Uniqueness scoped to tenant
   const existing = await query(
-    'SELECT driver_id FROM drivers WHERE license_number=?', [license_number]
+    'SELECT driver_id FROM drivers WHERE license_number=? AND icdv_id=?', [license_number, icdvId]
   );
   if (existing.length) throw new ApiError(httpStatus.CONFLICT, 'License number already registered');
 
   const r = await query(
-    `INSERT INTO drivers (full_name, license_number, phone, email, id_number, photo, status, notes, created_by)
-     VALUES (?,?,?,?,?,?,?,?,?)`,
-    [full_name, license_number, phone, email, id_number, photoPath, status, notes, creatorId]
+    `INSERT INTO drivers (icdv_id, full_name, license_number, phone, email, id_number, photo, status, notes, created_by)
+     VALUES (?,?,?,?,?,?,?,?,?,?)`,
+    [icdvId, full_name, license_number, phone, email, id_number, photoPath, status, notes, creatorId]
   );
-  return getDriverById(r.insertId);
+  return getDriverById(r.insertId, icdvId);
 };
 
-const getDrivers = async ({ page, limit, status, search }) => {
+const getDrivers = async ({ page, limit, status, search }, icdvId = null) => {
   const { limit: l, offset, paginate } = buildPagination(page, limit);
-  let where = '1=1';
-  const params = [];
+  let where = '1=1'; const params = [];
+  if (icdvId !== null) { where += ' AND d.icdv_id=?'; params.push(icdvId); }
   if (status) { where += ' AND d.status=?'; params.push(status); }
   if (search) {
     where += ' AND (d.full_name LIKE ? OR d.license_number LIKE ? OR d.id_number LIKE ? OR d.phone LIKE ?)';
-    const s = `%${search}%`;
-    params.push(s, s, s, s);
+    const s = `%${search}%`; params.push(s, s, s, s);
   }
-  const [{ total }] = await query(
-    `SELECT COUNT(*) AS total FROM drivers d WHERE ${where}`, params
-  );
+  const [{ total }] = await query(`SELECT COUNT(*) AS total FROM drivers d WHERE ${where}`, params);
   const drivers = await query(
     `SELECT d.*,
        (SELECT COUNT(*) FROM operations op WHERE op.driver_id = d.driver_id) AS total_operations,
        u.full_name AS created_by_name
      FROM drivers d
      LEFT JOIN users u ON u.user_id = d.created_by
-     WHERE ${where}
-     ORDER BY d.full_name ASC
-     LIMIT ? OFFSET ?`,
+     WHERE ${where} ORDER BY d.full_name ASC LIMIT ? OFFSET ?`,
     [...params, l, offset]
   );
   return paginate(drivers, total);
 };
 
-const getDriverById = async (id) => {
+const getDriverById = async (id, icdvId = null) => {
   const [driver] = await query(
     `SELECT d.*,
        (SELECT COUNT(*) FROM operations op WHERE op.driver_id = d.driver_id) AS total_operations,
@@ -59,32 +57,32 @@ const getDriverById = async (id) => {
     [id]
   );
   if (!driver) throw new ApiError(httpStatus.NOT_FOUND, 'Driver not found');
+  if (icdvId !== null && driver.icdv_id !== icdvId)
+    throw new ApiError(httpStatus.NOT_FOUND, 'Driver not found');
   return driver;
 };
 
-const updateDriver = async (id, body, updaterId, photoPath = null) => {
-  await getDriverById(id);
-  const fields = [];
-  const params = [];
+const updateDriver = async (id, body, updaterId, photoPath = null, icdvId = null) => {
+  await getDriverById(id, icdvId);
+  const fields = []; const params = [];
   const allowed = ['full_name','license_number','phone','email','id_number','status','notes'];
   for (const key of allowed) {
     if (body[key] !== undefined) { fields.push(`${key}=?`); params.push(body[key]); }
   }
   if (photoPath !== null) { fields.push('photo=?'); params.push(photoPath); }
-  if (!fields.length) return getDriverById(id);
+  if (!fields.length) return getDriverById(id, icdvId);
   fields.push('updated_by=?', 'updated_at=NOW()');
   params.push(updaterId, id);
   await query(`UPDATE drivers SET ${fields.join(',')} WHERE driver_id=?`, params);
-  return getDriverById(id);
+  return getDriverById(id, icdvId);
 };
 
-const deleteDriver = async (id) => {
-  const driver = await getDriverById(id);
+const deleteDriver = async (id, icdvId = null) => {
+  const driver = await getDriverById(id, icdvId);
   const [{ cnt }] = await query(
     "SELECT COUNT(*) AS cnt FROM operations WHERE driver_id=? AND status='in_progress'", [id]
   );
-  if (cnt > 0) throw new ApiError(httpStatus.BAD_REQUEST,
-    'Cannot delete driver with active operations');
+  if (cnt > 0) throw new ApiError(httpStatus.BAD_REQUEST, 'Cannot delete driver with active operations');
   await query('DELETE FROM drivers WHERE driver_id=?', [id]);
   return driver;
 };

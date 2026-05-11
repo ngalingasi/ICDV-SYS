@@ -1,10 +1,9 @@
 const passport   = require('passport');
 const httpStatus = require('http-status');
 const ApiError   = require('../utils/ApiError');
-const { roleRights } = require('../config/roles');
+const { roleRights, isSuperAdmin } = require('../config/roles');
 
 // Paths allowed even when must_change_password = 1
-// Use suffix matching — works regardless of /v1 or /api prefix
 const PASSWORD_CHANGE_WHITELIST = [
   '/auth/change-password',
   '/auth/logout',
@@ -19,7 +18,7 @@ const verifyCallback = (req, resolve, reject, requiredRights) => async (err, use
 
   // Force password change before any other action
   if (user.must_change_password) {
-    const url = req.originalUrl.split('?')[0]; // strip query string
+    const url = req.originalUrl.split('?')[0];
     const isWhitelisted = PASSWORD_CHANGE_WHITELIST.some((suffix) =>
       url.endsWith(suffix) || url.includes(suffix)
     );
@@ -32,6 +31,11 @@ const verifyCallback = (req, resolve, reject, requiredRights) => async (err, use
   }
 
   if (requiredRights.length) {
+    // Super admin bypasses all right checks — has access to everything
+    if (isSuperAdmin(user)) {
+      return resolve();
+    }
+
     const userRights = roleRights.get(user.role) || [];
     const hasRequiredRights = requiredRights.every((right) => userRights.includes(right));
 

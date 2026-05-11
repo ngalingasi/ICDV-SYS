@@ -2,6 +2,7 @@ const express = require('express');
 const authRoute       = require('./auth.route');
 const userRoute       = require('./user.route');
 const lookupRoute     = require('./lookup.route');
+const icdvRoute       = require('./icdv.route');        // NEW — super admin
 const vesselRoute     = require('./vessel.route');
 const manifestRoute   = require('./manifest.route');
 const vehicleRoute    = require('./vehicle.route');
@@ -14,16 +15,17 @@ const config = require('../../config/config');
 const router = express.Router();
 
 const defaultRoutes = [
-  { path: '/auth',        route: authRoute },
-  { path: '/users',       route: userRoute },
-  { path: '/lookups',     route: lookupRoute },
-  { path: '/dashboard',   route: dashboardRoute },
-  { path: '/vessels',     route: vesselRoute },
-  { path: '/manifests',   route: manifestRoute },
-  { path: '/vehicles',    route: vehicleRoute },
-  { path: '/drivers',     route: driverRoute },
-  { path: '/operations',  route: operationRoute },
-  { path: '/deliveries',  route: deliveryRoute },
+  { path: '/auth',       route: authRoute },
+  { path: '/users',      route: userRoute },
+  { path: '/lookups',    route: lookupRoute },
+  { path: '/icdvs',      route: icdvRoute },      // NEW
+  { path: '/dashboard',  route: dashboardRoute },
+  { path: '/vessels',    route: vesselRoute },
+  { path: '/manifests',  route: manifestRoute },
+  { path: '/vehicles',   route: vehicleRoute },
+  { path: '/drivers',    route: driverRoute },
+  { path: '/operations', route: operationRoute },
+  { path: '/deliveries', route: deliveryRoute },
 ];
 
 defaultRoutes.forEach(({ path, route }) => router.use(path, route));

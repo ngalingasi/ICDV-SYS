@@ -1,18 +1,18 @@
 const express = require('express');
-const auth    = require('../../middlewares/auth');
-const ctrl    = require('../../controllers/delivery.controller');
-
+const auth   = require('../../middlewares/auth');
+const tenant = require('../../middlewares/tenant');
+const ctrl   = require('../../controllers/delivery.controller');
 const router = express.Router();
 
 router.route('/')
-  .get(auth('getDeliveries'),     ctrl.getDeliveries)
-  .post(auth('manageDeliveries'), ctrl.createDelivery);
+  .get( auth('getDeliveries'),    tenant(), ctrl.getDeliveries)
+  .post(auth('manageDeliveries'), tenant(), ctrl.createDelivery);
 
 router.route('/:deliveryId')
-  .get(auth('getDeliveries'),       ctrl.getDelivery)
-  .patch(auth('manageDeliveries'),  ctrl.updateDelivery)
-  .delete(auth('manageDeliveries'), ctrl.deleteDelivery);
+  .get(   auth('getDeliveries'),    tenant(), ctrl.getDelivery)
+  .patch( auth('manageDeliveries'), tenant(), ctrl.updateDelivery)
+  .delete(auth('manageDeliveries'), tenant(), ctrl.deleteDelivery);
 
-router.patch('/:deliveryId/status', auth('manageDeliveries'), ctrl.updateDeliveryStatus);
+router.patch('/:deliveryId/status', auth('manageDeliveries'), tenant(), ctrl.updateDeliveryStatus);
 
 module.exports = router;

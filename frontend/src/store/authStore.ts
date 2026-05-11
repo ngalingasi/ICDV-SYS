@@ -2,14 +2,16 @@ import { createContext, useContext } from 'react';
 import type { User } from '../types';
 
 export interface AuthState {
-  user: User | null;
+  user:            User | null;
   isAuthenticated: boolean;
-  isLoading: boolean;
+  isLoading:       boolean;
+  isSuperAdmin:    boolean;       // true when role === 'super_admin'
+  icdvId:          number | null; // null for super_admin
 }
 
 export interface AuthActions {
-  login: (user: User, accessToken: string, refreshToken: string) => void;
-  logout: () => void;
+  login:      (user: User, accessToken: string, refreshToken: string) => void;
+  logout:     () => void;
   updateUser: (user: Partial<User>) => void;
 }
 

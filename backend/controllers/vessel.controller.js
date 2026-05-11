@@ -3,34 +3,22 @@ const catchAsync = require('../utils/catchAsync');
 const vesselModel = require('../models/vessel.model');
 
 const createVessel = catchAsync(async (req, res) => {
-  const vessel = await vesselModel.createVessel(req.body, req.user.user_id);
-  res.status(httpStatus.CREATED).json(vessel);
+  res.status(httpStatus.CREATED).json(await vesselModel.createVessel(req.body, req.user.user_id, req.icdvId));
 });
-
 const getVessels = catchAsync(async (req, res) => {
-  const result = await vesselModel.getVessels(req.query);
-  res.json(result);
+  res.json(await vesselModel.getVessels(req.query, req.icdvId));
 });
-
 const getVessel = catchAsync(async (req, res) => {
-  const vessel = await vesselModel.getVesselById(Number(req.params.vesselId));
-  res.json(vessel);
+  res.json(await vesselModel.getVesselById(Number(req.params.vesselId), req.icdvId));
 });
-
 const updateVessel = catchAsync(async (req, res) => {
-  const vessel = await vesselModel.updateVessel(Number(req.params.vesselId), req.body, req.user.user_id);
-  res.json(vessel);
+  res.json(await vesselModel.updateVessel(Number(req.params.vesselId), req.body, req.user.user_id, req.icdvId));
 });
-
 const updateVesselStatus = catchAsync(async (req, res) => {
-  const vessel = await vesselModel.updateVesselStatus(
-    Number(req.params.vesselId), req.body.status, req.user.user_id
-  );
-  res.json(vessel);
+  res.json(await vesselModel.updateVesselStatus(Number(req.params.vesselId), req.body.status, req.user.user_id, req.icdvId));
 });
-
 const deleteVessel = catchAsync(async (req, res) => {
-  await vesselModel.deleteVessel(Number(req.params.vesselId));
+  await vesselModel.deleteVessel(Number(req.params.vesselId), req.icdvId);
   res.status(httpStatus.NO_CONTENT).send();
 });
 

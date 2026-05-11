@@ -1,20 +1,20 @@
 const express = require('express');
-const auth    = require('../../middlewares/auth');
-const ctrl    = require('../../controllers/vehicle.controller');
-
+const auth   = require('../../middlewares/auth');
+const tenant = require('../../middlewares/tenant');
+const ctrl   = require('../../controllers/vehicle.controller');
 const router = express.Router();
 
 router.route('/')
-  .get(auth('getVehicles'),     ctrl.getVehicles)
-  .post(auth('manageVehicles'), ctrl.createVehicle);
+  .get( auth('getVehicles'),    tenant(), ctrl.getVehicles)
+  .post(auth('manageVehicles'), tenant(), ctrl.createVehicle);
 
-router.get('/search/:chassisNumber', auth('getVehicles'), ctrl.searchByChassis);
+router.get('/search/:chassisNumber', auth('getVehicles'), tenant(), ctrl.searchByChassis);
 
 router.route('/:vehicleId')
-  .get(auth('getVehicles'),       ctrl.getVehicle)
-  .patch(auth('manageVehicles'),  ctrl.updateVehicle)
-  .delete(auth('manageVehicles'), ctrl.deleteVehicle);
+  .get(   auth('getVehicles'),    tenant(), ctrl.getVehicle)
+  .patch( auth('manageVehicles'), tenant(), ctrl.updateVehicle)
+  .delete(auth('manageVehicles'), tenant(), ctrl.deleteVehicle);
 
-router.get('/:vehicleId/operations', auth('getVehicles'), ctrl.getVehicleOperations);
+router.get('/:vehicleId/operations', auth('getVehicles'), tenant(), ctrl.getVehicleOperations);
 
 module.exports = router;

@@ -14,7 +14,8 @@ const jwtVerify = async (payload, done) => {
       throw new Error('Invalid token type');
     }
     const rows = await query(
-      'SELECT user_id, full_name, username, email, mobile, gender, avatar, role, status, must_change_password FROM users WHERE user_id = ? AND status = "active"',
+      // PATCHED: added icdv_id — required by tenant middleware for scope resolution
+      'SELECT user_id, full_name, username, email, mobile, gender, avatar, role, icdv_id, status, must_change_password FROM users WHERE user_id = ? AND status = "active"',
       [payload.sub]
     );
     if (!rows.length) {
