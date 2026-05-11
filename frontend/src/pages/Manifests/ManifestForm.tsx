@@ -227,9 +227,9 @@ export default function ManifestForm() {
       <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6 space-y-5">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-sm font-semibold text-gray-800 dark:text-white">Import Vehicles from CSV</h2>
+            <h2 className="text-sm font-semibold text-gray-800 dark:text-white">Import Vehicles from CSV / Excel</h2>
             <p className="text-xs text-gray-500 mt-0.5">
-              Expected columns: <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">M B/L No, Chassis No, Place of Destination, Place of Delivery</code>
+              Accepts <strong className="text-gray-600 dark:text-gray-300">.csv</strong>, <strong className="text-gray-600 dark:text-gray-300">.xlsx</strong> or <strong className="text-gray-600 dark:text-gray-300">.xls</strong>. Expected columns: <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded text-xs">M B/L No, Chassis No, Place of Destination, Place of Delivery</code>
             </p>
           </div>
           <button onClick={() => fileRef.current?.click()}
@@ -237,9 +237,9 @@ export default function ManifestForm() {
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
             </svg>
-            {csvFile ? 'Change File' : 'Choose CSV'}
+            {csvFile ? 'Change File' : 'Choose File'}
           </button>
-          <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={handleCsvChange} />
+          <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="hidden" onChange={handleCsvChange} />
         </div>
 
         {csvFile && (
@@ -260,7 +260,7 @@ export default function ManifestForm() {
 
         {!manifestSaved && csvFile && (
           <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
-            ⚠ Save the manifest above first, then click Preview to validate the CSV.
+            ⚠ Save the manifest above first, then click Preview to validate the file.
           </p>
         )}
 

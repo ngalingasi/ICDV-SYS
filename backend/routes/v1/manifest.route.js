@@ -4,7 +4,25 @@ const auth     = require('../../middlewares/auth');
 const tenant   = require('../../middlewares/tenant');
 const ctrl     = require('../../controllers/manifest.controller');
 
-const csvUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+const csvUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+  fileFilter: (_req, file, cb) => {
+    const allowed = [
+      'text/csv',
+      'application/csv',
+      'application/vnd.ms-excel',                                          // .xls
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+      'application/octet-stream', // some browsers send this for .xlsx
+    ];
+    const ext = file.originalname.split('.').pop().toLowerCase();
+    if (allowed.includes(file.mimetype) || ['csv','xlsx','xls'].includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only CSV and Excel files are allowed'), false);
+    }
+  },
+});
 const router = express.Router();
 
 router.get('/next-number', auth('getManifests'), tenant(), ctrl.getNextNumber);
