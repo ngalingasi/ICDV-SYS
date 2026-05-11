@@ -42,7 +42,7 @@ export default function IcdvList() {
         <input type="text" placeholder="Search ICDV name, code, city…"
           value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
           className="w-72 rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white focus:outline-none focus:border-brand-400" />
-        <Link to="/super-admin/icdvs/new"
+        <Link to="/super-admin/icdvs/create"
           className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-brand-500 rounded-lg hover:bg-brand-600 transition-colors">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />

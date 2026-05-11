@@ -35,6 +35,7 @@ import UserProfiles    from "./pages/UserProfiles";
 import IcdvList        from "./pages/SuperAdmin/IcdvList";
 import IcdvDetail      from "./pages/SuperAdmin/IcdvDetail";
 import IcdvForm        from "./pages/SuperAdmin/IcdvForm";
+import CreateIcdvWizard  from './pages/SuperAdmin/CreateIcdvWizard';
 import NotFound        from "./pages/OtherPage/NotFound";
 
 function SuperAdminRoute() {
@@ -96,7 +97,8 @@ export default function App() {
           <Route element={<SuperAdminRoute />}>
             <Route element={<AppLayout />}>
               <Route path="/super-admin/icdvs"              element={<IcdvList />} />
-              <Route path="/super-admin/icdvs/new"          element={<IcdvForm />} />
+              <Route path="/super-admin/icdvs/new"            element={<IcdvForm />} />
+              <Route path="/super-admin/icdvs/create"         element={<CreateIcdvWizard />} />
               <Route path="/super-admin/icdvs/:icdvId"      element={<IcdvDetail />} />
               <Route path="/super-admin/icdvs/:icdvId/edit" element={<IcdvForm />} />
             </Route>
