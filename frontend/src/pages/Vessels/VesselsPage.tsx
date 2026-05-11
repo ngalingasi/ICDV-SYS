@@ -77,7 +77,7 @@ export default function VesselsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-700">
-                {['Vessel Name','IMO Number','Shipping Line','Arrival Date','Berth','Manifests','Vehicles','Status','Actions'].map(h => (
+                {['Vessel Name','IMO Number','Type','Country/Origin','Manifests','Vehicles','Status','Actions'].map(h => (
                   <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -86,7 +86,7 @@ export default function VesselsPage() {
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i}>
-                    {Array.from({ length: 9 }).map((_, j) => (
+                    {Array.from({ length: 8 }).map((_, j) => (
                       <td key={j} className="px-4 py-3">
                         <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-20" />
                       </td>
@@ -95,7 +95,7 @@ export default function VesselsPage() {
                 ))
               ) : vessels.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-12 text-center text-sm text-gray-400">No vessels found</td>
+                  <td colSpan={8} className="px-4 py-12 text-center text-sm text-gray-400">No vessels found</td>
                 </tr>
               ) : vessels.map(v => (
                 <tr key={v.vessel_id} className="hover:bg-gray-50 dark:hover:bg-gray-800/40">
@@ -103,9 +103,8 @@ export default function VesselsPage() {
                     <Link to={`/vessels/${v.vessel_id}`} className="hover:text-brand-600">{v.name}</Link>
                   </td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{v.imo_number ?? '—'}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{v.shipping_line ?? '—'}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap">{fmtDate(v.arrival_date)}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{v.berth_number ?? '—'}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{(v as any).vessel_type ?? '—'}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{(v as any).country_of_origin ?? '—'}</td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{v.manifest_count ?? 0}</td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{v.vehicle_count ?? 0}</td>
                   <td className="px-4 py-3"><StatusBadge status={v.status} /></td>

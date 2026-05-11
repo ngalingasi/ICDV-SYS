@@ -24,6 +24,9 @@ export const vesselsApi = {
 
 // ── Manifests ─────────────────────────────────────────────────────────────────
 export const manifestsApi = {
+  getNextNumber:    ()           => api.get('/manifests/next-number'),
+  previewCSV:       (id: number, formData: FormData) => api.post(`/manifests/${id}/preview-csv`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  getNextNumber:    ()           => api.get('/manifests/next-number'),
   list:   (params?: any) => client.get<PaginatedResponse<Manifest>>('/manifests', { params }),
   get:    (id: number)   => client.get<Manifest>(`/manifests/${id}`),
   create: (data: Partial<Manifest>) => client.post<Manifest>('/manifests', data),

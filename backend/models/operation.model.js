@@ -10,7 +10,7 @@ const createOperation = async (body, creatorId) => {
     scheduled_date = null, notes = null, status = 'pending',
   } = body;
 
-  const [r] = await query(
+  const r = await query(
     `INSERT INTO operations (vehicle_id, driver_id, operation_type, scheduled_date, notes, status, created_by)
      VALUES (?,?,?,?,?,?,?)`,
     [vehicle_id, driver_id, operation_type, scheduled_date, notes, status, creatorId]

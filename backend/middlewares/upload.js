@@ -1,21 +1,23 @@
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const path   = require('path');
+const fs     = require('fs');
 const httpStatus = require('http-status');
 const config = require('../config/config');
 const ApiError = require('../utils/ApiError');
 
-// Ensure upload directory exists
 const uploadDir = path.join(process.cwd(), config.upload.dir);
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const subDir = req.params.projectId
-      ? path.join(uploadDir, 'projects', String(req.params.projectId))
-      : uploadDir;
+    // drivers photos → uploads/drivers/
+    // everything else → uploads/
+    let subDir = uploadDir;
+    if (req.baseUrl && req.baseUrl.includes('/drivers')) {
+      subDir = path.join(uploadDir, 'drivers');
+    } else if (req.params && req.params.projectId) {
+      subDir = path.join(uploadDir, 'projects', String(req.params.projectId));
+    }
     if (!fs.existsSync(subDir)) fs.mkdirSync(subDir, { recursive: true });
     cb(null, subDir);
   },
@@ -35,6 +37,7 @@ const fileFilter = (req, file, cb) => {
     'image/jpeg',
     'image/png',
     'image/gif',
+    'image/webp',
   ];
   if (allowed.includes(file.mimetype)) {
     cb(null, true);

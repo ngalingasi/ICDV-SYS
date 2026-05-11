@@ -17,7 +17,7 @@ const createDelivery = async (body, creatorId) => {
   );
   if (!vehicle) throw new ApiError(httpStatus.NOT_FOUND, 'Vehicle not found');
 
-  const [r] = await query(
+  const r = await query(
     `INSERT INTO deliveries (vehicle_id, driver_id, scheduled_date, delivery_address,
       recipient_name, recipient_phone, notes, status, created_by)
      VALUES (?,?,?,?,?,?,?,?,?)`,

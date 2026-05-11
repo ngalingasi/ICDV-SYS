@@ -3,7 +3,8 @@ const catchAsync = require('../utils/catchAsync');
 const driverModel = require('../models/driver.model');
 
 const createDriver = catchAsync(async (req, res) => {
-  const driver = await driverModel.createDriver(req.body, req.user.user_id);
+  const photoPath = req.file ? `/uploads/drivers/${req.file.filename}` : null;
+  const driver = await driverModel.createDriver(req.body, req.user.user_id, photoPath);
   res.status(httpStatus.CREATED).json(driver);
 });
 
@@ -18,7 +19,10 @@ const getDriver = catchAsync(async (req, res) => {
 });
 
 const updateDriver = catchAsync(async (req, res) => {
-  const driver = await driverModel.updateDriver(Number(req.params.driverId), req.body, req.user.user_id);
+  const photoPath = req.file ? `/uploads/drivers/${req.file.filename}` : null;
+  const driver = await driverModel.updateDriver(
+    Number(req.params.driverId), req.body, req.user.user_id, photoPath
+  );
   res.json(driver);
 });
 

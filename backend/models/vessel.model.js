@@ -1,22 +1,18 @@
 const httpStatus = require('http-status');
-const { query, transaction } = require('../config/database');
+const { query } = require('../config/database');
 const ApiError = require('../utils/ApiError');
 const { buildPagination } = require('../utils/paginate');
 const { VESSEL_STATUS_TRANSITIONS } = require('../config/statuses');
 
 const createVessel = async (body, creatorId) => {
   const {
-    name, imo_number = null, flag = null, shipping_line = null,
-    arrival_date, departure_date = null, berth_number = null,
-    port_of_origin = null, notes = null, status = 'expected',
+    name, imo_number = null, vessel_type = null,
+    country_of_origin = null, notes = null, status = 'active',
   } = body;
-
-  const [r] = await query(
-    `INSERT INTO vessels (name, imo_number, flag, shipping_line, arrival_date,
-      departure_date, berth_number, port_of_origin, notes, status, created_by)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
-    [name, imo_number, flag, shipping_line, arrival_date,
-     departure_date, berth_number, port_of_origin, notes, status, creatorId]
+  const r = await query(
+    `INSERT INTO vessels (name, imo_number, vessel_type, country_of_origin, notes, status, created_by)
+     VALUES (?,?,?,?,?,?,?)`,
+    [name, imo_number, vessel_type, country_of_origin, notes, status, creatorId]
   );
   return getVesselById(r.insertId);
 };
@@ -25,11 +21,11 @@ const getVessels = async ({ page, limit, status, search }) => {
   const { limit: l, offset, paginate } = buildPagination(page, limit);
   let where = '1=1';
   const params = [];
-  if (status) { where += ' AND v.status = ?'; params.push(status); }
+  if (status) { where += ' AND v.status=?'; params.push(status); }
   if (search) {
-    where += ' AND (v.name LIKE ? OR v.imo_number LIKE ? OR v.shipping_line LIKE ?)';
+    where += ' AND (v.name LIKE ? OR v.imo_number LIKE ? OR v.vessel_type LIKE ? OR v.country_of_origin LIKE ?)';
     const s = `%${search}%`;
-    params.push(s, s, s);
+    params.push(s, s, s, s);
   }
   const [{ total }] = await query(
     `SELECT COUNT(*) AS total FROM vessels v WHERE ${where}`, params
@@ -44,7 +40,7 @@ const getVessels = async ({ page, limit, status, search }) => {
      FROM vessels v
      LEFT JOIN users u ON u.user_id = v.created_by
      WHERE ${where}
-     ORDER BY v.arrival_date DESC, v.created_at DESC
+     ORDER BY v.created_at DESC
      LIMIT ? OFFSET ?`,
     [...params, l, offset]
   );
@@ -61,7 +57,7 @@ const getVesselById = async (id) => {
        u.full_name AS created_by_name
      FROM vessels v
      LEFT JOIN users u ON u.user_id = v.created_by
-     WHERE v.vessel_id = ?`,
+     WHERE v.vessel_id=?`,
     [id]
   );
   if (!vessel) throw new ApiError(httpStatus.NOT_FOUND, 'Vessel not found');
@@ -72,8 +68,7 @@ const updateVessel = async (id, body, updaterId) => {
   await getVesselById(id);
   const fields = [];
   const params = [];
-  const allowed = ['name','imo_number','flag','shipping_line','arrival_date',
-    'departure_date','berth_number','port_of_origin','notes','status'];
+  const allowed = ['name','imo_number','vessel_type','country_of_origin','notes','status'];
   for (const key of allowed) {
     if (body[key] !== undefined) { fields.push(`${key}=?`); params.push(body[key]); }
   }
@@ -98,11 +93,8 @@ const updateVesselStatus = async (id, newStatus, userId) => {
 
 const deleteVessel = async (id) => {
   const vessel = await getVesselById(id);
-  const [{ cnt }] = await query(
-    'SELECT COUNT(*) AS cnt FROM manifests WHERE vessel_id=?', [id]
-  );
-  if (cnt > 0) throw new ApiError(httpStatus.BAD_REQUEST,
-    'Cannot delete vessel with existing manifests');
+  const [{ cnt }] = await query('SELECT COUNT(*) AS cnt FROM manifests WHERE vessel_id=?', [id]);
+  if (cnt > 0) throw new ApiError(httpStatus.BAD_REQUEST, 'Cannot delete vessel with existing manifests');
   await query('DELETE FROM vessels WHERE vessel_id=?', [id]);
   return vessel;
 };
