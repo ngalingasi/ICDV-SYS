@@ -4,24 +4,42 @@ const userModel  = require('../models/user.model');
 const emailModel = require('../models/email.model');
 const crypto     = require('crypto');
 
+// When an admin creates a user, auto-scope to their own icdv_id
+// Super admin can pass icdv_id explicitly in body
 const createUser = catchAsync(async (req, res) => {
-  if (!req.body.password) {
-    req.body.password = crypto.randomBytes(8).toString('hex');
-    const user = await userModel.createUser(req.body, req.user.user_id);
-    await emailModel.sendWelcomeEmail(user.email, user.full_name, user.username, req.body.password).catch(() => {});
+  const body = { ...req.body };
+  // Non-super-admin: force icdv_id to their own tenant
+  if (!req.isSuperAdmin) {
+    body.icdv_id = req.icdvId;
+    // Non-super-admin cannot create super_admin or admins of other tenants
+    if (body.role === 'super_admin') body.role = 'operator';
+  }
+
+  if (!body.password) {
+    body.password = crypto.randomBytes(8).toString('hex');
+    const user = await userModel.createUser(body, req.user.user_id);
+    await emailModel.sendWelcomeEmail(user.email, user.full_name, user.username, body.password).catch(() => {});
     return res.status(httpStatus.CREATED).send(user);
   }
-  const user = await userModel.createUser(req.body, req.user.user_id);
+  const user = await userModel.createUser(body, req.user.user_id);
   res.status(httpStatus.CREATED).send(user);
 });
 
 const getUsers = catchAsync(async (req, res) => {
-  const result = await userModel.getUsers(req.query);
+  // Tenant users only see their own ICDV's users; super admin sees all (or scoped by query)
+  const icdvId = req.isSuperAdmin
+    ? (req.query.icdv_id ? Number(req.query.icdv_id) : null)
+    : req.icdvId;
+  const result = await userModel.getUsers(req.query, icdvId);
   res.send(result);
 });
 
 const getUser = catchAsync(async (req, res) => {
   const user = await userModel.getUserById(req.params.userId);
+  // Tenant users can only see users in their ICDV
+  if (!req.isSuperAdmin && user.icdv_id !== req.icdvId) {
+    return res.status(httpStatus.NOT_FOUND).json({ message: 'User not found' });
+  }
   res.send(user);
 });
 
@@ -46,5 +64,4 @@ const updateSkills = catchAsync(async (req, res) => {
   res.send(user);
 });
 
-// Single clean export — no Object.assign
 module.exports = { createUser, getUsers, getUser, updateUser, deleteUser, getSkills, updateSkills };

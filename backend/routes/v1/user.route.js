@@ -1,8 +1,9 @@
-const express = require('express');
-const router = express.Router();
-const Joi = require('joi');
+const express  = require('express');
+const router   = express.Router();
+const Joi      = require('joi');
 const validate = require('../../middlewares/validate');
-const auth = require('../../middlewares/auth');
+const auth     = require('../../middlewares/auth');
+const tenant   = require('../../middlewares/tenant');
 const userController = require('../../controllers/user.controller');
 
 const createUserSchema = {
@@ -12,38 +13,37 @@ const createUserSchema = {
     email:     Joi.string().email().optional().allow('', null),
     mobile:    Joi.string().optional().allow('', null),
     gender:    Joi.string().valid('male', 'female').optional(),
-    role:      Joi.string().valid('user', 'manager', 'admin').optional(),
+    role:      Joi.string().valid('operator', 'supervisor', 'admin', 'super_admin').optional(),
     status:    Joi.string().valid('active', 'inactive').optional(),
     password:  Joi.string().min(8).optional(),
+    icdv_id:   Joi.number().integer().optional().allow(null),
   }),
 };
 
 const updateUserSchema = {
-  params: Joi.object().keys({
-    userId: Joi.number().integer().required(),
-  }),
+  params: Joi.object().keys({ userId: Joi.number().integer().required() }),
   body: Joi.object().keys({
     full_name:            Joi.string().optional(),
     email:                Joi.string().email().optional().allow('', null),
     mobile:               Joi.string().optional().allow('', null),
     gender:               Joi.string().valid('male', 'female').optional(),
-    role:                 Joi.string().valid('user', 'manager', 'admin').optional(),
+    role:                 Joi.string().valid('operator', 'supervisor', 'admin', 'super_admin').optional(),
     status:               Joi.string().valid('active', 'inactive').optional(),
     must_change_password: Joi.number().valid(0, 1).optional(),
   }).min(1),
 };
 
-// IMPORTANT: Static routes MUST come before /:userId to avoid param conflicts
+// Static routes before /:userId
 router.get('/meta/skills', auth(), userController.getSkills);
 
 router.route('/')
-  .post(auth('manageUsers'), validate(createUserSchema), userController.createUser)
-  .get(auth('getUsers'), userController.getUsers);
+  .post(auth('manageUsers'), tenant(), validate(createUserSchema), userController.createUser)
+  .get( auth('getUsers'),    tenant(), userController.getUsers);
 
 router.route('/:userId')
-  .get(auth('getUsers'), userController.getUser)
-  .patch(auth('manageUsers'), validate(updateUserSchema), userController.updateUser)
-  .delete(auth('manageUsers'), userController.deleteUser);
+  .get(   auth('getUsers'),    tenant(), userController.getUser)
+  .patch( auth('manageUsers'), tenant(), validate(updateUserSchema), userController.updateUser)
+  .delete(auth('manageUsers'), tenant(), userController.deleteUser);
 
 router.put('/:userId/skills', auth('manageUsers'), userController.updateSkills);
 

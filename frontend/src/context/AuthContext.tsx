@@ -16,21 +16,46 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('tpfcs_user');
-      const token  = localStorage.getItem('access_token');
-      if (stored && token && !isTokenExpired(token)) {
-        setUser(JSON.parse(stored));
-      } else {
-        localStorage.removeItem('tpfcs_user');
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
+    const init = async () => {
+      try {
+        const stored = localStorage.getItem('tpfcs_user');
+        const token  = localStorage.getItem('access_token');
+
+        if (stored && token && !isTokenExpired(token)) {
+          const parsed: User = JSON.parse(stored);
+          setUser(parsed);
+
+          // If the stored user is missing icdv_name (old session before the fix),
+          // fetch fresh user data from /auth/me to get it.
+          if (parsed.icdv_id && !parsed.icdv_name) {
+            try {
+              const BASE_URL = (import.meta as any).env?.VITE_API_URL ?? 'http://localhost:3000/api';
+              const res = await fetch(`${BASE_URL}/v1/auth/me`, {
+                headers: { Authorization: `Bearer ${token}` },
+              });
+              if (res.ok) {
+                const fresh: User = await res.json();
+                const updated = { ...parsed, icdv_name: fresh.icdv_name ?? null };
+                localStorage.setItem('tpfcs_user', JSON.stringify(updated));
+                setUser(updated);
+              }
+            } catch {
+              // silent — use stored user without icdv_name
+            }
+          }
+        } else {
+          localStorage.removeItem('tpfcs_user');
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('refresh_token');
+        }
+      } catch {
+        localStorage.clear();
+      } finally {
+        setIsLoading(false);
       }
-    } catch {
-      localStorage.clear();
-    } finally {
-      setIsLoading(false);
-    }
+    };
+
+    init();
   }, []);
 
   const login = (u: User, accessToken: string, refreshToken: string) => {
@@ -60,9 +85,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         user,
         isAuthenticated: !!user,
         isLoading,
-        // Derived multi-tenant helpers — used in components/routing
         isSuperAdmin: user?.role === 'super_admin',
-        icdvId:       user?.icdv_id ?? null,
+        icdvId:       user?.icdv_id   ?? null,
+        icdvName:     user?.icdv_name ?? null,
         login,
         logout,
         updateUser,

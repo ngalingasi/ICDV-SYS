@@ -37,22 +37,38 @@ const getBrandBoxSettings = () => ({
   sender_name:    config.sms.brandbox.senderName,
 });
 
+// Always include icdv_id and icdv_name — null if not set
 const SAFE_USER_FIELDS = [
   'user_id', 'full_name', 'username', 'email',
-  'mobile', 'gender', 'avatar', 'role', 'status',
-  'must_change_password',
+  'mobile', 'gender', 'avatar', 'role',
+  'icdv_id', 'icdv_name',
+  'status', 'must_change_password',
 ];
 
 const sanitizeUser = (user) =>
   SAFE_USER_FIELDS.reduce((obj, key) => {
-    if (user[key] !== undefined) obj[key] = user[key];
+    obj[key] = user[key] !== undefined ? user[key] : null;
     return obj;
   }, {});
 
+// Look up icdv_name from the icdvs table and attach it to the user object
+const enrichUser = async (user) => {
+  const icdvId = user.icdv_id ?? null;
+  if (icdvId) {
+    try {
+      const rows = await query('SELECT name FROM icdvs WHERE icdv_id = ?', [icdvId]);
+      user.icdv_name = rows.length ? rows[0].name : null;
+    } catch {
+      user.icdv_name = null;
+    }
+  } else {
+    user.icdv_name = null;
+  }
+  return user;
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // STEP 1 — POST /v1/auth/validate-credentials
-// Validates login + password. Returns available OTP channels with masked info.
-// Does NOT send any OTP yet.
 // ─────────────────────────────────────────────────────────────────────────────
 const validateCredentials = catchAsync(async (req, res) => {
   const { login, password } = req.body;
@@ -62,51 +78,27 @@ const validateCredentials = catchAsync(async (req, res) => {
     [login, login]
   );
 
-  // Always return same vague message to prevent user enumeration
   if (!rows.length) {
-    return res.status(httpStatus.UNAUTHORIZED).json({
-      status: false,
-      message: 'Invalid credentials',
-    });
+    return res.status(httpStatus.UNAUTHORIZED).json({ status: false, message: 'Invalid credentials' });
   }
 
   const user = rows[0];
-
   const isMatch = await bcrypt.compare(password, user.password_hash);
   if (!isMatch) {
-    return res.status(httpStatus.UNAUTHORIZED).json({
-      status: false,
-      message: 'Invalid credentials',
-    });
+    return res.status(httpStatus.UNAUTHORIZED).json({ status: false, message: 'Invalid credentials' });
   }
 
-  // Prompt password change if required — skip OTP for this flow
   if (user.must_change_password) {
     return res.status(httpStatus.OK).json({
-      status:         false,
+      status: false,
       must_change_password: true,
-      message:        'You must change your password before continuing',
+      message: 'You must change your password before continuing',
     });
   }
 
-  // Build available channels
   const channels = [];
-
-  if (user.email) {
-    channels.push({
-      type:    'email',
-      display: maskEmail(user.email),
-      label:   'Email',
-    });
-  }
-
-  if (user.mobile) {
-    channels.push({
-      type:    'sms',
-      display: maskPhone(user.mobile),
-      label:   'SMS',
-    });
-  }
+  if (user.email)  channels.push({ type: 'email', display: maskEmail(user.email),    label: 'Email' });
+  if (user.mobile) channels.push({ type: 'sms',   display: maskPhone(user.mobile),   label: 'SMS'   });
 
   return res.status(httpStatus.OK).json({
     status:   true,
@@ -117,7 +109,6 @@ const validateCredentials = catchAsync(async (req, res) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // STEP 2 — POST /v1/auth/send-otp
-// User picks a channel. Generate OTP and dispatch to that channel only.
 // ─────────────────────────────────────────────────────────────────────────────
 const sendOtp = catchAsync(async (req, res) => {
   const { login, channel } = req.body;
@@ -131,58 +122,42 @@ const sendOtp = catchAsync(async (req, res) => {
     [login, login]
   );
 
-  // Vague response to prevent enumeration
   if (!rows.length) {
-    return res.status(httpStatus.OK).json({
-      status:  true,
-      message: 'If the account exists, an OTP has been sent',
-    });
+    return res.status(httpStatus.OK).json({ status: true, message: 'If the account exists, an OTP has been sent' });
   }
 
   const user = rows[0];
-
-  // Clean expired OTPs in background
   otpModel.cleanExpiredOtps().catch(() => {});
 
   const otp_code   = generateOtp();
   const expires_at = getExpiresAt(config.otp.expiryMinutes);
-
   await otpModel.saveOtp({ email: user.email, otp_code, expires_at });
 
   if (channel === 'email') {
     await emailModel.sendOtpEmail(user.email, otp_code);
-
     return res.status(httpStatus.OK).json({
-      status:        true,
-      message:       'OTP sent to your email',
-      channel:       'email',
-      maskedContact: maskEmail(user.email),
+      status: true, message: 'OTP sent to your email',
+      channel: 'email', maskedContact: maskEmail(user.email),
     });
   }
 
   if (channel === 'sms') {
-    if (!user.mobile) {
-      throw new ApiError(httpStatus.BAD_REQUEST, 'No phone number on record for this account');
-    }
-
+    if (!user.mobile) throw new ApiError(httpStatus.BAD_REQUEST, 'No phone number on record for this account');
     await smsModel.sendSmsBrandBox(
       `Your TPFCS login OTP is: ${otp_code}. Valid for ${config.otp.expiryMinutes} minutes. Do not share this code.`,
       [user.mobile],
       getBrandBoxSettings()
     );
-
     return res.status(httpStatus.OK).json({
-      status:        true,
-      message:       'OTP sent via SMS',
-      channel:       'sms',
-      maskedContact: maskPhone(user.mobile),
+      status: true, message: 'OTP sent via SMS',
+      channel: 'sms', maskedContact: maskPhone(user.mobile),
     });
   }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
 // STEP 3 — POST /v1/auth/verify-otp
-// Verify OTP and return full JWT auth tokens + user profile.
+// Returns icdv_id + icdv_name in the user object
 // ─────────────────────────────────────────────────────────────────────────────
 const verifyOtp = catchAsync(async (req, res) => {
   const { login, otp } = req.body;
@@ -192,28 +167,24 @@ const verifyOtp = catchAsync(async (req, res) => {
     [login, login]
   );
 
-  if (!rows.length) {
-    throw new ApiError(httpStatus.UNAUTHORIZED, 'Invalid or expired OTP');
-  }
+  if (!rows.length) throw new ApiError(httpStatus.UNAUTHORIZED, 'Invalid or expired OTP');
 
   const user = rows[0];
 
   const validOtp = await otpModel.findValidOtp({ email: user.email, otp_code: otp });
+  if (!validOtp) throw new ApiError(httpStatus.UNAUTHORIZED, 'Invalid or expired OTP. Please request a new one.');
 
-  if (!validOtp) {
-    throw new ApiError(httpStatus.UNAUTHORIZED, 'Invalid or expired OTP. Please request a new one.');
-  }
-
-  // Mark OTP as used
   await otpModel.markOtpUsed(validOtp.id);
 
-  // Generate auth tokens
+  // ← Enrich with icdv_name before building the response
+  await enrichUser(user);
+
   const tokens = await tokenModel.generateAuthTokens(user);
 
   return res.status(httpStatus.OK).json({
     status:  true,
     message: 'Login successful',
-    user:    sanitizeUser(user),
+    user:    sanitizeUser(user),   // now includes icdv_id + icdv_name
     tokens,
   });
 });

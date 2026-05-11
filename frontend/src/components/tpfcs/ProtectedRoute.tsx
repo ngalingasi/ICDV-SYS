@@ -1,4 +1,4 @@
-import { Navigate, Outlet, useLocation } from 'react-router';
+import { Navigate, Outlet } from 'react-router';
 import { useAuth } from '../../store/authStore';
 
 interface Props {
@@ -7,28 +7,29 @@ interface Props {
 
 export default function ProtectedRoute({ allowedRoles }: Props) {
   const { isAuthenticated, isLoading, user } = useAuth();
-  const location = useLocation();
 
-  // Show spinner while rehydrating auth from localStorage
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-gray-500 dark:text-gray-400">Loading...</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-900">
+        <div className="w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
-  // Not logged in → redirect to signin, preserve intended destination
-  if (!isAuthenticated) {
-    return <Navigate to="/signin" state={{ from: location }} replace />;
+  if (!isAuthenticated) return <Navigate to="/signin" replace />;
+
+  // Force password change
+  if (user?.must_change_password && window.location.pathname !== '/change-password') {
+    return <Navigate to="/change-password" replace />;
   }
 
-  // Role check
-  if (allowedRoles && user && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/" replace />;
+  // Role-based access
+  if (allowedRoles && allowedRoles.length > 0) {
+    const userRole = user?.role ?? '';
+    // super_admin bypasses all role checks
+    if (userRole !== 'super_admin' && !allowedRoles.includes(userRole)) {
+      return <Navigate to="/" replace />;
+    }
   }
 
   return <Outlet />;

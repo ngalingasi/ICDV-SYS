@@ -24,20 +24,20 @@ type NavItem = { name: string; icon: React.ReactNode; path?: string; subItems?: 
 const TENANT_NAV: NavItem[] = [
   { name: "Dashboard", icon: <Icon.Dashboard />, path: "/" },
   { name: "Vessels",   icon: <Icon.Vessel />,    subItems: [
-    { name: "All Vessels",  path: "/vessels" },
-    { name: "Add Vessel",   path: "/vessels/new" },
+    { name: "All Vessels", path: "/vessels" },
+    { name: "Add Vessel",  path: "/vessels/new" },
   ]},
   { name: "Manifests", icon: <Icon.Manifest />,  subItems: [
     { name: "All Manifests", path: "/manifests" },
     { name: "New Manifest",  path: "/manifests/new" },
   ]},
   { name: "Vehicles",  icon: <Icon.Vehicle />,   subItems: [
-    { name: "All Vehicles",  path: "/vehicles" },
-    { name: "Search",        path: "/vehicles/search" },
+    { name: "All Vehicles", path: "/vehicles" },
+    { name: "Search",       path: "/vehicles/search" },
   ]},
   { name: "Drivers",   icon: <Icon.Driver />,    subItems: [
-    { name: "All Drivers",   path: "/drivers" },
-    { name: "Add Driver",    path: "/drivers/new" },
+    { name: "All Drivers", path: "/drivers" },
+    { name: "Add Driver",  path: "/drivers/new" },
   ]},
   { name: "Operations", icon: <Icon.Operation />, path: "/operations" },
   { name: "Deliveries", icon: <Icon.Delivery />,  path: "/deliveries" },
@@ -66,7 +66,7 @@ const SUPER_ADMIN_BOTTOM_NAV: NavItem[] = [
 
 export default function AppSidebar() {
   const { isOpen, isExpanded, isMobileOpen, toggleMobileSidebar } = useSidebar();
-  const { user, isSuperAdmin } = useAuth();
+  const { isSuperAdmin, icdvName } = useAuth();
   const location = useLocation();
   const expanded = isOpen || isExpanded;
 
@@ -84,8 +84,7 @@ export default function AppSidebar() {
     });
   }, [location.pathname]); // eslint-disable-line
 
-  const toggleGroup = (name: string) =>
-    setOpenGroups(g => ({ ...g, [name]: !g[name] }));
+  const toggleGroup = (name: string) => setOpenGroups(g => ({ ...g, [name]: !g[name] }));
 
   const isActive = (path: string) =>
     path === "/" ? location.pathname === "/" : location.pathname.startsWith(path);
@@ -135,64 +134,70 @@ export default function AppSidebar() {
     );
   };
 
+  // The top-left "brand" area.
+  // - Logo: always logo.png (real PNG that exists).
+  // - Title line: ICDV name for tenant users, "ICDV System" for super admin.
+  // - Subtitle: role context.
+  const topLabel    = isSuperAdmin ? "ICDV System"   : (icdvName ?? "ICDV System");
+  const topSubLabel = isSuperAdmin ? "Platform Admin" : "Vehicle Import & Delivery";
+
   const sidebarContent = (
     <div className="flex flex-col h-full">
-      {/* Logo */}
+
+      {/* ── Brand / Logo ───────────────────────────────────────────────── */}
       <div className={`flex items-center gap-3 px-4 py-5 border-b border-gray-200 dark:border-gray-700 ${expanded ? "justify-start" : "justify-center"}`}>
-        <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${isSuperAdmin ? "bg-purple-600" : "bg-brand-500"}`}>
-          <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M20 7H4a2 2 0 00-2 2v6a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2zM4 19h16" />
-          </svg>
-        </div>
+        {/* logo.png is the real PNG file — use it directly */}
+        <img
+          src="/images/logo/logo.png"
+          alt="Logo"
+          className="h-8 w-8 rounded object-contain flex-shrink-0"
+        />
         {expanded && (
-          <div className="overflow-hidden">
-            <p className="text-[13px] font-bold text-gray-800 dark:text-white leading-tight truncate">ICDV System</p>
+          <div className="overflow-hidden min-w-0">
+            <p className="text-[13px] font-bold text-gray-800 dark:text-white leading-tight truncate" title={topLabel}>
+              {topLabel}
+            </p>
             <p className="text-[10px] text-gray-400 dark:text-gray-500 truncate">
-              {isSuperAdmin ? "Platform Admin" : "Vehicle Import & Delivery"}
+              {topSubLabel}
             </p>
           </div>
         )}
       </div>
 
-      {/* Tenant / super admin badge */}
-      {expanded && (
+      {/* ── Super admin badge (expanded only) ─────────────────────────── */}
+      {expanded && isSuperAdmin && (
         <div className="px-3 pt-2">
-          {isSuperAdmin ? (
-            <div className="px-3 py-1.5 rounded-lg bg-purple-50 dark:bg-purple-500/10 text-xs font-bold text-purple-600 dark:text-purple-400 text-center">
-              ⚡ Super Admin
-            </div>
-          ) : user?.icdv_name ? (
-            <div className="px-3 py-1.5 rounded-lg bg-brand-50 dark:bg-brand-500/10 text-xs font-medium text-brand-600 dark:text-brand-400 text-center truncate">
-              {user.icdv_name}
-            </div>
-          ) : null}
+          <div className="px-3 py-1.5 rounded-lg bg-purple-50 dark:bg-purple-500/10 text-xs font-bold text-purple-600 dark:text-purple-400 text-center">
+            ⚡ Super Admin
+          </div>
         </div>
       )}
 
-      {/* Main nav */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
+      {/* ── Main nav ───────────────────────────────────────────────────── */}
+      <nav className="flex-1 overflow-y-auto px-3 py-4">
         <ul className="space-y-0.5">
           {NAV.map(renderItem)}
         </ul>
       </nav>
 
-      {/* Bottom nav */}
+      {/* ── Bottom nav ─────────────────────────────────────────────────── */}
       <div className="px-3 py-3 border-t border-gray-200 dark:border-gray-700">
         <ul className="space-y-0.5">
           {BOTTOM_NAV.map(renderItem)}
         </ul>
       </div>
+
     </div>
   );
 
   return (
     <>
-      {/* Desktop sidebar */}
+      {/* Desktop */}
       <aside className={`hidden lg:flex flex-col fixed inset-y-0 left-0 z-40 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 transition-all duration-300 ${expanded ? "w-64" : "w-[72px]"}`}>
         {sidebarContent}
       </aside>
 
-      {/* Mobile sidebar */}
+      {/* Mobile */}
       {isMobileOpen && (
         <>
           <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={toggleMobileSidebar} />

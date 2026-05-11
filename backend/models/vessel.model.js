@@ -1,8 +1,10 @@
+// Real vessels schema: vessel_id, icdv_id, name, imo_number, vessel_type,
+// country_of_origin, notes, status (active/inactive/decommissioned),
+// created_by, updated_by, created_at, updated_at
 const httpStatus = require('http-status');
 const { query } = require('../config/database');
 const ApiError = require('../utils/ApiError');
 const { buildPagination } = require('../utils/paginate');
-const { VESSEL_STATUS_TRANSITIONS } = require('../config/statuses');
 
 const createVessel = async (body, creatorId, icdvId) => {
   const {
@@ -18,10 +20,9 @@ const createVessel = async (body, creatorId, icdvId) => {
   return getVesselById(r.insertId, icdvId);
 };
 
-const getVessels = async ({ page, limit, status, search }, icdvId = null) => {
+const getVessels = async ({ page, limit, status, search } = {}, icdvId = null) => {
   const { limit: l, offset, paginate } = buildPagination(page, limit);
-  let where = '1=1';
-  const params = [];
+  let where = '1=1'; const params = [];
   if (icdvId !== null) { where += ' AND v.icdv_id=?'; params.push(icdvId); }
   if (status) { where += ' AND v.status=?'; params.push(status); }
   if (search) {
@@ -78,10 +79,10 @@ const updateVessel = async (id, body, updaterId, icdvId = null) => {
 };
 
 const updateVesselStatus = async (id, newStatus, userId, icdvId = null) => {
-  const vessel = await getVesselById(id, icdvId);
-  const allowed = VESSEL_STATUS_TRANSITIONS[vessel.status] || [];
+  await getVesselById(id, icdvId);
+  const allowed = ['active','inactive','decommissioned'];
   if (!allowed.includes(newStatus))
-    throw new ApiError(httpStatus.BAD_REQUEST, `Cannot transition from '${vessel.status}' to '${newStatus}'`);
+    throw new ApiError(httpStatus.BAD_REQUEST, `Invalid status '${newStatus}'. Allowed: ${allowed.join(', ')}`);
   await query(`UPDATE vessels SET status=?, updated_by=?, updated_at=NOW() WHERE vessel_id=?`,
     [newStatus, userId, id]);
   return getVesselById(id, icdvId);

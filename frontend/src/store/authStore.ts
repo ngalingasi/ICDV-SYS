@@ -5,8 +5,9 @@ export interface AuthState {
   user:            User | null;
   isAuthenticated: boolean;
   isLoading:       boolean;
-  isSuperAdmin:    boolean;       // true when role === 'super_admin'
-  icdvId:          number | null; // null for super_admin
+  isSuperAdmin:    boolean;
+  icdvId:          number | null;
+  icdvName:        string | null;
 }
 
 export interface AuthActions {
