@@ -120,7 +120,9 @@ export default function DriverForm() {
     </div>
   );
 
-  const currentPhoto = photoPreview ?? (existingPhoto ? `http://localhost:3000${existingPhoto}` : null);
+  const RAW_API_FORM = (import.meta as any).env?.VITE_API_URL ?? 'http://localhost:3000/api';
+  const SERVER_BASE = RAW_API_FORM.replace(/\/api(\/v\d+)?$/, '');
+  const currentPhoto = photoPreview ?? (existingPhoto ? `${SERVER_BASE}${existingPhoto}` : null);
 
   if (loading) return <div className="p-6 text-sm text-gray-500 animate-pulse">Loading…</div>;
 

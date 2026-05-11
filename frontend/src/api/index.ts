@@ -59,11 +59,16 @@ export const vehiclesApi = {
 
 // ── Drivers ───────────────────────────────────────────────────────────────────
 export const driversApi = {
-  list:   (params?: any)                     => client.get<PaginatedResponse<Driver>>('/drivers', { params }),
-  get:    (id: number)                       => client.get<Driver>(`/drivers/${id}`),
-  create: (data: Partial<Driver>)            => client.post<Driver>('/drivers', data),
-  update: (id: number, data: Partial<Driver>) => client.patch<Driver>(`/drivers/${id}`, data),
-  delete: (id: number)                       => client.delete(`/drivers/${id}`),
+  list:   (params?: any)  => client.get<PaginatedResponse<Driver>>('/drivers', { params }),
+  get:    (id: number)    => client.get<Driver>(`/drivers/${id}`),
+  // create/update accept FormData (for photo upload) or plain object
+  create: (data: FormData | Partial<Driver>) =>
+    client.post<Driver>('/drivers', data,
+      data instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : {}),
+  update: (id: number, data: FormData | Partial<Driver>) =>
+    client.patch<Driver>(`/drivers/${id}`, data,
+      data instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : {}),
+  delete: (id: number)    => client.delete(`/drivers/${id}`),
 };
 
 // ── Operations ────────────────────────────────────────────────────────────────

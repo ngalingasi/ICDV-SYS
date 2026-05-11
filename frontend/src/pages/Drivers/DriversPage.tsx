@@ -93,7 +93,7 @@ export default function DriversPage() {
             ) : drivers.length === 0 ? (
               <tr><td colSpan={6} className="px-4 py-10 text-center text-gray-400">No drivers found</td></tr>
             ) : drivers.map(d => (
-              <tr key={d.id} className="hover:bg-gray-50">
+              <tr key={d.driver_id} className="hover:bg-gray-50">
                 <td className="px-4 py-3">
                     <div className="flex items-center gap-2.5">
                       <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-100 flex-shrink-0 flex items-center justify-center">
@@ -108,9 +108,9 @@ export default function DriversPage() {
                 <td className="px-4 py-3"><StatusBadge status={d.status} /></td>
                 <td className="px-4 py-3">
                   <div className="flex gap-3">
-                    <Link to={`/drivers/${d.id}`} className="text-blue-600 hover:underline text-xs">View</Link>
-                    <Link to={`/drivers/${d.id}/edit`} className="text-gray-600 hover:underline text-xs">Edit</Link>
-                    <button onClick={() => setDelId(d.id)} className="text-red-500 hover:underline text-xs">Delete</button>
+                    <Link to={`/drivers/${d.driver_id}`} className="text-blue-600 hover:underline text-xs">View</Link>
+                    <Link to={`/drivers/${d.driver_id}/edit`} className="text-gray-600 hover:underline text-xs">Edit</Link>
+                    <button onClick={() => setDelId(d.driver_id)} className="text-red-500 hover:underline text-xs">Delete</button>
                   </div>
                 </td>
               </tr>

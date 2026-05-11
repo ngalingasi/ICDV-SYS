@@ -6,7 +6,9 @@ import StatusBadge from '../../components/tpfcs/StatusBadge';
 import { toast } from '../../components/tpfcs/Toast';
 import BackButton from '../../components/tpfcs/BackButton';
 
-const API_BASE = 'http://localhost:3000';
+// Strip /api suffix from VITE_API_URL to get the server root for static files
+const RAW_API = (import.meta as any).env?.VITE_API_URL ?? 'http://localhost:3000/api';
+const API_BASE = RAW_API.replace(/\/api(\/v\d+)?$/, '');
 
 export default function DriverDetail() {
   const { id } = useParams();
