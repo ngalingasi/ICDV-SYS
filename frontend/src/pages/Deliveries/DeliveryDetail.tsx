@@ -115,7 +115,7 @@ export default function DeliveryDetail() {
               </Link>
             ) : '—'],
             ['Status', <StatusBadge status={delivery.status} />],
-            ['Scheduled Date', fmtDate(delivery.scheduled_date)],
+            ['Scheduled Date', fmtDate(delivery.scheduled_date ?? undefined)],
             ['Delivered Date', fmtDate((delivery as any).delivered_date)],
             ['Delivery Address', delivery.delivery_address ?? '—'],
             ['Created', fmtDate(delivery.created_at)],

@@ -49,7 +49,7 @@ export default function OperationForm() {
     if (Object.keys(e).length) { setErrors(e); return; }
     setSaving(true);
     try {
-      const payload = { vehicle_id: Number(form.vehicle_id), operation_type: form.operation_type, status: form.status, assigned_to: form.assigned_to || undefined, notes: form.notes || undefined };
+      const payload = { vehicle_id: Number(form.vehicle_id), operation_type: form.operation_type, status: form.status as import('../../types').OperationStatus, assigned_to: form.assigned_to || undefined, notes: form.notes || undefined };
       if (isEdit) {
         await operationsApi.update(Number(id), payload);
         toast.success('Operation updated');

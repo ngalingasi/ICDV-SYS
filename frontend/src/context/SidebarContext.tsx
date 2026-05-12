@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from "react";
 
 type SidebarContextType = {
+  isOpen?: boolean;
   isExpanded: boolean;
   isMobileOpen: boolean;
   isHovered: boolean;

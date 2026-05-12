@@ -83,7 +83,7 @@ export default function ActivityForm() {
                 projectRegionsMap[project.project_id] = projRes.data.regions ?? [];
               } catch { projectRegionsMap[project.project_id] = []; }
             }
-            tRes.data.forEach(t => allTargets.push({
+            tRes.data.forEach((t: any) => allTargets.push({
               ...t,
               name: `${project.name} → ${obj.title} → ${t.name}`,
               project_id: project.project_id,
@@ -247,7 +247,7 @@ export default function ActivityForm() {
             <option value="">Select target...</option>
             {targets.map(t => (
               <option key={t.target_id} value={t.target_id}>
-                {t.name}{t.allocated_budget > 0
+                {t.name}{(t.allocated_budget ?? 0) > 0
                   ? ` (TZS ${Number(t.allocated_budget).toLocaleString()})`
                   : ' — no budget'}
               </option>
@@ -256,7 +256,7 @@ export default function ActivityForm() {
 
           {/* Budget feedback */}
           {selectedTarget && (
-            selectedTarget.allocated_budget <= 0
+            (selectedTarget.allocated_budget ?? 0) <= 0
               ? <p className="text-xs text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-500/10 p-2 rounded-lg">
                   This target has no budget allocated. Allocate budget first via the project Targets tab.
                 </p>

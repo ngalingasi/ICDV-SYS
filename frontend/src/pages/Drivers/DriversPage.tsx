@@ -14,7 +14,7 @@ export default function DriversPage() {
   const [delId, setDelId]     = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
   const limit = 20;
-  const timer = useRef<ReturnType<typeof setTimeout>>();
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined as any);
 
   const load = () => {
     setLoading(true);

@@ -91,7 +91,7 @@ export default function ProjectList() {
                     </td>
                     <td className="px-4 py-4 text-gray-600 dark:text-gray-400">{p.sector_name ?? '—'}</td>
                     <td className="px-4 py-4 text-gray-600 dark:text-gray-400">{p.project_manager_name ?? '—'}</td>
-                    <td className="px-4 py-4 text-gray-600 dark:text-gray-400 whitespace-nowrap">{fmt(p.estimated_cost)}</td>
+                    <td className="px-4 py-4 text-gray-600 dark:text-gray-400 whitespace-nowrap">{fmt(p.estimated_cost ?? undefined)}</td>
                     <td className="px-4 py-4 text-gray-600 dark:text-gray-400 whitespace-nowrap">
                       {p.start_date ? new Date(p.start_date).getFullYear() : '—'}
                       {p.end_date ? ` – ${new Date(p.end_date).getFullYear()}` : ''}

@@ -62,7 +62,7 @@ export default function DeliveryForm() {
       const payload = {
         vehicle_id: Number(form.vehicle_id),
         driver_id: form.driver_id ? Number(form.driver_id) : undefined,
-        status: form.status,
+        status: form.status as import('../../types').DeliveryStatus,
         scheduled_date: form.scheduled_date || undefined,
         delivery_address: form.delivery_address || undefined,
         notes: form.notes || undefined,
@@ -111,7 +111,7 @@ export default function DeliveryForm() {
             <select value={form.driver_id} onChange={e => set('driver_id', e.target.value)}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
               <option value="">— Optional —</option>
-              {drivers.map(d => <option key={d.id} value={d.id}>{d.name} ({d.license_number})</option>)}
+              {drivers.map(d => <option key={d.driver_id} value={d.driver_id}>{d.full_name} ({d.license_number})</option>)}
             </select>
           </div>
 

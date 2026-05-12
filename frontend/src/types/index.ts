@@ -7,7 +7,7 @@ export interface User {
   mobile?:              string;
   gender?:              string;
   avatar?:              string | null;
-  role:                 'admin' | 'supervisor' | 'operator' | 'super_admin';
+  role:                 'admin' | 'supervisor' | 'operator' | 'super_admin' | 'manager';
   icdv_id?:             number | null;
   icdv_name?:           string | null;
   status:               'active' | 'inactive';
@@ -57,6 +57,8 @@ export interface Vessel {
   name:             string;
   imo_number?:      string | null;
   flag?:            string | null;
+  vessel_type?:     string | null;
+  country_of_origin?: string | null;
   shipping_line?:   string | null;
   arrival_date:     string;
   departure_date?:  string | null;
@@ -77,6 +79,7 @@ export type ManifestStatus = 'pending' | 'active' | 'completed' | 'cancelled';
 
 export interface Manifest {
   manifest_id:        number;
+  id?:                number;   // alias
   icdv_id?:           number;
   manifest_number:    string;
   vessel_id:          number;
@@ -99,6 +102,7 @@ export type VehicleLocation   = 'vessel' | 'holding_ground' | 'tpa_gate' | 'tpa_
 
 export interface Vehicle {
   vehicle_id:          number;
+  id?:                 number;   // alias
   icdv_id?:            number;
   manifest_id:         number;
   manifest_number?:    string;
@@ -130,6 +134,7 @@ export interface Driver {
   driver_id:         number;
   icdv_id?:          number;
   full_name:         string;
+  name?:             string;   // alias used in some pages
   license_number:    string;
   phone?:            string | null;
   email?:            string | null;
@@ -147,6 +152,7 @@ export type OperationStatus = 'pending' | 'in_progress' | 'completed' | 'cancell
 
 export interface Operation {
   operation_id:     number;
+  id?:              number;   // alias
   icdv_id?:         number;
   vehicle_id:       number;
   chassis_number?:  string;
@@ -159,11 +165,13 @@ export interface Operation {
   scheduled_date?:  string | null;
   completed_date?:  string | null;
   notes?:           string | null;
+  assigned_to?:     string | null;
   status:           OperationStatus;
   manifest_number?: string;
   vessel_name?:     string;
   created_by_name?: string;
   created_at?:      string;
+  updated_at?:      string;
 }
 
 // ── Delivery ──────────────────────────────────────────────────────────────────
@@ -171,6 +179,7 @@ export type DeliveryStatus = 'scheduled' | 'in_transit' | 'delivered' | 'failed'
 
 export interface Delivery {
   delivery_id:        number;
+  id?:                number;   // alias
   icdv_id?:           number;
   vehicle_id:         number;
   chassis_number?:    string;
@@ -226,14 +235,221 @@ export interface UserRecord {
   email?:               string;
   mobile?:              string;
   gender?:              string;
-  role:                 'admin' | 'supervisor' | 'operator' | 'super_admin';
+  role:                 'admin' | 'supervisor' | 'operator' | 'super_admin' | 'manager';
   icdv_id?:             number | null;
+  icdv_name?:           string | null;
   status:               'active' | 'inactive';
   must_change_password?: number;
+  skills?:              { skill_id: number; name: string }[];
   created_at?:          string;
 }
 
 // ── Lookup ────────────────────────────────────────────────────────────────────
-export interface Sector      { sector_id: number; name: string; }
+export interface Sector      { sector_id: number; name: string; parent_sector_id?: number | null; }
 export interface Region      { region_id: number; region_name: string; }
-export interface Implementer { implementer_id: number; name: string; }
+export interface Implementer {
+  implementer_id:   number;
+  name:             string;
+  description?:     string | null;
+  cost_center?:     string | null;
+  vote_code?:       string | null;
+  vote_name?:       string | null;
+  sub_vote_code?:   string | null;
+  sub_vote_name?:   string | null;
+  link_id?:         number | null;
+  involvement?:     string | null;
+}
+
+// ── Project & related ─────────────────────────────────────────────────────────
+export interface ProjectFinancing {
+  financing_id?:       number;
+  _key?:               string;
+  source_name?:        string;
+  fund_source?:        string | null;
+  financier?:          string | null;
+  financial_modality?: string | null;
+  financial_category?: string | null;
+  amount?:             number;
+  committed_amount?:   number | null;
+  amount_tzs?:         number | null;
+  exchange_rate?:      number | null;
+  currency?:           string | null;
+  notes?:              string | null;
+}
+
+export interface ProjectCoordinator {
+  coordinator_id?: number;
+  _key?:           string;
+  user_id?:        number;
+  name?:           string;
+  full_name?:      string | null;
+  role?:           string | null;
+  email?:          string | null;
+  phone_number?:   string | null;
+  address?:        string | null;
+}
+
+export interface ProjectEmployment {
+  employment_id?:  number;
+  _key?:           string;
+  category?:       string;
+  type?:           string | null;
+  foreign_count:   number;
+  domestic_count:  number;
+}
+
+export interface Project {
+  project_id:              number;
+  icdv_id?:                number;
+  name:                    string;
+  programme_name?:         string | null;
+  project_reference?:      string | null;
+  project_nature?:         string | null;
+  code?:                   string | null;
+  description?:            string | null;
+  status:                  string;
+  start_date?:             string | null;
+  end_date?:               string | null;
+  budget?:                 number | null;
+  estimated_cost?:         number | null;
+  fund_structure?:         string | null;
+  funding?:                string | null;
+  sub_sector?:             string | null;
+  cost_center?:            string | null;
+  implementation_modality?: string | null;
+  has_land?:               boolean | number | null;
+  job_created_no?:         number | null;
+  compensation?:           string | null;
+  relevancy_fypds?:        string | null;
+  project_background?:     string | null;
+  project_objectives?:     string | null;
+  project_scope?:          string | null;
+  project_main_activities?: string | null;
+  project_beneficiaries?:  string | null;
+  project_use_capacity?:   string | null;
+  project_life_span?:      string | null;
+  sector_id?:              number | null;
+  sector_name?:            string | null;
+  implementer_id?:         number | null;
+  project_manager_name?:   string | null;
+  regions?:                Region[];
+  implementers?:           (Implementer & { involvement?: string | null; link_id?: number | null })[];
+  coordinators?:           ProjectCoordinator[];
+  financing?:              ProjectFinancing[];
+  employment?:             ProjectEmployment[];
+  created_at?:             string;
+  updated_at?:             string;
+}
+
+export interface Objective {
+  objective_id: number;
+  project_id:   number;
+  title:        string;
+  description?: string | null;
+  status?:      string | null;
+  priority?:    string | null;
+  created_at?:  string;
+}
+
+export interface Target {
+  target_id:        number;
+  objective_id:     number;
+  project_id?:      number;
+  title:            string;
+  name?:            string | null;
+  description?:     string | null;
+  unit?:            string | null;
+  target_value?:    number | null;
+  current_value?:   number | null;
+  allocated_budget?: number | null;
+  status?:          string | null;
+  deadline?:        string | null;
+  created_at?:      string;
+}
+
+export type ActivityStatus = 'planned' | 'in_progress' | 'completed' | 'cancelled' | 'on_hold' | 'overdue' | 'pending';
+
+export interface Activity {
+  activity_id:         number;
+  main_activity_id?:   number | null;
+  target_id:           number;
+  project_id?:         number;
+  title:               string;
+  name?:               string | null;
+  description?:        string | null;
+  status:              ActivityStatus;
+  start_date?:         string | null;
+  end_date?:           string | null;
+  budget?:             number | null;
+  budgeted_amount?:    number | null;
+  effective_budget?:   number | null;
+  revised_amount?:     number | null;
+  notes?:              string | null;
+  progress?:           number | null;
+  assigned_user_id?:   number | null;
+  assigned_user_name?: string | null;
+  supervisor_name?:    string | null;
+  target_name?:        string | null;
+  region_name?:        string | null;
+  council?:            string | null;
+  ward?:               string | null;
+  street?:             string | null;
+  road_name?:          string | null;
+  latitude?:           number | null;
+  longitude?:          number | null;
+  created_at?:         string;
+  updated_at?:         string;
+}
+
+export interface ActivityStatusHistory {
+  history_id?:       number;
+  id?:               number;
+  activity_id:       number;
+  old_status?:       ActivityStatus | null;
+  new_status:        ActivityStatus;
+  changed_by?:       string;
+  changed_by_name?:  string | null;
+  notes?:            string | null;
+  created_at?:       string;
+  changed_at?:       string;
+}
+
+export interface ProjectBudgetSummary {
+  project_id:            number;
+  total_budget:          number;
+  spent_budget?:         number;
+  total_spent?:          number | null;
+  remaining_budget?:     number | null;
+  remaining:             number;
+  allocated_to_targets?: number | null;
+  spent_percentage?:     number | null;
+  currency?:             string;
+}
+
+export interface BudgetRevision {
+  revision_id:         number;
+  project_id?:         number;
+  activity_id?:        number;
+  activity_name?:      string | null;
+  amount:              number;
+  requested_amount?:   number | null;
+  current_amount?:     number | null;
+  difference?:         number | null;
+  reason:              string;
+  review_notes?:       string | null;
+  status:              'pending' | 'approved' | 'rejected';
+  requested_by?:       string;
+  requested_by_name?:  string | null;
+  reviewed_by?:        string | null;
+  reviewed_by_name?:   string | null;
+  reviewed_at?:        string | null;
+  created_at?:         string;
+  updated_at?:         string;
+}
+
+// ── API Error ─────────────────────────────────────────────────────────────────
+export interface ApiErrorResponse {
+  message: string;
+  errors?:  Record<string, string[]>;
+  status?:  number;
+}

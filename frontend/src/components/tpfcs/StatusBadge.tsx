@@ -44,11 +44,11 @@ const palettes: Record<string, string> = {
   transferred: 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-300',
 };
 
-export default function StatusBadge({ status }: { status: string }) {
-  const cls = palettes[status] ?? 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400';
+export default function StatusBadge({ status, size }: { status: string | null | undefined; size?: string }) {
+  const cls = (status ? palettes[status] : undefined) ?? 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400';
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-wide ${cls}`}>
-      {status.replace(/_/g, ' ')}
+      {(status ?? '—').replace(/_/g, ' ')}
     </span>
   );
 }

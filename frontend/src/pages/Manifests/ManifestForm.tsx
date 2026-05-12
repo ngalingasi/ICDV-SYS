@@ -67,7 +67,7 @@ export default function ManifestForm() {
         vessel_id: Number(form.vessel_id),
         arrival_date: form.arrival_date,
         notes: form.notes || null,
-        ...(isEdit ? { status: form.status } : {}),
+        ...(isEdit ? { status: form.status as import('../../types').ManifestStatus } : {}),
       };
       if (isEdit) {
         await manifestsApi.update(Number(id), payload);

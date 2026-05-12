@@ -33,9 +33,9 @@ export default function TpfcsDashboard() {
       setStats({
         totalProjects:   pRes.data.totalResults,
         totalActivities: allActs.data.totalResults,
-        inProgress:      acts.filter((a) => a.status === 'in_progress').length,
-        completed:       acts.filter((a) => a.status === 'completed').length,
-        overdue:         acts.filter((a) => a.status === 'overdue').length,
+        inProgress:      acts.filter((a: any) => a.status === 'in_progress').length,
+        completed:       acts.filter((a: any) => a.status === 'completed').length,
+        overdue:         acts.filter((a: any) => a.status === 'overdue').length,
       });
     }).finally(() => setLoading(false));
   }, []);
@@ -97,7 +97,7 @@ export default function TpfcsDashboard() {
                 <div key={p.project_id} className="px-5 py-4 flex items-center justify-between">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-800 dark:text-white truncate">{p.name}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{p.sector_name ?? 'No sector'} · {fmt(p.estimated_cost)}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{p.sector_name ?? 'No sector'} · {fmt(p.estimated_cost ?? undefined)}</p>
                   </div>
                   <Link to={`/projects/${p.project_id}`}
                     className="ml-3 text-xs text-brand-500 hover:text-brand-600 flex-shrink-0">View</Link>

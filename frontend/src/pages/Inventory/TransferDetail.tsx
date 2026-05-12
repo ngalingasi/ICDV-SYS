@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router';
-import { transfersApi, logisticsApi } from '../../api';
+import { transfersApi, logisticsApi, inspectionApi } from '../../api';
 import Modal from '../../components/tpfcs/Modal';
 import { FormDateInput } from '../../components/tpfcs/FormField';
 import BackButton from '../../components/tpfcs/BackButton';
@@ -74,11 +74,9 @@ export default function TransferDetail() {
     }).catch(() => {}).finally(() => setLoading(false));
     logisticsApi.listTransactions({ stock_transfer_id: Number(id), limit: 50 })
       .then(ls => setShipments(ls.data.results ?? [])).catch(() => {});
-    import('../../api').then(m =>
-      m.inspectionApi.listRequests({ limit: 1, source_type: 'TRANSFER', source_id: Number(id) })
+    inspectionApi.listRequests({ limit: 1, source_type: 'TRANSFER', source_id: Number(id) })
         .then((ir: any) => setHasInspection((ir.data.totalResults ?? 0) > 0))
         .catch(() => {})
-    );
   };
 
   useEffect(() => { if (id) load(); }, [id]);

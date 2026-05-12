@@ -1,12 +1,12 @@
 interface Props {
-  value: number;   // 0–100 progress/spend percentage
+  value: number | null | undefined;   // 0–100 progress/spend percentage
   label?: string;
   status?: string; // activity status — drives color logic
   color?: 'auto' | 'green' | 'yellow' | 'red' | 'blue';
 }
 
 export default function BudgetBar({ value, label, status, color = 'auto' }: Props) {
-  const pct = Math.min(Math.max(value, 0), 100);
+  const pct = Math.min(Math.max(value ?? 0, 0), 100);
 
   // Color logic:
   // completed → always green

@@ -54,7 +54,7 @@ export default function VesselForm() {
         vessel_type:       form.vessel_type       || null,
         country_of_origin: form.country_of_origin || null,
         notes:             form.notes             || null,
-        status:            form.status,
+        status:            form.status as import('../../types').VesselStatus,
       };
       if (isEdit) {
         await vesselsApi.update(Number(id), payload);

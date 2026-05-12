@@ -118,7 +118,7 @@ export default function ProjectForm() {
         has_land: p.has_land?.toString() ?? '0',
         job_created_no: p.job_created_no ?? '',
         project_manager_id: p.project_manager_id?.toString() ?? '',
-        regions: p.regions?.map(r => r.region_id) ?? [],
+        regions: p.regions?.map((r: any) => r.region_id) ?? [],
         implementers: p.implementers ?? [],
         coordinators: p.coordinators ?? [],
         employment: p.employment ?? [],
@@ -382,7 +382,7 @@ export default function ProjectForm() {
             {form.coordinators.map((coord, i) => (
               <Row key={coord._key ?? coord.coordinator_id ?? i} onRemove={() => removeCoord(i)}>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <FormInput label="Full Name" required value={coord.full_name} onChange={e => setCoord(i, 'full_name', e.target.value)} placeholder="e.g. John Doe" />
+                  <FormInput label="Full Name" required value={coord.full_name ?? ''} onChange={e => setCoord(i, 'full_name', e.target.value)} placeholder="e.g. John Doe" />
                   <FormInput label="Email" type="email" value={coord.email ?? ''} onChange={e => setCoord(i, 'email', e.target.value)} placeholder="e.g. john@tpfcs.go.tz" />
                   <FormInput label="Phone Number" value={coord.phone_number ?? ''} onChange={e => setCoord(i, 'phone_number', e.target.value)} placeholder="255762000000" />
                   <FormInput label="Address" value={coord.address ?? ''} onChange={e => setCoord(i, 'address', e.target.value)} placeholder="Dar es Salaam" />
@@ -402,8 +402,8 @@ export default function ProjectForm() {
             {form.employment.map((emp, i) => (
               <Row key={emp._key ?? emp.employment_id ?? i} onRemove={() => removeEmp(i)}>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <FormInput label="Category" value={emp.category} onChange={e => setEmp(i, 'category', e.target.value)} placeholder="Direct Employment" />
-                  <FormInput label="Type" value={emp.type} onChange={e => setEmp(i, 'type', e.target.value)} placeholder="Temporary / Permanent" />
+                  <FormInput label="Category" value={emp.category ?? ''} onChange={e => setEmp(i, 'category', e.target.value)} placeholder="Direct Employment" />
+                  <FormInput label="Type" value={emp.type ?? ''} onChange={e => setEmp(i, 'type', e.target.value)} placeholder="Temporary / Permanent" />
                   <FormInput label="Foreign Count" type="number" value={emp.foreign_count?.toString() ?? '0'} onChange={e => setEmp(i, 'foreign_count', Number(e.target.value))} />
                   <FormInput label="Domestic Count" type="number" value={emp.domestic_count?.toString() ?? '0'} onChange={e => setEmp(i, 'domestic_count', Number(e.target.value))} />
                 </div>

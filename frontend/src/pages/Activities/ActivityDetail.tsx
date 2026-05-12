@@ -13,6 +13,7 @@ import FilePreview from '../../components/tpfcs/FilePreview';
 
 // Status transition map (mirrors backend)
 const TRANSITIONS: Record<ActivityStatus, ActivityStatus[]> = {
+  planned:     ['in_progress', 'cancelled'],
   pending:     ['in_progress', 'on_hold', 'cancelled'],
   in_progress: ['on_hold', 'completed', 'cancelled', 'overdue'],
   on_hold:     ['in_progress', 'cancelled'],

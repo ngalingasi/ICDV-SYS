@@ -78,6 +78,8 @@ export default function VehicleForm() {
         color: form.color || undefined,
         customer_name: form.customer_name || undefined,
         destination: form.destination || undefined,
+        release_status: form.release_status as import('../../types').ReleaseStatus,
+        operational_status: form.operational_status as import('../../types').OperationalStatus,
       };
       if (isEdit) {
         await vehiclesApi.update(Number(id), payload);

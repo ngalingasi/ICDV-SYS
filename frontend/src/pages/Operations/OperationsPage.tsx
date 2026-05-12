@@ -20,7 +20,7 @@ export default function OperationsPage() {
   const [delId, setDelId]       = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
   const limit = 20;
-  const timer = useRef<ReturnType<typeof setTimeout>>();
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined as any);
 
   const load = () => {
     setLoading(true);
@@ -118,7 +118,7 @@ export default function OperationsPage() {
                   <div className="flex gap-3">
                     <Link to={`/operations/${op.id}`} className="text-blue-600 hover:underline text-xs">View</Link>
                     <Link to={`/operations/${op.id}/edit`} className="text-gray-600 hover:underline text-xs">Edit</Link>
-                    <button onClick={() => setDelId(op.id)} className="text-red-500 hover:underline text-xs">Delete</button>
+                    <button onClick={() => setDelId(op.id ?? null)} className="text-red-500 hover:underline text-xs">Delete</button>
                   </div>
                 </td>
               </tr>

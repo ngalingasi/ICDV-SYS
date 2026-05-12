@@ -146,7 +146,7 @@ function AllocateBudgetForm({ target, projectBudget, onSaved, onClose }: {
       <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-500/10 text-sm text-blue-700 dark:text-blue-400">
         <p className="font-medium">{target.name}</p>
         <p className="text-xs mt-0.5">Project total budget: TZS {Number(projectBudget).toLocaleString()}</p>
-        {target.allocated_budget > 0 && (
+        {(target.allocated_budget ?? 0) > 0 && (
           <p className="text-xs mt-0.5">Currently allocated: TZS {Number(target.allocated_budget).toLocaleString()}</p>
         )}
       </div>
@@ -209,7 +209,7 @@ export default function ProjectDetail() {
       const aRes = await activitiesApi.list({ page: 1, limit: 100 });
       // Filter to this project's targets
       const targetIds = new Set(allTargets.map(t => t.target_id));
-      setActivities(aRes.data.results.filter(a => targetIds.has(a.target_id)));
+      setActivities(aRes.data.results.filter((a: any) => targetIds.has(a.target_id)));
     } finally {
       setLoading(false);
     }
@@ -320,8 +320,8 @@ export default function ProjectDetail() {
               { label: 'Programme',            value: project.programme_name },
               { label: 'Nature',               value: project.project_nature },
               { label: 'Sub Sector',           value: project.sub_sector },
-              { label: 'Start Date',           value: dt(project.start_date) },
-              { label: 'End Date',             value: dt(project.end_date) },
+              { label: 'Start Date',           value: dt(project.start_date ?? undefined) },
+              { label: 'End Date',             value: dt(project.end_date ?? undefined) },
               { label: 'Life Span',            value: project.project_life_span ? `${project.project_life_span} years` : null },
               { label: 'Estimated Cost',       value: fmt(project.estimated_cost) },
               { label: 'Fund Structure',       value: project.fund_structure },
@@ -564,7 +564,7 @@ export default function ProjectDetail() {
             <div className="text-center py-16 text-gray-400">No targets yet.</div>
           ) : targets.map(t => {
             const obj = objectives.find(o => o.objective_id === t.objective_id);
-            const progress = t.target_value > 0 ? (t.current_value / t.target_value) * 100 : 0;
+            const progress = (t.target_value ?? 0) > 0 ? ((t.current_value ?? 0) / (t.target_value ?? 1)) * 100 : 0;
             return (
               <div key={t.target_id} className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4">
                 <div className="flex items-start justify-between gap-3 mb-3">
@@ -592,12 +592,12 @@ export default function ProjectDetail() {
                       <div>
                         <p className="text-gray-400">Budget</p>
                         <div className="flex items-center gap-1.5">
-                          <p className={`font-medium text-xs ${t.allocated_budget > 0 ? 'text-gray-700 dark:text-gray-300' : 'text-orange-500'}`}>
-                            {t.allocated_budget > 0 ? fmt(t.allocated_budget) : 'Not set'}
+                          <p className={`font-medium text-xs ${(t.allocated_budget ?? 0) > 0 ? 'text-gray-700 dark:text-gray-300' : 'text-orange-500'}`}>
+                            {(t.allocated_budget ?? 0) > 0 ? fmt(t.allocated_budget ?? undefined) : 'Not set'}
                           </p>
                           <button onClick={() => { setAllocateTarget(t); setModal('allocate'); }}
                             className="text-brand-500 hover:text-brand-600 underline text-[10px] flex-shrink-0">
-                            {t.allocated_budget > 0 ? 'Edit' : 'Set'}
+                            {(t.allocated_budget ?? 0) > 0 ? 'Edit' : 'Set'}
                           </button>
                         </div>
                       </div>
@@ -662,7 +662,7 @@ export default function ProjectDetail() {
                 </div>
                 <div>
                   <p className="text-gray-400">End Date</p>
-                  <p className="font-medium text-gray-700 dark:text-gray-300">{dt(a.end_date)}</p>
+                  <p className="font-medium text-gray-700 dark:text-gray-300">{dt(a.end_date ?? undefined)}</p>
                 </div>
               </div>
               <BudgetBar value={a.progress} status={a.status} />

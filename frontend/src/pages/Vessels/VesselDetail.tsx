@@ -78,7 +78,7 @@ export default function VesselDetail() {
           { label: 'Port of Origin', value: vessel.port_of_origin },
           { label: 'Berth Number',   value: vessel.berth_number },
           { label: 'Arrival Date',   value: fmtDate(vessel.arrival_date) },
-          { label: 'Departure Date', value: fmtDate(vessel.departure_date) },
+          { label: 'Departure Date', value: fmtDate(vessel.departure_date ?? undefined) },
           { label: 'Added By',       value: vessel.created_by_name },
         ].map(({ label, value }) => (
           <div key={label} className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4">

@@ -103,11 +103,7 @@ export const usersApi = {
   updateSkills: (userId: number, skillIds: number[])                  => client.put(`/users/${userId}/skills`, { skillIds }),
 };
 
-// ── Lookups ───────────────────────────────────────────────────────────────────
-export const lookupsApi = {
-  sectors: () => client.get('/lookups/sectors'),
-  regions: () => client.get('/lookups/regions'),
-};
+// ── Lookups — see extended export below ───────────────────────────────────────
 
 // ── Workflow — 5-step operational flow ───────────────────────────────────────
 export const workflowApi = {
@@ -146,4 +142,178 @@ export const workflowApi = {
     client.get('/workflow/search', { params: { chassis } }),
   getHistory: (vehicleId: number) =>
     client.get(`/workflow/vehicles/${vehicleId}/history`),
+};
+
+// ── Lookups (extended) ────────────────────────────────────────────────────────
+export const lookupsApi = {
+  sectors:           ()                                    => client.get('/lookups/sectors'),
+  regions:           ()                                    => client.get('/lookups/regions'),
+  implementers:      ()                                    => client.get('/lookups/implementers'),
+  createSector:      (data: any)                           => client.post('/lookups/sectors', data),
+  updateSector:      (id: number, data: any)               => client.patch(`/lookups/sectors/${id}`, data),
+  deleteSector:      (id: number)                          => client.delete(`/lookups/sectors/${id}`),
+  createRegion:      (data: any)                           => client.post('/lookups/regions', data),
+  updateRegion:      (id: number, data: any)               => client.patch(`/lookups/regions/${id}`, data),
+  deleteRegion:      (id: number)                          => client.delete(`/lookups/regions/${id}`),
+  createImplementer: (data: any)                           => client.post('/lookups/implementers', data),
+  updateImplementer: (id: number, data: any)               => client.patch(`/lookups/implementers/${id}`, data),
+  deleteImplementer: (id: number)                          => client.delete(`/lookups/implementers/${id}`),
+};
+
+// ── Projects ──────────────────────────────────────────────────────────────────
+export const projectsApi = {
+  list:   (params?: any)                   => client.get('/projects', { params }),
+  get:    (id: number)                     => client.get(`/projects/${id}`),
+  create: (data: any)                      => client.post('/projects', data),
+  update: (id: number, data: any)          => client.patch(`/projects/${id}`, data),
+};
+
+export const objectivesApi = {
+  listByProject: (projectId: number)       => client.get(`/projects/${projectId}/objectives`),
+  create:        (data: any)               => client.post('/objectives', data),
+};
+
+export const targetsApi = {
+  listByObjective: (objectiveId: number)   => client.get(`/objectives/${objectiveId}/targets`),
+  create:          (data: any)             => client.post('/targets', data),
+};
+
+export const activitiesApi = {
+  list:               (params?: any)               => client.get('/activities', { params }),
+  get:                (id: number)                  => client.get(`/activities/${id}`),
+  create:             (data: any)                   => client.post('/activities', data),
+  update:             (id: number, data: any)       => client.patch(`/activities/${id}`, data),
+  delete:             (id: number)                  => client.delete(`/activities/${id}`),
+  getSubActivities:   (id: number)                  => client.get(`/activities/${id}/sub-activities`),
+  getPayments:        (id: number)                  => client.get(`/activities/${id}/payments`),
+  getPaymentSummary:  (id: number)                  => client.get(`/activities/${id}/payments/summary`),
+  createPayment:      (id: number, data: any)       => client.post(`/activities/${id}/payments`, data),
+  updatePaymentStatus:(activityId: number, paymentId: number, status: string) => client.patch(`/activities/${activityId}/payments/${paymentId}/status`, { status }),
+  deletePayment:      (activityId: number, paymentId: number) => client.delete(`/activities/${activityId}/payments/${paymentId}`),
+  getComments:        (id: number)                  => client.get(`/activities/${id}/comments`),
+  addComment:         (id: number, data: any)       => client.post(`/activities/${id}/comments`, data),
+  deleteComment:      (activityId: number, commentId: number) => client.delete(`/activities/${activityId}/comments/${commentId}`),
+  getDocuments:       (id: number)                  => client.get(`/activities/${id}/documents`),
+  uploadDocument:     (id: number, formData: FormData) => client.post(`/activities/${id}/documents`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  getHistory:         (id: number)                  => client.get(`/activities/${id}/history`),
+};
+
+export const budgetApi = {
+  projectSummary: (projectId: number)              => client.get(`/projects/${projectId}/budget/summary`),
+  listRevisions:  (params?: any)                   => client.get('/budget/revisions', { params }),
+  requestRevision:(activityIdOrData: number | any, amount?: number, reason?: string) => client.post('/budget/revisions', typeof activityIdOrData === 'number' ? { activity_id: activityIdOrData, amount, reason } : activityIdOrData),
+  approveRevision:(id: number, data?: any)         => client.patch(`/budget/revisions/${id}/approve`, data),
+  rejectRevision: (id: number, data?: any)         => client.patch(`/budget/revisions/${id}/reject`, data),
+  allocateTarget: (targetId: number, data: any)    => client.post(`/targets/${targetId}/budget`, data),
+};
+
+export const documentsApi = {
+  listByProject: (projectId: number)               => client.get(`/projects/${projectId}/documents`),
+  upload:        (projectIdOrData: number | FormData, formData?: FormData) => {
+    const fd = formData ?? projectIdOrData as FormData;
+    const url = typeof projectIdOrData === 'number' ? `/projects/${projectIdOrData}/documents` : '/documents';
+    return client.post(url, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+  },
+};
+
+// ── Inspection ────────────────────────────────────────────────────────────────
+export const inspectionApi = {
+  listRequests:     (params?: any)                  => client.get('/inspection/requests', { params }),
+  getRequest:       (id: number)                    => client.get(`/inspection/requests/${id}`),
+  createRequest:    (data: any)                     => client.post('/inspection/requests', data),
+  updateRequest:    (id: number, data: any)         => client.patch(`/inspection/requests/${id}`, data),
+  cancelRequest:    (id: number, data?: any)        => client.patch(`/inspection/requests/${id}/cancel`, data),
+  acceptAssignment: (id: number, data?: any)        => client.patch(`/inspection/requests/${id}/accept`, data),
+  rejectAssignment: (id: number, data?: any)        => client.patch(`/inspection/requests/${id}/reject`, data),
+  getExecutionData: (id: number)                    => client.get(`/inspection/requests/${id}/execution`),
+  saveResponses:    (id: number, data: any)         => client.post(`/inspection/requests/${id}/responses`, data),
+  submitInspection: (id: number, data?: any)        => client.patch(`/inspection/requests/${id}/submit`, data),
+  approveInspection:(id: number, data?: any)        => client.patch(`/inspection/requests/${id}/approve`, data),
+  rejectApproval:   (id: number, data?: any)        => client.patch(`/inspection/requests/${id}/reject-approval`, data),
+  getEvidence:      (id: number)                    => client.get(`/inspection/requests/${id}/evidence`),
+  uploadEvidence:   (id: number, formData: FormData)=> client.post(`/inspection/requests/${id}/evidence`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  listChecklists:   (params?: any)                  => client.get('/inspection/checklists', { params }),
+  getChecklist:     (id: number)                    => client.get(`/inspection/checklists/${id}`),
+  createChecklist:  (data: any)                     => client.post('/inspection/checklists', data),
+  updateChecklist:  (id: number, data: any)         => client.patch(`/inspection/checklists/${id}`, data),
+  deleteChecklist:  (id: number)                    => client.delete(`/inspection/checklists/${id}`),
+  getStoreStock:    (storeId: number)               => client.get(`/inventory/stores/${storeId}/stock`),
+  getStockTransactions: (params?: any)              => client.get('/inventory/stock-transactions', { params }),
+};
+
+// ── Stores ────────────────────────────────────────────────────────────────────
+export const storesApi = {
+  list:   (params?: any)          => client.get('/inventory/stores', { params }),
+  create: (data: any)             => client.post('/inventory/stores', data),
+  update: (id: number, data: any) => client.patch(`/inventory/stores/${id}`, data),
+  delete: (id: number)            => client.delete(`/inventory/stores/${id}`),
+};
+
+// ── Suppliers ─────────────────────────────────────────────────────────────────
+export const suppliersApi = {
+  list:   (params?: any)          => client.get('/inventory/suppliers', { params }),
+  create: (data: any)             => client.post('/inventory/suppliers', data),
+  update: (id: number, data: any) => client.patch(`/inventory/suppliers/${id}`, data),
+  delete: (id: number)            => client.delete(`/inventory/suppliers/${id}`),
+};
+
+// ── Products ──────────────────────────────────────────────────────────────────
+export const productsApi = {
+  list:         (params?: any)          => client.get('/inventory/products', { params }),
+  create:       (data: any)             => client.post('/inventory/products', data),
+  update:       (id: number, data: any) => client.patch(`/inventory/products/${id}`, data),
+  delete:       (id: number)            => client.delete(`/inventory/products/${id}`),
+  getCategories:()                      => client.get('/inventory/product-categories'),
+};
+
+// ── Purchase Orders ───────────────────────────────────────────────────────────
+export const purchaseOrdersApi = {
+  list:   (params?: any)          => client.get('/inventory/purchase-orders', { params }),
+  get:    (id: number)            => client.get(`/inventory/purchase-orders/${id}`),
+  create: (data: any)             => client.post('/inventory/purchase-orders', data),
+  update: (id: number, data: any) => client.patch(`/inventory/purchase-orders/${id}`, data),
+  cancel: (id: number, data?: any)=> client.patch(`/inventory/purchase-orders/${id}/cancel`, data),
+};
+
+// ── Transfers (Inventory) ─────────────────────────────────────────────────────
+export const transfersApi = {
+  list:          (params?: any)          => client.get('/inventory/transfers', { params }),
+  get:           (id: number)            => client.get(`/inventory/transfers/${id}`),
+  create:        (data: any)             => client.post('/inventory/transfers', data),
+  update:        (id: number, data: any) => client.patch(`/inventory/transfers/${id}`, data),
+  approve:       (id: number, data?: any)=> client.patch(`/inventory/transfers/${id}/approve`, data),
+  dispatch:      (id: number, data?: any)=> client.patch(`/inventory/transfers/${id}/dispatch`, data),
+  receive:       (id: number, data?: any)=> client.patch(`/inventory/transfers/${id}/receive`, data),
+  cancel:        (id: number, data?: any)=> client.patch(`/inventory/transfers/${id}/cancel`, data),
+  getStoreStock: (storeId: number)       => client.get(`/inventory/stores/${storeId}/stock`),
+};
+
+// ── Logistics ─────────────────────────────────────────────────────────────────
+export const logisticsApi = {
+  listCompanies:    (params?: any)          => client.get('/logistics/companies', { params }),
+  createCompany:    (data: any)             => client.post('/logistics/companies', data),
+  updateCompany:    (id: number, data: any) => client.patch(`/logistics/companies/${id}`, data),
+  deleteCompany:    (id: number)            => client.delete(`/logistics/companies/${id}`),
+  listTransactions: (params?: any)          => client.get('/logistics/transactions', { params }),
+  getTransaction:   (id: number)            => client.get(`/logistics/transactions/${id}`),
+  createTransaction:(data: any)             => client.post('/logistics/transactions', data),
+  updateTransaction:(id: number, data: any) => client.patch(`/logistics/transactions/${id}`, data),
+  schedulePickup:   (id: number, data?: any)=> client.patch(`/logistics/transactions/${id}/schedule-pickup`, data),
+  markPickedUp:     (id: number, data?: any)=> client.patch(`/logistics/transactions/${id}/picked-up`, data),
+  markInTransit:    (id: number, data?: any)=> client.patch(`/logistics/transactions/${id}/in-transit`, data),
+  markArrived:      (id: number, data?: any)=> client.patch(`/logistics/transactions/${id}/arrived`, data),
+  markDelivered:    (id: number, data?: any)=> client.patch(`/logistics/transactions/${id}/delivered`, data),
+  markDelayed:      (id: number, data?: any)=> client.patch(`/logistics/transactions/${id}/delayed`, data),
+  cancelShipment:   (id: number, data?: any)=> client.patch(`/logistics/transactions/${id}/cancel`, data),
+  addNote:          (id: number, noteOrData: any, location?: string) => client.post(`/logistics/transactions/${id}/notes`, typeof noteOrData === 'string' ? { note: noteOrData, location } : noteOrData),
+};
+
+// ── Financial ─────────────────────────────────────────────────────────────────
+export const financialApi = {
+  summary:         (params?: any) => client.get('/financial/summary', { params }),
+  list:            (params?: any) => client.get('/financial', { params }),
+  get:             (id: number)   => client.get(`/financial/${id}`),
+  create:          (data: any)    => client.post('/financial', data),
+  update:          (id: number, data: any) => client.patch(`/financial/${id}`, data),
+  delete:          (id: number)   => client.delete(`/financial/${id}`),
 };

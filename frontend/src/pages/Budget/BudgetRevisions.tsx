@@ -45,7 +45,7 @@ export default function BudgetRevisions() {
     }
   };
 
-  const fmt  = (n: number) => `TZS ${Number(n).toLocaleString()}`;
+  const fmt  = (n: number | null | undefined) => `TZS ${Number(n).toLocaleString()}`;
   const can  = user?.role === 'admin' || user?.role === 'manager';
 
   return (
@@ -84,7 +84,7 @@ export default function BudgetRevisions() {
                 <div>
                   <p className="font-semibold text-gray-800 dark:text-white">{r.activity_name}</p>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    Requested by {r.requested_by_name} · {new Date(r.created_at).toLocaleDateString()}
+                    Requested by {r.requested_by_name} · {new Date(r.created_at ?? '').toLocaleDateString()}
                   </p>
                 </div>
                 <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${

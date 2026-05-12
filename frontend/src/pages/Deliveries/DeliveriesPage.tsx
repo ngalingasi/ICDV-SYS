@@ -18,7 +18,7 @@ export default function DeliveriesPage() {
   const [delId, setDelId]           = useState<number | null>(null);
   const [deleting, setDeleting]     = useState(false);
   const limit = 20;
-  const timer = useRef<ReturnType<typeof setTimeout>>();
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined as any);
 
   const load = () => {
     setLoading(true);
@@ -110,13 +110,13 @@ export default function DeliveriesPage() {
                   ) : '—'}
                 </td>
                 <td className="px-4 py-3"><StatusBadge status={dl.status} /></td>
-                <td className="px-4 py-3 text-gray-500">{fmtDate(dl.scheduled_date)}</td>
+                <td className="px-4 py-3 text-gray-500">{fmtDate(dl.scheduled_date ?? undefined)}</td>
                 <td className="px-4 py-3 text-gray-500 max-w-xs truncate">{dl.delivery_address ?? '—'}</td>
                 <td className="px-4 py-3">
                   <div className="flex gap-3">
                     <Link to={`/deliveries/${dl.id}`} className="text-blue-600 hover:underline text-xs">View</Link>
                     <Link to={`/deliveries/${dl.id}/edit`} className="text-gray-600 hover:underline text-xs">Edit</Link>
-                    <button onClick={() => setDelId(dl.id)} className="text-red-500 hover:underline text-xs">Delete</button>
+                    <button onClick={() => setDelId(dl.id ?? null)} className="text-red-500 hover:underline text-xs">Delete</button>
                   </div>
                 </td>
               </tr>

@@ -34,7 +34,7 @@ export default function AnalysisDashboard() {
           for (const o of oRes.data) {
             const tRes = await targetsApi.listByObjective(o.objective_id);
             // Tag each target with project_id
-            tRes.data.forEach(t => allTargets.push({ ...t, project_id: p.project_id } as any));
+            tRes.data.forEach((t: any) => allTargets.push({ ...t, project_id: p.project_id } as any));
           }
         }
         setRaw({ activities, projects, objectives: allObjectives, targets: allTargets, users });
@@ -302,7 +302,7 @@ export default function AnalysisDashboard() {
                   <p className="text-xs text-gray-400">Deadline: {fmtDate(t.deadline)}</p>
                 </div>
                 <span className={`px-2 py-0.5 text-xs font-medium rounded-full flex-shrink-0 ${t.status === 'at_risk' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400' : 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400'}`}>
-                  {t.status.replace('_', ' ')}
+                  {(t.status ?? '').replace('_', ' ')}
                 </span>
               </div>
             ))
@@ -345,7 +345,7 @@ export default function AnalysisDashboard() {
                   <p className="text-xs text-gray-400">{t.current_value}/{t.target_value} {t.unit} · {fmtDate(t.deadline)}</p>
                 </div>
                 <span className="text-xs font-medium text-red-600 dark:text-red-400 flex-shrink-0">
-                  {t.target_value > 0 ? Math.round((t.current_value / t.target_value) * 100) : 0}%
+                  {(t.target_value ?? 0) > 0 ? Math.round(((t.current_value ?? 0) / (t.target_value ?? 1)) * 100) : 0}%
                 </span>
               </div>
             ))

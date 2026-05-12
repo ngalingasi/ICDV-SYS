@@ -131,7 +131,7 @@ function ActivityCard({ a }: { a: Activity }) {
           </div>
           <div>
             <p className="text-gray-400">End Date</p>
-            <p className="font-medium text-gray-700 dark:text-gray-300">{dt(a.end_date)}</p>
+            <p className="font-medium text-gray-700 dark:text-gray-300">{dt(a.end_date ?? undefined)}</p>
           </div>
         </div>
         <div className="mt-2">
