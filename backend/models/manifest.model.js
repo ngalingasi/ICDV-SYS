@@ -1,13 +1,11 @@
 const httpStatus = require('http-status');
-const { query, transaction } = require('../config/database');
+const { query, transaction, connQuery } = require('../config/database');
 const ApiError = require('../utils/ApiError');
 const { buildPagination } = require('../utils/paginate');
 
-// Auto-generate manifest number: ICDV-MAN-YYYY-NNNN (scoped per tenant)
 const generateManifestNumber = async (icdvId = null) => {
   const year   = new Date().getFullYear();
   const prefix = `ICDV-MAN-${year}-`;
-  // Scope the sequence to the tenant so numbers don't clash across ICDVs
   const whereIcdv = icdvId ? ' AND icdv_id=?' : '';
   const p = icdvId ? [`${prefix}%`, icdvId] : [`${prefix}%`];
   const [{ last }] = await query(
@@ -40,20 +38,34 @@ const getManifests = async ({ page, limit, vessel_id, status, search }, icdvId =
     where += ' AND (m.manifest_number LIKE ? OR v.name LIKE ?)';
     const s = `%${search}%`; params.push(s, s);
   }
+
   const [{ total }] = await query(
-    `SELECT COUNT(*) AS total FROM manifests m LEFT JOIN vessels v ON v.vessel_id=m.vessel_id WHERE ${where}`, params
+    `SELECT COUNT(*) AS total FROM manifests m
+     LEFT JOIN vessels v ON v.vessel_id=m.vessel_id
+     WHERE ${where}`, params
   );
+
   const manifests = await query(
     `SELECT m.*,
        v.name AS vessel_name, v.imo_number, v.vessel_type,
+       -- Workflow step counts (from synced columns — fast, no subquery)
+       COALESCE(m.manifested_count, 0) AS manifested_count,
+       COALESCE(m.discharged_count, 0) AS discharged_count,
+       COALESCE(m.batched_count,    0) AS batched_count,
+       COALESCE(m.in_transit_count, 0) AS in_transit_count,
+       COALESCE(m.received_count,   0) AS received_count,
+       -- Total and legacy counts (live subqueries for accuracy)
        (SELECT COUNT(*) FROM vehicles vh WHERE vh.manifest_id=m.manifest_id) AS total_vehicles,
-       (SELECT COUNT(*) FROM vehicles vh WHERE vh.manifest_id=m.manifest_id AND vh.release_status='released') AS released_vehicles,
-       (SELECT COUNT(*) FROM vehicles vh WHERE vh.manifest_id=m.manifest_id AND vh.operational_status='delivered') AS delivered_vehicles,
+       (SELECT COUNT(*) FROM vehicles vh
+        WHERE vh.manifest_id=m.manifest_id AND vh.release_status IN ('released','collected')) AS released_vehicles,
+       (SELECT COUNT(*) FROM vehicles vh
+        WHERE vh.manifest_id=m.manifest_id AND vh.workflow_status='received') AS delivered_vehicles,
        u.full_name AS created_by_name
      FROM manifests m
      LEFT JOIN vessels v ON v.vessel_id=m.vessel_id
-     LEFT JOIN users u ON u.user_id=m.created_by
-     WHERE ${where} ORDER BY m.created_at DESC LIMIT ? OFFSET ?`,
+     LEFT JOIN users u   ON u.user_id  =m.created_by
+     WHERE ${where}
+     ORDER BY m.created_at DESC LIMIT ? OFFSET ?`,
     [...params, l, offset]
   );
   return paginate(manifests, total);
@@ -63,13 +75,20 @@ const getManifestById = async (id, icdvId = null) => {
   const [manifest] = await query(
     `SELECT m.*,
        v.name AS vessel_name, v.imo_number, v.vessel_type, v.country_of_origin,
+       COALESCE(m.manifested_count, 0) AS manifested_count,
+       COALESCE(m.discharged_count, 0) AS discharged_count,
+       COALESCE(m.batched_count,    0) AS batched_count,
+       COALESCE(m.in_transit_count, 0) AS in_transit_count,
+       COALESCE(m.received_count,   0) AS received_count,
        (SELECT COUNT(*) FROM vehicles vh WHERE vh.manifest_id=m.manifest_id) AS total_vehicles,
-       (SELECT COUNT(*) FROM vehicles vh WHERE vh.manifest_id=m.manifest_id AND vh.release_status='released') AS released_vehicles,
-       (SELECT COUNT(*) FROM vehicles vh WHERE vh.manifest_id=m.manifest_id AND vh.operational_status='delivered') AS delivered_vehicles,
+       (SELECT COUNT(*) FROM vehicles vh
+        WHERE vh.manifest_id=m.manifest_id AND vh.release_status IN ('released','collected')) AS released_vehicles,
+       (SELECT COUNT(*) FROM vehicles vh
+        WHERE vh.manifest_id=m.manifest_id AND vh.workflow_status='received') AS delivered_vehicles,
        u.full_name AS created_by_name
      FROM manifests m
      LEFT JOIN vessels v ON v.vessel_id=m.vessel_id
-     LEFT JOIN users u ON u.user_id=m.created_by
+     LEFT JOIN users u   ON u.user_id  =m.created_by
      WHERE m.manifest_id=?`,
     [id]
   );
@@ -82,7 +101,7 @@ const getManifestById = async (id, icdvId = null) => {
 const updateManifest = async (id, body, updaterId, icdvId = null) => {
   await getManifestById(id, icdvId);
   const fields = []; const params = [];
-  const allowed = ['vessel_id','arrival_date','notes','status'];
+  const allowed = ['vessel_id', 'arrival_date', 'notes', 'status'];
   for (const key of allowed) {
     if (body[key] !== undefined) { fields.push(`${key}=?`); params.push(body[key]); }
   }
@@ -101,11 +120,16 @@ const deleteManifest = async (id, icdvId = null) => {
   return manifest;
 };
 
-// CSV import — scopes chassis uniqueness to the tenant
+/**
+ * CSV import — now sets workflow_status='manifested' and current_location='vessel'
+ * so every imported vehicle starts the workflow correctly.
+ */
 const importVehicles = async (manifestId, rows, creatorId, icdvId = null) => {
   await getManifestById(manifestId, icdvId);
+
   return transaction(async (conn) => {
     const results = { total: rows.length, imported: 0, failed: 0, duplicates: [], errors: [] };
+
     for (const row of rows) {
       const chassis = (row.chassis_no || '').trim();
       if (!chassis) {
@@ -113,32 +137,37 @@ const importVehicles = async (manifestId, rows, creatorId, icdvId = null) => {
         results.errors.push({ row: row._rowNum, error: 'Missing chassis number' });
         continue;
       }
-      // Uniqueness scoped to tenant (not global)
+
       const whereScope = icdvId ? ' AND icdv_id=?' : '';
       const scopeP     = icdvId ? [chassis, icdvId] : [chassis];
       const [existing] = await conn.query(
         `SELECT vehicle_id FROM vehicles WHERE chassis_number=?${whereScope}`, scopeP
       );
+
       if (existing.length > 0) {
         results.failed++;
         results.duplicates.push(chassis);
         results.errors.push({ row: row._rowNum, chassis, error: 'Chassis number already exists' });
         continue;
       }
+
       try {
         await conn.query(
           `INSERT INTO vehicles
-             (icdv_id, manifest_id, chassis_number, bill_of_lading_no, destination, delivery_location,
-              release_status, operational_status, created_by)
-           VALUES (?,?,?,?,?,?,?,?,?)`,
+             (icdv_id, manifest_id, chassis_number, bill_of_lading_no,
+              destination, delivery_location,
+              release_status, operational_status,
+              workflow_status, current_location,
+              created_by)
+           VALUES (?,?,?,?,?,?, 'unreleased','pending', 'manifested','vessel', ?)`,
           [
             icdvId || 1,
             manifestId,
             chassis,
-            (row.bill_of_lading_no  || '').trim() || null,
-            (row.destination        || '').trim() || null,
-            (row.delivery_location  || '').trim() || null,
-            'unreleased', 'pending', creatorId,
+            (row.bill_of_lading_no || '').trim() || null,
+            (row.destination       || '').trim() || null,
+            (row.delivery_location || '').trim() || null,
+            creatorId,
           ]
         );
         results.imported++;
@@ -147,7 +176,17 @@ const importVehicles = async (manifestId, rows, creatorId, icdvId = null) => {
         results.errors.push({ row: row._rowNum, chassis, error: err.message });
       }
     }
-    await conn.query('UPDATE manifests SET updated_at=NOW() WHERE manifest_id=?', [manifestId]);
+
+    // Re-sync manifest counts after bulk import
+    await conn.query(
+      `UPDATE manifests
+       SET manifested_count = (SELECT COUNT(*) FROM vehicles v WHERE v.manifest_id=? AND v.workflow_status='manifested'),
+           status           = CASE WHEN status='cancelled' THEN 'cancelled' ELSE 'active' END,
+           updated_at       = NOW()
+       WHERE manifest_id=?`,
+      [manifestId, manifestId]
+    );
+
     return results;
   });
 };
