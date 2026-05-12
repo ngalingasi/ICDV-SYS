@@ -3,6 +3,12 @@ import { Link, useLocation } from "react-router";
 import { useSidebar } from "../context/SidebarContext";
 import { useAuth }    from "../store/authStore";
 
+const BoltIcon = () => (
+  <svg className="w-3 h-3 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+  </svg>
+);
+
 const Icon = {
   Dashboard: () => <svg className="w-[18px] h-[18px] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>,
   Vessel:    () => <svg className="w-[18px] h-[18px] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4M17 8v8m0 4l4-4m-4 4l-4-4M3 20h18" /></svg>,
@@ -47,21 +53,16 @@ const TENANT_NAV: NavItem[] = [
       { name: "Add Driver",  path: "/drivers/new" },
     ],
   },
-  // ── Operations (workflow) — replaces old Operations ─────────────────────────
   {
     name: "Operations", icon: <Icon.Operation />, subItems: [
-      { name: "1 · Discharge",    path: "/operations/discharge" },
-      { name: "2 · Batch",        path: "/operations/batch" },
-      { name: "3 · TPA Transfer", path: "/operations/transfer" },
-      { name: "4 · Yard Receive", path: "/operations/receive" },
-      { name: "Batches",          path: "/operations/batches" },
-      { name: "Chassis Search",   path: "/operations/search" },
+      { name: "1. Discharge",    path: "/operations/discharge" },
+      { name: "2. Batch",        path: "/operations/batch" },
+      { name: "3. TPA Transfer", path: "/operations/transfer" },
+      { name: "4. Yard Receive", path: "/operations/receive" },
+      { name: "Batches",         path: "/operations/batches" },
+      { name: "Chassis Search",  path: "/operations/search" },
     ],
   },
-  // ── Deliveries ───────────────────────────────────────────────────────────────
-  { name: "Deliveries", icon: <Icon.Delivery />, path: "/deliveries" },
-  // NOTE: Old /operations routes (general operation CRUD) are hidden here.
-  // They are still accessible via URL and preserved in the codebase for later use.
 ];
 
 const TENANT_BOTTOM_NAV: NavItem[] = [
@@ -76,7 +77,6 @@ const SUPER_ADMIN_NAV: NavItem[] = [
   { name: "All Vessels",  icon: <Icon.Vessel />,    path: "/vessels" },
   { name: "All Vehicles", icon: <Icon.Vehicle />,   path: "/vehicles" },
   { name: "Operations",   icon: <Icon.Operation />, path: "/operations/search" },
-  { name: "Deliveries",   icon: <Icon.Delivery />,  path: "/deliveries" },
 ];
 
 const SUPER_ADMIN_BOTTOM_NAV: NavItem[] = [
@@ -161,7 +161,7 @@ export default function AppSidebar() {
   const sidebarContent = (
     <div className="flex flex-col h-full">
 
-      {/* ── Brand / Logo ─────────────────────────────────────────────────── */}
+      {/* Brand / Logo */}
       <div className={`flex items-center gap-3 px-4 py-5 border-b border-gray-200 dark:border-gray-700 ${expanded ? "justify-start" : "justify-center"}`}>
         <img
           src="/images/logo/logo.png"
@@ -180,23 +180,24 @@ export default function AppSidebar() {
         )}
       </div>
 
-      {/* ── Super admin badge ─────────────────────────────────────────────── */}
+      {/* Super admin badge — SVG bolt icon instead of emoji */}
       {expanded && isSuperAdmin && (
         <div className="px-3 pt-2">
-          <div className="px-3 py-1.5 rounded-lg bg-purple-50 dark:bg-purple-500/10 text-xs font-bold text-purple-600 dark:text-purple-400 text-center">
-            ⚡ Super Admin
+          <div className="px-3 py-1.5 rounded-lg bg-purple-50 dark:bg-purple-500/10 text-xs font-bold text-purple-600 dark:text-purple-400 flex items-center justify-center gap-1.5">
+            <BoltIcon />
+            Super Admin
           </div>
         </div>
       )}
 
-      {/* ── Main nav ──────────────────────────────────────────────────────── */}
+      {/* Main nav */}
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         <ul className="space-y-0.5">
           {NAV.map(renderItem)}
         </ul>
       </nav>
 
-      {/* ── Bottom nav ────────────────────────────────────────────────────── */}
+      {/* Bottom nav */}
       <div className="px-3 py-3 border-t border-gray-200 dark:border-gray-700">
         <ul className="space-y-0.5">
           {BOTTOM_NAV.map(renderItem)}

@@ -20,8 +20,8 @@ export function BatchListPage() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, [page, status]);          // eslint-disable-line
-  useEffect(() => { const t = setTimeout(load, 350); return () => clearTimeout(t); }, [search]); // eslint-disable-line
+  useEffect(() => { load(); }, [page, status]);
+  useEffect(() => { const t = setTimeout(load, 350); return () => clearTimeout(t); }, [search]);
 
   const totalPages = Math.ceil(total / limit);
 
@@ -33,19 +33,13 @@ export function BatchListPage() {
           <p className="text-sm text-gray-500 dark:text-gray-400">{total} total batches</p>
         </div>
         <div className="sm:ml-auto flex flex-wrap gap-2">
-          <input
-            value={search} onChange={e => setSearch(e.target.value)}
+          <input value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Search batch number…"
-            className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-500 w-52"
-          />
-          <select
-            value={status} onChange={e => setStatus(e.target.value)}
-            className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500"
-          >
+            className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-500 w-52" />
+          <select value={status} onChange={e => setStatus(e.target.value)}
+            className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500">
             <option value="">All Statuses</option>
-            {['open', 'closed', 'transferred'].map(s => (
-              <option key={s} value={s}>{s}</option>
-            ))}
+            {['open','closed','transferred'].map(s => <option key={s} value={s}>{s}</option>)}
           </select>
           <Link to="/operations/batch"
             className="px-4 py-2 rounded-lg bg-brand-500 text-white text-sm font-medium hover:bg-brand-600 transition-colors">
@@ -59,21 +53,17 @@ export function BatchListPage() {
           <table className="w-full text-sm">
             <thead className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
               <tr>
-                {['Batch Number', 'Vessel', 'Date', 'Vehicles', 'Status', ''].map(h => (
+                {['Batch Number','Vessel','Date','Vehicles','Status',''].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
               {loading
-                ? Array.from({ length: 6 }).map((_, i) => (
-                    <tr key={i}>
-                      {Array.from({ length: 6 }).map((_, j) => (
-                        <td key={j} className="px-4 py-3">
-                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-                        </td>
-                      ))}
-                    </tr>
+                ? Array.from({length:6}).map((_,i) => (
+                    <tr key={i}>{Array.from({length:6}).map((_,j) => (
+                      <td key={j} className="px-4 py-3"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" /></td>
+                    ))}</tr>
                   ))
                 : batches.length
                   ? batches.map(b => (
@@ -92,11 +82,7 @@ export function BatchListPage() {
                         </td>
                       </tr>
                     ))
-                  : (
-                    <tr>
-                      <td colSpan={6} className="px-4 py-10 text-center text-gray-400 text-sm">No batches found</td>
-                    </tr>
-                  )
+                  : <tr><td colSpan={6} className="px-4 py-10 text-center text-gray-400 text-sm">No batches found</td></tr>
               }
             </tbody>
           </table>
@@ -105,14 +91,10 @@ export function BatchListPage() {
           <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
             <span>Page {page} of {totalPages} · {total} batches</span>
             <div className="flex gap-2">
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                className="px-3 py-1.5 rounded border border-gray-200 dark:border-gray-700 disabled:opacity-40 hover:bg-gray-100 dark:hover:bg-gray-800">
-                Prev
-              </button>
-              <button onClick={() => setPage(p => p + 1)} disabled={page >= totalPages}
-                className="px-3 py-1.5 rounded border border-gray-200 dark:border-gray-700 disabled:opacity-40 hover:bg-gray-100 dark:hover:bg-gray-800">
-                Next
-              </button>
+              <button onClick={() => setPage(p => Math.max(1,p-1))} disabled={page===1}
+                className="px-3 py-1.5 rounded border border-gray-200 dark:border-gray-700 disabled:opacity-40 hover:bg-gray-100 dark:hover:bg-gray-800">Prev</button>
+              <button onClick={() => setPage(p => p+1)} disabled={page>=totalPages}
+                className="px-3 py-1.5 rounded border border-gray-200 dark:border-gray-700 disabled:opacity-40 hover:bg-gray-100 dark:hover:bg-gray-800">Next</button>
             </div>
           </div>
         )}
@@ -138,15 +120,10 @@ export function BatchDetailPage() {
 
   if (loading) return (
     <div className="p-6 space-y-4">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="h-10 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-      ))}
+      {Array.from({length:4}).map((_,i) => <div key={i} className="h-10 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />)}
     </div>
   );
-
-  if (error || !batch) return (
-    <div className="p-6 text-red-600 dark:text-red-400">{error || 'Batch not found'}</div>
-  );
+  if (error || !batch) return <div className="p-6 text-red-600">{error || 'Batch not found'}</div>;
 
   return (
     <div className="p-4 sm:p-6 space-y-5">
@@ -185,7 +162,7 @@ export function BatchDetailPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-800">
               <tr>
-                {['Chassis #', 'Brand / Model', 'Customer', 'Status', 'Location'].map(h => (
+                {['Chassis #','Brand / Model','Customer','Status','Location'].map(h => (
                   <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -197,7 +174,7 @@ export function BatchDetailPage() {
                   <td className="px-4 py-2.5 text-gray-600 dark:text-gray-300">{[v.brand, v.model].filter(Boolean).join(' ') || '—'}</td>
                   <td className="px-4 py-2.5 text-gray-500 dark:text-gray-400">{v.customer_name || '—'}</td>
                   <td className="px-4 py-2.5"><StatusBadge status={v.workflow_status} /></td>
-                  <td className="px-4 py-2.5 text-gray-500 dark:text-gray-400 text-xs">{v.current_location?.replace(/_/g, ' ') || '—'}</td>
+                  <td className="px-4 py-2.5 text-gray-500 dark:text-gray-400 text-xs">{v.current_location?.replace(/_/g,' ') || '—'}</td>
                 </tr>
               ))}
             </tbody>

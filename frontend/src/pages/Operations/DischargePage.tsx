@@ -8,6 +8,12 @@ import {
 
 type Step = 'search' | 'confirm' | 'done';
 
+const WarningIcon = () => (
+  <svg className="w-4 h-4 inline-block mr-1 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+  </svg>
+);
+
 export default function DischargePage() {
   const [step,    setStep]    = useState<Step>('search');
   const [chassis, setChassis] = useState('');
@@ -46,7 +52,7 @@ export default function DischargePage() {
   };
 
   return (
-    <div className="p-4 sm:p-6 max-w-xl mx-auto space-y-5">
+    <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-5">
       <div>
         <h1 className="text-xl font-bold text-gray-800 dark:text-white">Discharge Process</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
@@ -71,8 +77,9 @@ export default function DischargePage() {
         <>
           <Section title="Step 2 — Confirm Vehicle">
             <VehicleCard v={vehicle} />
-            <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
-              ⚠ Confirm this is the correct vehicle before discharging
+            <p className="text-xs text-amber-600 dark:text-amber-400 font-medium flex items-center">
+              <WarningIcon />
+              Confirm this is the correct vehicle before discharging
             </p>
           </Section>
 
@@ -87,7 +94,7 @@ export default function DischargePage() {
                 Cancel
               </button>
               <ConfirmButton
-                label="Confirm Discharge → Holding Ground"
+                label="Confirm Discharge to Holding Ground"
                 onClick={handleConfirm}
                 loading={loading}
                 variant="warning"

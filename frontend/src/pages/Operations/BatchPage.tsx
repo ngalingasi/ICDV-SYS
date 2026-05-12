@@ -4,19 +4,19 @@ import { workflowApi } from '../../api';
 import { toast } from '../../components/tpfcs/Toast';
 import {
   ChassisInput, VehicleCard, NotesInput,
-  ConfirmButton, ErrorAlert, Section, WorkflowProgress,
+  ConfirmButton, ErrorAlert, SuccessBanner, Section, WorkflowProgress,
 } from '../../components/tpfcs/WorkflowCard';
 
 type Step = 'search' | 'confirm' | 'done';
 
 export default function BatchPage() {
-  const [step,    setStep]    = useState<Step>('search');
-  const [chassis, setChassis] = useState('');
-  const [vehicle, setVehicle] = useState<any>(null);
-  const [notes,   setNotes]   = useState('');
-  const [result,  setResult]  = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState('');
+  const [step,        setStep]        = useState<Step>('search');
+  const [chassis,     setChassis]     = useState('');
+  const [vehicle,     setVehicle]     = useState<any>(null);
+  const [notes,       setNotes]       = useState('');
+  const [result,      setResult]      = useState<any>(null);
+  const [loading,     setLoading]     = useState(false);
+  const [error,       setError]       = useState('');
 
   const reset = () => {
     setStep('search'); setChassis(''); setVehicle(null);
@@ -49,7 +49,7 @@ export default function BatchPage() {
   };
 
   return (
-    <div className="p-4 sm:p-6 max-w-xl mx-auto space-y-5">
+    <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-5">
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-xl font-bold text-gray-800 dark:text-white">Batch Process</h1>
@@ -65,6 +65,7 @@ export default function BatchPage() {
 
       {vehicle && <WorkflowProgress status={vehicle.workflow_status} />}
 
+      {/* Info box */}
       <div className="rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 px-4 py-3 text-xs text-blue-700 dark:text-blue-400">
         System automatically assigns to today's batch for the vessel. Max 20 vehicles per batch.
         A new batch is created when the current one is full.
@@ -112,26 +113,28 @@ export default function BatchPage() {
       )}
 
       {step === 'done' && result && (
-        <div className="rounded-xl bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20 p-5 text-center space-y-3">
-          <div className="w-12 h-12 rounded-full bg-green-100 dark:bg-green-500/20 flex items-center justify-center mx-auto">
-            <svg className="w-6 h-6 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          <p className="font-semibold text-green-800 dark:text-green-300">Vehicle added to batch</p>
-          <div className="inline-block rounded-lg bg-white dark:bg-gray-900 border border-green-200 dark:border-green-500/30 px-4 py-2">
-            <p className="font-mono font-bold text-gray-900 dark:text-white text-lg">{result.batch_number}</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Batch Number</p>
-          </div>
-          <div className="flex gap-2 justify-center">
-            <button onClick={reset}
-              className="px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-700 transition-colors">
-              Process Next Vehicle
-            </button>
-            <Link to={`/operations/batches/${result.batch_id}`}
-              className="px-4 py-2 rounded-lg border border-green-300 dark:border-green-500/40 text-green-700 dark:text-green-400 text-sm font-medium hover:bg-green-50 dark:hover:bg-green-500/10 transition-colors">
-              View Batch
-            </Link>
+        <div className="space-y-4">
+          <div className="rounded-xl bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20 p-5 text-center space-y-3">
+            <div className="w-12 h-12 rounded-full bg-green-100 dark:bg-green-500/20 flex items-center justify-center mx-auto">
+              <svg className="w-6 h-6 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <p className="font-semibold text-green-800 dark:text-green-300">Vehicle added to batch</p>
+            <div className="inline-block rounded-lg bg-white dark:bg-gray-900 border border-green-200 dark:border-green-500/30 px-4 py-2">
+              <p className="font-mono font-bold text-gray-900 dark:text-white text-lg">{result.batch_number}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Batch Number</p>
+            </div>
+            <div className="flex gap-2 justify-center">
+              <button onClick={reset}
+                className="px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-700 transition-colors">
+                Process Next Vehicle
+              </button>
+              <Link to={`/operations/batches/${result.batch_id}`}
+                className="px-4 py-2 rounded-lg border border-green-300 dark:border-green-500/40 text-green-700 dark:text-green-400 text-sm font-medium hover:bg-green-50 dark:hover:bg-green-500/10 transition-colors">
+                View Batch
+              </Link>
+            </div>
           </div>
         </div>
       )}

@@ -6,6 +6,12 @@ import NotificationDropdown  from "../components/header/NotificationDropdown";
 import UserDropdown          from "../components/header/UserDropdown";
 import { useAuth }           from "../store/authStore";
 
+const BoltIcon = () => (
+  <svg className="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+  </svg>
+);
+
 const AppHeader: React.FC = () => {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
   const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
@@ -28,9 +34,7 @@ const AppHeader: React.FC = () => {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // What to show in the header badge area:
-  // - Super admin  → system name
-  // - Tenant users → their ICDV name
+  // Super admin → show system name; tenant users → show their ICDV name
   const headerBadgeText = isSuperAdmin ? "ICDV System" : (icdvName ?? null);
 
   return (
@@ -56,7 +60,7 @@ const AppHeader: React.FC = () => {
             )}
           </button>
 
-          {/* Mobile: logo.png + system/ICDV name */}
+          {/* Mobile: logo + name */}
           <Link to="/" className="xl:hidden flex items-center gap-2">
             <img
               src="/images/logo/logo.png"
@@ -70,14 +74,14 @@ const AppHeader: React.FC = () => {
             )}
           </Link>
 
-          {/* Desktop: context badge — ICDV name for tenant, system name for super admin */}
+          {/* Desktop: context badge */}
           {headerBadgeText && (
             <span className={`hidden xl:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border truncate max-w-[220px] ${
               isSuperAdmin
                 ? "bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-500/30"
                 : "bg-brand-50 dark:bg-brand-500/10 text-brand-700 dark:text-brand-400 border-brand-200 dark:border-brand-500/30"
             }`}>
-              {isSuperAdmin && <span>⚡</span>}
+              {isSuperAdmin && <BoltIcon />}
               {headerBadgeText}
             </span>
           )}

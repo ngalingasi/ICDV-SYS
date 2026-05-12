@@ -2,21 +2,21 @@ import { useState } from 'react';
 import { workflowApi } from '../../api';
 import { toast } from '../../components/tpfcs/Toast';
 import {
-  VehicleCard, DriverCard, NotesInput,
+  ChassisInput, VehicleCard, DriverCard, NotesInput,
   ConfirmButton, ErrorAlert, SuccessBanner, Section, WorkflowProgress,
 } from '../../components/tpfcs/WorkflowCard';
 
 type Step = 'vehicle' | 'driver' | 'confirm' | 'done';
 
 export default function TransferPage() {
-  const [step,    setStep]    = useState<Step>('vehicle');
-  const [chassis, setChassis] = useState('');
-  const [idCard,  setIdCard]  = useState('');
-  const [vehicle, setVehicle] = useState<any>(null);
-  const [driver,  setDriver]  = useState<any>(null);
-  const [notes,   setNotes]   = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState('');
+  const [step,      setStep]      = useState<Step>('vehicle');
+  const [chassis,   setChassis]   = useState('');
+  const [idCard,    setIdCard]    = useState('');
+  const [vehicle,   setVehicle]   = useState<any>(null);
+  const [driver,    setDriver]    = useState<any>(null);
+  const [notes,     setNotes]     = useState('');
+  const [loading,   setLoading]   = useState(false);
+  const [error,     setError]     = useState('');
 
   const reset = () => {
     setStep('vehicle'); setChassis(''); setIdCard('');
@@ -52,8 +52,8 @@ export default function TransferPage() {
     setLoading(true); setError('');
     try {
       await workflowApi.transferConfirm({
-        vehicle_id:    vehicle.vehicle_id,
-        driver_id:     driver.driver_id,
+        vehicle_id: vehicle.vehicle_id,
+        driver_id: driver.driver_id,
         driver_id_card: idCard.trim(),
         notes,
       });
@@ -64,10 +64,8 @@ export default function TransferPage() {
     } finally { setLoading(false); }
   };
 
-  const stepLabels: Step[] = ['vehicle', 'driver', 'confirm'];
-
   return (
-    <div className="p-4 sm:p-6 max-w-xl mx-auto space-y-5">
+    <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-5">
       <div>
         <h1 className="text-xl font-bold text-gray-800 dark:text-white">TPA Gate Transfer</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
@@ -77,20 +75,19 @@ export default function TransferPage() {
 
       {vehicle && <WorkflowProgress status={vehicle.workflow_status} />}
 
-      {/* Step pills */}
+      {/* Step indicator pills */}
       <div className="flex gap-2">
-        {stepLabels.map((s, i) => (
+        {(['vehicle','driver','confirm'] as Step[]).map((s, i) => (
           <div key={s} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
-            step === s
-              ? 'bg-brand-100 text-brand-700 dark:bg-brand-500/20 dark:text-brand-300'
-              : stepLabels.indexOf(step) > i || step === 'done'
-                ? 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400'
-                : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+            step === s ? 'bg-brand-100 text-brand-700 dark:bg-brand-500/20 dark:text-brand-300' :
+            ['vehicle','driver','confirm','done'].indexOf(step) > i
+              ? 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400'
+              : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
           }`}>
-            <span className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold">
-              {(stepLabels.indexOf(step) > i || step === 'done') ? '✓' : String(i + 1)}
+            <span className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold bg-current/20">
+              {['vehicle','driver','confirm','done'].indexOf(step) > i ? '✓' : String(i+1)}
             </span>
-            {['Vehicle', 'Driver', 'Confirm'][i]}
+            {['Vehicle','Driver','Confirm'][i]}
           </div>
         ))}
       </div>
@@ -98,35 +95,21 @@ export default function TransferPage() {
       {/* Step 1: Vehicle */}
       {step === 'vehicle' && (
         <Section title="Step 1 — Identify Vehicle">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={chassis}
-              onChange={e => setChassis(e.target.value.toUpperCase())}
-              onKeyDown={e => e.key === 'Enter' && handleVehicleSearch()}
-              placeholder="Enter last 4 chassis digits…"
-              className="flex-1 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2.5 text-sm font-mono bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-500 uppercase"
-            />
-            <button
-              onClick={handleVehicleSearch}
-              disabled={loading || chassis.trim().length < 4}
-              className="px-4 py-2.5 rounded-lg bg-brand-500 text-white text-sm font-medium hover:bg-brand-600 disabled:opacity-50 transition-colors"
-            >
-              {loading ? 'Searching…' : 'Search'}
-            </button>
-          </div>
+          <ChassisInput
+            value={chassis} onChange={setChassis}
+            onSearch={handleVehicleSearch} loading={loading}
+          />
           {error && <ErrorAlert message={error} />}
         </Section>
       )}
 
-      {/* Vehicle confirmed panel (shown in driver + confirm steps) */}
+      {/* Step 2: Driver */}
       {(step === 'driver' || step === 'confirm') && vehicle && (
         <Section title="Vehicle Confirmed">
           <VehicleCard v={vehicle} />
         </Section>
       )}
 
-      {/* Step 2: Driver */}
       {step === 'driver' && (
         <Section title="Step 2 — Identify Driver">
           <div className="flex gap-2">
@@ -161,9 +144,8 @@ export default function TransferPage() {
             <div className="rounded-lg bg-orange-50 dark:bg-orange-500/10 border border-orange-200 dark:border-orange-500/20 px-4 py-3 text-sm text-orange-700 dark:text-orange-400">
               <p className="font-semibold">Transfer Summary</p>
               <p className="mt-1">
-                Vehicle <strong className="font-mono">{vehicle.chassis_number}</strong> will be
-                assigned to driver <strong>{driver.full_name}</strong> and status will change
-                to IN_TRANSIT.
+                Vehicle <strong className="font-mono">{vehicle.chassis_number}</strong> will be assigned to
+                driver <strong>{driver.full_name}</strong> and status will change to IN_TRANSIT.
               </p>
             </div>
             <NotesInput value={notes} onChange={setNotes} />

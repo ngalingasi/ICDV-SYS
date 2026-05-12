@@ -11,7 +11,7 @@ type Step = 'lookup' | 'confirm' | 'done';
 export default function ReceivePage() {
   const [step,    setStep]    = useState<Step>('lookup');
   const [idCard,  setIdCard]  = useState('');
-  const [data,    setData]    = useState<any>(null);
+  const [data,    setData]    = useState<any>(null);  // { driver, assignment }
   const [notes,   setNotes]   = useState('');
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState('');
@@ -48,7 +48,7 @@ export default function ReceivePage() {
   const driver     = data?.driver;
 
   return (
-    <div className="p-4 sm:p-6 max-w-xl mx-auto space-y-5">
+    <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-5">
       <div>
         <h1 className="text-xl font-bold text-gray-800 dark:text-white">Yard Receiving</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
@@ -94,8 +94,8 @@ export default function ReceivePage() {
           <Section title="Assigned Vehicle">
             <VehicleCard v={{
               ...assignment,
-              chassis_number:  assignment.chassis_number,
-              vessel_name:     assignment.vessel_name,
+              chassis_number: assignment.chassis_number,
+              vessel_name:    assignment.vessel_name,
               manifest_number: assignment.manifest_number,
             }} />
             {assignment.transferred_at && (
@@ -109,9 +109,8 @@ export default function ReceivePage() {
             <div className="rounded-lg bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20 px-4 py-3 text-sm text-green-800 dark:text-green-300">
               <p className="font-semibold">Ready to receive</p>
               <p className="mt-1">
-                Confirming will mark vehicle{' '}
-                <strong className="font-mono">{assignment.chassis_number}</strong>{' '}
-                as RECEIVED at ICDV Yard and close the driver assignment.
+                Confirming will mark vehicle <strong className="font-mono">{assignment.chassis_number}</strong> as
+                RECEIVED at ICDV Yard and close the driver assignment.
               </p>
             </div>
             <NotesInput value={notes} onChange={setNotes} />
