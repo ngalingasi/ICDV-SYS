@@ -54,6 +54,44 @@ const DELIVERY_STATUSES = {
 };
 const DELIVERY_STATUS_LIST = Object.values(DELIVERY_STATUSES);
 
+// ── WORKFLOW STATUSES (5-step operational flow) ────────────────────────────────
+const WORKFLOW_STATUSES = {
+  MANIFESTED: 'manifested',
+  DISCHARGED: 'discharged',
+  BATCHED:    'batched',
+  IN_TRANSIT: 'in_transit',
+  RECEIVED:   'received',
+};
+const WORKFLOW_STATUS_LIST = Object.values(WORKFLOW_STATUSES);
+
+const WORKFLOW_STATUS_TRANSITIONS = {
+  manifested: ['discharged'],
+  discharged: ['batched'],
+  batched:    ['in_transit'],
+  in_transit: ['received'],
+  received:   [],
+};
+
+// ── VEHICLE LOCATIONS ─────────────────────────────────────────────────────────
+const VEHICLE_LOCATIONS = {
+  VESSEL:           'vessel',
+  HOLDING_GROUND:   'holding_ground',
+  TPA_GATE:         'tpa_gate',
+  TPA_GATE_TO_YARD: 'tpa_gate_to_yard',
+  ICDV_YARD:        'icdv_yard',
+};
+const VEHICLE_LOCATION_LIST = Object.values(VEHICLE_LOCATIONS);
+
+// Map workflow status → physical location
+const WORKFLOW_TO_LOCATION = {
+  manifested: VEHICLE_LOCATIONS.VESSEL,
+  discharged: VEHICLE_LOCATIONS.HOLDING_GROUND,
+  batched:    VEHICLE_LOCATIONS.HOLDING_GROUND,
+  in_transit: VEHICLE_LOCATIONS.TPA_GATE_TO_YARD,
+  received:   VEHICLE_LOCATIONS.ICDV_YARD,
+};
+
+// ── Existing status transitions ────────────────────────────────────────────────
 const VESSEL_STATUS_TRANSITIONS = {
   expected:   ['arrived', 'departed'],
   arrived:    ['processing', 'departed'],
@@ -84,4 +122,7 @@ module.exports = {
   OPERATIONAL_STATUSES, OPERATIONAL_STATUS_LIST,
   OPERATION_STATUSES, OPERATION_STATUS_LIST, OPERATION_STATUS_TRANSITIONS,
   DELIVERY_STATUSES, DELIVERY_STATUS_LIST, DELIVERY_STATUS_TRANSITIONS,
+  // Workflow
+  WORKFLOW_STATUSES, WORKFLOW_STATUS_LIST, WORKFLOW_STATUS_TRANSITIONS,
+  VEHICLE_LOCATIONS, VEHICLE_LOCATION_LIST, WORKFLOW_TO_LOCATION,
 };

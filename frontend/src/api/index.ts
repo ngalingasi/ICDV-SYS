@@ -61,7 +61,6 @@ export const vehiclesApi = {
 export const driversApi = {
   list:   (params?: any)  => client.get<PaginatedResponse<Driver>>('/drivers', { params }),
   get:    (id: number)    => client.get<Driver>(`/drivers/${id}`),
-  // create/update accept FormData (for photo upload) or plain object
   create: (data: FormData | Partial<Driver>) =>
     client.post<Driver>('/drivers', data,
       data instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : {}),
@@ -108,4 +107,43 @@ export const usersApi = {
 export const lookupsApi = {
   sectors: () => client.get('/lookups/sectors'),
   regions: () => client.get('/lookups/regions'),
+};
+
+// ── Workflow — 5-step operational flow ───────────────────────────────────────
+export const workflowApi = {
+  // 1. Discharge
+  dischargeLookup:  (chassis: string) =>
+    client.get('/workflow/discharge/lookup', { params: { chassis } }),
+  dischargeConfirm: (vehicle_id: number, notes?: string) =>
+    client.post('/workflow/discharge/confirm', { vehicle_id, notes }),
+
+  // 2. Batch
+  batchLookup:   (chassis: string) =>
+    client.get('/workflow/batch/lookup', { params: { chassis } }),
+  batchConfirm:  (vehicle_id: number, notes?: string) =>
+    client.post('/workflow/batch/confirm', { vehicle_id, notes }),
+  listBatches:   (params?: any) =>
+    client.get('/workflow/batches', { params }),
+  getBatch:      (batchId: number) =>
+    client.get(`/workflow/batches/${batchId}`),
+
+  // 3. Transfer (TPA Gate)
+  transferLookup:  (chassis: string) =>
+    client.get('/workflow/transfer/lookup', { params: { chassis } }),
+  driverLookup:    (id_card: string) =>
+    client.get('/workflow/transfer/driver-lookup', { params: { id_card } }),
+  transferConfirm: (data: { vehicle_id: number; driver_id: number; driver_id_card: string; notes?: string }) =>
+    client.post('/workflow/transfer/confirm', data),
+
+  // 4. Receive (Yard)
+  receiveLookup:  (id_card: string) =>
+    client.get('/workflow/receive/lookup', { params: { id_card } }),
+  receiveConfirm: (driver_id: number, vehicle_id: number, notes?: string) =>
+    client.post('/workflow/receive/confirm', { driver_id, vehicle_id, notes }),
+
+  // 5. Search & history
+  search:     (chassis: string) =>
+    client.get('/workflow/search', { params: { chassis } }),
+  getHistory: (vehicleId: number) =>
+    client.get(`/workflow/vehicles/${vehicleId}/history`),
 };

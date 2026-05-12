@@ -9,7 +9,7 @@ const Icon = {
   Manifest:  () => <svg className="w-[18px] h-[18px] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>,
   Vehicle:   () => <svg className="w-[18px] h-[18px] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="1" y="8" width="22" height="10" rx="2" strokeLinecap="round" strokeLinejoin="round"/><path strokeLinecap="round" strokeLinejoin="round" d="M5 8V6a2 2 0 012-2h10a2 2 0 012 2v2M7 18v2m10-2v2"/><circle cx="7" cy="17" r="1.5" fill="currentColor"/><circle cx="17" cy="17" r="1.5" fill="currentColor"/></svg>,
   Driver:    () => <svg className="w-[18px] h-[18px] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>,
-  Operation: () => <svg className="w-[18px] h-[18px] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>,
+  Operation: () => <svg className="w-[18px] h-[18px] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" /></svg>,
   Delivery:  () => <svg className="w-[18px] h-[18px] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" /></svg>,
   Users:     () => <svg className="w-[18px] h-[18px] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>,
   Lookups:   () => <svg className="w-[18px] h-[18px] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>,
@@ -23,24 +23,45 @@ type NavItem = { name: string; icon: React.ReactNode; path?: string; subItems?: 
 
 const TENANT_NAV: NavItem[] = [
   { name: "Dashboard", icon: <Icon.Dashboard />, path: "/" },
-  { name: "Vessels",   icon: <Icon.Vessel />,    subItems: [
-    { name: "All Vessels", path: "/vessels" },
-    { name: "Add Vessel",  path: "/vessels/new" },
-  ]},
-  { name: "Manifests", icon: <Icon.Manifest />,  subItems: [
-    { name: "All Manifests", path: "/manifests" },
-    { name: "New Manifest",  path: "/manifests/new" },
-  ]},
-  { name: "Vehicles",  icon: <Icon.Vehicle />,   subItems: [
-    { name: "All Vehicles", path: "/vehicles" },
-    { name: "Search",       path: "/vehicles/search" },
-  ]},
-  { name: "Drivers",   icon: <Icon.Driver />,    subItems: [
-    { name: "All Drivers", path: "/drivers" },
-    { name: "Add Driver",  path: "/drivers/new" },
-  ]},
-  { name: "Operations", icon: <Icon.Operation />, path: "/operations" },
-  { name: "Deliveries", icon: <Icon.Delivery />,  path: "/deliveries" },
+  {
+    name: "Vessels", icon: <Icon.Vessel />, subItems: [
+      { name: "All Vessels", path: "/vessels" },
+      { name: "Add Vessel",  path: "/vessels/new" },
+    ],
+  },
+  {
+    name: "Manifests", icon: <Icon.Manifest />, subItems: [
+      { name: "All Manifests", path: "/manifests" },
+      { name: "New Manifest",  path: "/manifests/new" },
+    ],
+  },
+  {
+    name: "Vehicles", icon: <Icon.Vehicle />, subItems: [
+      { name: "All Vehicles", path: "/vehicles" },
+      { name: "Search",       path: "/vehicles/search" },
+    ],
+  },
+  {
+    name: "Drivers", icon: <Icon.Driver />, subItems: [
+      { name: "All Drivers", path: "/drivers" },
+      { name: "Add Driver",  path: "/drivers/new" },
+    ],
+  },
+  // ── Operations (workflow) — replaces old Operations ─────────────────────────
+  {
+    name: "Operations", icon: <Icon.Operation />, subItems: [
+      { name: "1 · Discharge",    path: "/operations/discharge" },
+      { name: "2 · Batch",        path: "/operations/batch" },
+      { name: "3 · TPA Transfer", path: "/operations/transfer" },
+      { name: "4 · Yard Receive", path: "/operations/receive" },
+      { name: "Batches",          path: "/operations/batches" },
+      { name: "Chassis Search",   path: "/operations/search" },
+    ],
+  },
+  // ── Deliveries ───────────────────────────────────────────────────────────────
+  { name: "Deliveries", icon: <Icon.Delivery />, path: "/deliveries" },
+  // NOTE: Old /operations routes (general operation CRUD) are hidden here.
+  // They are still accessible via URL and preserved in the codebase for later use.
 ];
 
 const TENANT_BOTTOM_NAV: NavItem[] = [
@@ -54,7 +75,7 @@ const SUPER_ADMIN_NAV: NavItem[] = [
   { name: "ICDVs",        icon: <Icon.Icdv />,      path: "/super-admin/icdvs" },
   { name: "All Vessels",  icon: <Icon.Vessel />,    path: "/vessels" },
   { name: "All Vehicles", icon: <Icon.Vehicle />,   path: "/vehicles" },
-  { name: "Operations",   icon: <Icon.Operation />, path: "/operations" },
+  { name: "Operations",   icon: <Icon.Operation />, path: "/operations/search" },
   { name: "Deliveries",   icon: <Icon.Delivery />,  path: "/deliveries" },
 ];
 
@@ -134,19 +155,14 @@ export default function AppSidebar() {
     );
   };
 
-  // The top-left "brand" area.
-  // - Logo: always logo.png (real PNG that exists).
-  // - Title line: ICDV name for tenant users, "ICDV System" for super admin.
-  // - Subtitle: role context.
-  const topLabel    = isSuperAdmin ? "ICDV System"   : (icdvName ?? "ICDV System");
+  const topLabel    = isSuperAdmin ? "ICDV System"    : (icdvName ?? "ICDV System");
   const topSubLabel = isSuperAdmin ? "Platform Admin" : "Vehicle Import & Delivery";
 
   const sidebarContent = (
     <div className="flex flex-col h-full">
 
-      {/* ── Brand / Logo ───────────────────────────────────────────────── */}
+      {/* ── Brand / Logo ─────────────────────────────────────────────────── */}
       <div className={`flex items-center gap-3 px-4 py-5 border-b border-gray-200 dark:border-gray-700 ${expanded ? "justify-start" : "justify-center"}`}>
-        {/* logo.png is the real PNG file — use it directly */}
         <img
           src="/images/logo/logo.png"
           alt="Logo"
@@ -164,7 +180,7 @@ export default function AppSidebar() {
         )}
       </div>
 
-      {/* ── Super admin badge (expanded only) ─────────────────────────── */}
+      {/* ── Super admin badge ─────────────────────────────────────────────── */}
       {expanded && isSuperAdmin && (
         <div className="px-3 pt-2">
           <div className="px-3 py-1.5 rounded-lg bg-purple-50 dark:bg-purple-500/10 text-xs font-bold text-purple-600 dark:text-purple-400 text-center">
@@ -173,14 +189,14 @@ export default function AppSidebar() {
         </div>
       )}
 
-      {/* ── Main nav ───────────────────────────────────────────────────── */}
+      {/* ── Main nav ──────────────────────────────────────────────────────── */}
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         <ul className="space-y-0.5">
           {NAV.map(renderItem)}
         </ul>
       </nav>
 
-      {/* ── Bottom nav ─────────────────────────────────────────────────── */}
+      {/* ── Bottom nav ────────────────────────────────────────────────────── */}
       <div className="px-3 py-3 border-t border-gray-200 dark:border-gray-700">
         <ul className="space-y-0.5">
           {BOTTOM_NAV.map(renderItem)}

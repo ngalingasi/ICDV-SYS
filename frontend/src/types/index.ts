@@ -8,8 +8,8 @@ export interface User {
   gender?:              string;
   avatar?:              string | null;
   role:                 'admin' | 'supervisor' | 'operator' | 'super_admin';
-  icdv_id?:             number | null;   // null = super_admin (no tenant)
-  icdv_name?:           string | null;   // denormalised display name
+  icdv_id?:             number | null;
+  icdv_name?:           string | null;
   status:               'active' | 'inactive';
   must_change_password: number;
 }
@@ -94,6 +94,8 @@ export interface Manifest {
 // ── Vehicle ───────────────────────────────────────────────────────────────────
 export type ReleaseStatus     = 'unreleased' | 'released' | 'collected' | 'on_hold';
 export type OperationalStatus = 'pending' | 'in_operation' | 'ready' | 'delivered' | 'cancelled';
+export type WorkflowStatus    = 'manifested' | 'discharged' | 'batched' | 'in_transit' | 'received';
+export type VehicleLocation   = 'vessel' | 'holding_ground' | 'tpa_gate' | 'tpa_gate_to_yard' | 'icdv_yard';
 
 export interface Vehicle {
   vehicle_id:          number;
@@ -113,6 +115,9 @@ export interface Vehicle {
   bill_of_lading_no?:  string | null;
   release_status:      ReleaseStatus;
   operational_status:  OperationalStatus;
+  workflow_status:     WorkflowStatus;
+  current_location:    VehicleLocation;
+  batch_id?:           number | null;
   notes?:              string | null;
   created_by_name?:    string;
   created_at?:         string;
@@ -137,7 +142,7 @@ export interface Driver {
   created_at?:       string;
 }
 
-// ── Operation ─────────────────────────────────────────────────────────────────
+// ── Operation (old — kept for future use) ─────────────────────────────────────
 export type OperationStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
 
 export interface Operation {
@@ -190,21 +195,27 @@ export interface Delivery {
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 export interface DashboardStats {
+  // Totals
   total_vessels:       number;
   total_manifests:     number;
   total_vehicles:      number;
   released_vehicles:   number;
   delivered_vehicles:  number;
-  pending_operations:  number;
-  active_operations:   number;
   unreleased_vehicles: number;
+  // Workflow step counts
+  manifested_count:    number;
+  discharged_count:    number;
+  batched_count:       number;
+  in_transit_count:    number;
+  received_count:      number;
+  open_batches:        number;
 }
 
 export interface DashboardData {
   stats:              DashboardStats;
   recent_vessels:     Vessel[];
-  vehicles_by_status: any[];
-  operations_by_type: any[];
+  workflow_by_status: { workflow_status: string; count: number }[];
+  // operations_by_type removed from dashboard (kept in operations module)
 }
 
 // ── User Record ───────────────────────────────────────────────────────────────
