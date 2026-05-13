@@ -9,8 +9,9 @@ import {
 type Step = 'search' | 'confirm' | 'done';
 
 const WarningIcon = () => (
-  <svg className="w-4 h-4 inline-block mr-1 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+  <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round"
+      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
   </svg>
 );
 
@@ -52,58 +53,88 @@ export default function DischargePage() {
   };
 
   return (
-    <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-5">
+    /*
+     * Container: no extra horizontal padding — AppLayout already applies
+     * px-4 md:px-6. max-w-2xl keeps it readable on desktop without stretching.
+     * Removed the p-4/p-6 that was doubling padding on mobile.
+     */
+    <div className="max-w-2xl mx-auto space-y-4 sm:space-y-5">
+
+      {/* Page header */}
       <div>
-        <h1 className="text-xl font-bold text-gray-800 dark:text-white">Discharge Process</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+        <h1 className="text-lg sm:text-xl font-bold text-gray-800 dark:text-white">
+          Discharge Process
+        </h1>
+        <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5">
           Move vehicle from vessel to Holding Ground
         </p>
       </div>
 
+      {/* Workflow stepper — only when vehicle is loaded */}
       {vehicle && <WorkflowProgress status={vehicle.workflow_status} />}
 
+      {/* ── Step 1: Search ─────────────────────────────────────────────── */}
       {step === 'search' && (
         <Section title="Step 1 — Search Vehicle">
           <ChassisInput
-            value={chassis} onChange={setChassis}
-            onSearch={handleSearch} loading={loading}
+            value={chassis}
+            onChange={setChassis}
+            onSearch={handleSearch}
+            loading={loading}
           />
           {error && <ErrorAlert message={error} />}
-          <p className="text-xs text-gray-400">Enter the last 4 digits of the chassis number</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500">
+            Enter the last 4 or more digits of the chassis number, then press Search or Enter.
+          </p>
         </Section>
       )}
 
+      {/* ── Step 2 + 3: Confirm + Notes ────────────────────────────────── */}
       {step === 'confirm' && vehicle && (
         <>
           <Section title="Step 2 — Confirm Vehicle">
             <VehicleCard v={vehicle} />
-            <p className="text-xs text-amber-600 dark:text-amber-400 font-medium flex items-center">
-              <WarningIcon />
-              Confirm this is the correct vehicle before discharging
-            </p>
+
+            {/* Warning — flex row so icon stays left of text even when text wraps */}
+            <div className="flex items-start gap-2 rounded-lg bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 px-3 py-2.5">
+              <span className="text-amber-500 dark:text-amber-400 mt-0.5 flex-shrink-0">
+                <WarningIcon />
+              </span>
+              <p className="text-xs sm:text-sm text-amber-700 dark:text-amber-400 font-medium">
+                Confirm this is the correct vehicle before discharging.
+              </p>
+            </div>
           </Section>
 
           <Section title="Step 3 — Notes &amp; Confirm">
             <NotesInput value={notes} onChange={setNotes} />
             {error && <ErrorAlert message={error} />}
-            <div className="flex gap-3 pt-1">
+
+            {/*
+             * Buttons: stacked (column-reverse) on mobile so the primary
+             * action stays on top, then side-by-side on sm+.
+             */}
+            <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 pt-1">
               <button
                 onClick={reset}
-                className="flex-1 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
+                className="flex-1 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
               >
                 Cancel
               </button>
-              <ConfirmButton
-                label="Confirm Discharge to Holding Ground"
-                onClick={handleConfirm}
-                loading={loading}
-                variant="warning"
-              />
+              <div className="flex-1 sm:flex-[2]">
+                <ConfirmButton
+                  label="Confirm Discharge → Holding Ground"
+                  onClick={handleConfirm}
+                  loading={loading}
+                  variant="warning"
+                />
+              </div>
             </div>
           </Section>
         </>
       )}
 
+      {/* ── Done ───────────────────────────────────────────────────────── */}
       {step === 'done' && (
         <SuccessBanner
           message={`Vehicle ${vehicle?.chassis_number} successfully discharged to Holding Ground`}

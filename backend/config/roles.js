@@ -14,6 +14,7 @@ const allRoles = {
     'getOperations',
     'updateOperations',
     'getDeliveries',
+    'manageVehicles'
   ],
   supervisor: [
     'getVessels',    'manageVessels',
