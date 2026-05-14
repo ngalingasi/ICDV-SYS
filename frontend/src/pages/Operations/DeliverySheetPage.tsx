@@ -1,19 +1,17 @@
 /**
  * DeliverySheetPage.tsx
  *
- * Printable delivery sheet — two modes:
+ * Two modes — same data flow, unchanged:
+ *   BATCH mode    /operations/batches/:batchId/delivery-sheet
+ *   MANIFEST mode /manifests/:manifestId/delivery-sheet
  *
- *  BATCH mode    /operations/batches/:batchId/delivery-sheet
- *    Single batch: batch-level header + one driver/chassis table.
+ * Print strategy:
+ *   Screen  → plain white card, all batches stacked, no colours, no padding noise
+ *   Print   → iframe injection: each batch is an isolated <table> page with its
+ *             own @page rule — zero bleed from screen styles
  *
- *  MANIFEST mode /manifests/:manifestId/delivery-sheet
- *    Full manifest: manifest-level cover header + one batch section
- *    per batch (each with its own sub-header + driver/chassis table).
- *    Batches remain visually separated — NOT merged into one flat table.
- *
- * Query params:
- *   ?printed_by=Name   shown in header
- *   ?print=1           auto-triggers window.print() after load
+ * ?printed_by=Name   shown in header
+ * ?print=1           auto-print on load
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -42,7 +40,7 @@ interface BatchSection {
 }
 
 interface SingleBatchData {
-  batch:        BatchSection & { vessel_name: string; icdv_name: string; icdv_code?: string };
+  batch:        BatchSection & { vessel_name: string; icdv_name: string };
   drivers:      DriverRow[];
   max_vehicles: number;
 }
@@ -55,171 +53,385 @@ interface ManifestData {
     status:          string;
     vessel_name:     string;
     icdv_name:       string;
-    icdv_code?:      string;
     total_vehicles:  number;
     total_batches:   number;
   };
   batches: BatchSection[];
 }
 
-// ─── Shared: driver/chassis table ────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function DriverTable({ drivers }: { drivers: DriverRow[] }) {
-  if (drivers.length === 0) {
-    return <p className="no-records">No transfer records found for this batch.</p>;
+const fmtDate = (d?: string) =>
+  d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+
+// ─── Print via iframe (clean, isolated from screen CSS) ───────────────────────
+
+function buildPrintHTML(
+  batches: Array<BatchSection & { vessel_name?: string; icdv_name?: string }>,
+  meta: { icdv_name: string; vessel_name: string; manifest_number: string; printed_by: string; print_date: string; },
+): string {
+  const batchPages = batches.map((batch, idx) => {
+    const rows = batch.drivers.length === 0
+      ? `<tr><td colspan="7" style="text-align:center;padding:16px;color:#888;">No transfer records for this batch.</td></tr>`
+      : batch.drivers.map((d, i) => `
+          <tr style="background:${i % 2 === 0 ? '#fff' : '#f9f9f9'}">
+            <td style="text-align:center">${i + 1}</td>
+            <td>${d.id_number || '—'}</td>
+            <td>${d.license_number || '—'}</td>
+            <td><strong>${d.full_name}</strong></td>
+            <td>${d.phone || '—'}</td>
+            <td style="font-size:8pt">${d.chassis_numbers.join(' · ') || '—'}</td>
+            <td style="text-align:center"><strong>${d.chassis_numbers.length}</strong></td>
+          </tr>`).join('');
+
+    return `
+      <div class="page">
+        <!-- Header -->
+        <table class="header-table">
+          <tr>
+            <td style="width:33%">
+              <strong>${meta.icdv_name}</strong><br>
+              <span style="font-size:8pt;color:#555">Vehicle Delivery Sheet</span>
+            </td>
+            <td style="width:34%;text-align:center">
+              <div style="font-size:14pt;font-weight:900;letter-spacing:1px">DELIVERY SHEET</div>
+              <div style="font-size:8pt;color:#555">Batch ${idx + 1} of ${batches.length}</div>
+            </td>
+            <td style="width:33%;text-align:right;font-size:8pt;color:#555">
+              Manifest: <strong>${meta.manifest_number}</strong><br>
+              Printed: ${meta.print_date}<br>
+              By: ${meta.printed_by}
+            </td>
+          </tr>
+        </table>
+
+        <!-- Batch info row -->
+        <table class="info-table">
+          <tr>
+            <td><span class="lbl">Batch</span><br><strong>${batch.batch_number}</strong></td>
+            <td><span class="lbl">Vessel</span><br>${meta.vessel_name}</td>
+            <td><span class="lbl">ICDV</span><br>${meta.icdv_name}</td>
+            <td><span class="lbl">Date</span><br>${fmtDate(batch.batch_date)}</td>
+            <td><span class="lbl">Vehicles</span><br><strong>${batch.vehicle_count}</strong></td>
+            <td><span class="lbl">Drivers</span><br><strong>${batch.drivers.length}</strong></td>
+            <td><span class="lbl">Status</span><br>${(batch.status || '').toUpperCase()}</td>
+          </tr>
+        </table>
+
+        <!-- Driver table -->
+        <table class="driver-table">
+          <thead>
+            <tr>
+              <th style="width:30px">No.</th>
+              <th style="width:95px">Driver ID</th>
+              <th style="width:95px">License No.</th>
+              <th style="width:150px">Driver Name</th>
+              <th style="width:95px">Mobile</th>
+              <th>Chassis Numbers</th>
+              <th style="width:44px">Total</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+
+        <!-- Signature -->
+        <table class="sig-table">
+          <tr>
+            <td>
+              <div class="sig-line"></div>
+              <div class="sig-lbl">Prepared By</div>
+              <div class="sig-role">Logistics Officer</div>
+            </td>
+            <td>
+              <div class="sig-line"></div>
+              <div class="sig-lbl">Checked By</div>
+              <div class="sig-role">Supervisor</div>
+            </td>
+            <td>
+              <div class="sig-line"></div>
+              <div class="sig-lbl">Received By</div>
+              <div class="sig-role">Authorised Personnel</div>
+            </td>
+          </tr>
+        </table>
+
+        <!-- Footer -->
+        <div class="footer">
+          <span>${meta.icdv_name} — ${meta.manifest_number}</span>
+          <span>Page ${idx + 1} of ${batches.length}</span>
+          <span>CONFIDENTIAL</span>
+        </div>
+      </div>`;
+  }).join('');
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Delivery Sheet</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 9.5pt;
+    color: #000;
+    background: #fff;
   }
 
-  return (
-    <table className="delivery-table">
-      <thead>
-        <tr>
-          <th className="col-id">ID Number</th>
-          <th className="col-license">License No.</th>
-          <th className="col-name">Driver Name</th>
-          <th className="col-phone">Mobile Number</th>
-          <th className="col-chassis">Chassis Numbers</th>
-          <th className="col-total">Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        {drivers.map((driver, rowIdx) => (
-          <tr key={driver.driver_id} className={rowIdx % 2 === 0 ? 'row-even' : 'row-odd'}>
-            <td className="col-id mono">{driver.id_number || '—'}</td>
-            <td className="col-license mono">{driver.license_number || '—'}</td>
-            <td className="col-name">{driver.full_name}</td>
-            <td className="col-phone mono">{driver.phone || '—'}</td>
-            <td className="col-chassis mono">{driver.chassis_numbers.join(', ') || '—'}</td>
-            <td className="col-total">{driver.chassis_numbers.length}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
+  /* Each page = one batch */
+  .page {
+    width: 100%;
+    page-break-after: always;
+    page-break-inside: avoid;
+  }
+  .page:last-child { page-break-after: avoid; }
+
+  /* Header bar */
+  .header-table {
+    width: 100%;
+    border-collapse: collapse;
+    border-bottom: 2px solid #000;
+    padding-bottom: 6px;
+    margin-bottom: 6px;
+  }
+  .header-table td { padding: 4px 6px; vertical-align: middle; }
+
+  /* Info row */
+  .info-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid #ccc;
+    margin-bottom: 6px;
+    background: #f5f5f5;
+  }
+  .info-table td {
+    padding: 5px 10px;
+    border-right: 1px solid #ccc;
+    font-size: 9pt;
+    vertical-align: top;
+  }
+  .info-table td:last-child { border-right: none; }
+  .lbl { font-size: 7pt; text-transform: uppercase; color: #666; letter-spacing: 0.5px; display: block; }
+
+  /* Driver table */
+  .driver-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid #999;
+    margin-bottom: 10px;
+    table-layout: fixed;
+  }
+  .driver-table thead tr {
+    background: #333;
+    color: #fff;
+  }
+  .driver-table th {
+    padding: 6px 7px;
+    text-align: left;
+    font-size: 7.5pt;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-right: 1px solid #555;
+    font-weight: 700;
+  }
+  .driver-table th:last-child { border-right: none; }
+  .driver-table td {
+    padding: 5px 7px;
+    font-size: 8.5pt;
+    border-bottom: 1px solid #ddd;
+    border-right: 1px solid #ddd;
+    vertical-align: top;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+  .driver-table td:last-child { border-right: none; }
+  .driver-table tbody tr:last-child td { border-bottom: none; }
+
+  /* Signature */
+  .sig-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid #ccc;
+    margin-bottom: 6px;
+  }
+  .sig-table td {
+    width: 33.33%;
+    padding: 8px 14px 6px;
+    border-right: 1px solid #ccc;
+    vertical-align: top;
+  }
+  .sig-table td:last-child { border-right: none; }
+  .sig-line {
+    border-bottom: 1px solid #000;
+    height: 30px;
+    margin-bottom: 4px;
+  }
+  .sig-lbl  { font-size: 8pt; font-weight: 700; text-transform: uppercase; }
+  .sig-role { font-size: 7.5pt; color: #666; margin-top: 1px; }
+
+  /* Footer */
+  .footer {
+    display: flex;
+    justify-content: space-between;
+    font-size: 7.5pt;
+    color: #666;
+    border-top: 1px solid #ccc;
+    padding-top: 4px;
+  }
+
+  @page {
+    size: A4 landscape;
+    margin: 10mm 12mm;
+  }
+  @media print {
+    body { background: #fff; }
+    .page { page-break-after: always; }
+    .page:last-child { page-break-after: avoid; }
+    .driver-table thead { display: table-header-group; }
+  }
+</style>
+</head>
+<body>
+${batchPages}
+</body>
+</html>`;
 }
 
-// ─── Shared: signature footer ─────────────────────────────────────────────────
+function printViaIframe(html: string) {
+  // Remove any previous iframe
+  const old = document.getElementById('ds-print-frame');
+  if (old) old.remove();
 
-function SignatureFooter() {
-  return (
-    <div className="sheet-footer">
-      {['Prepared By', 'Verified By', 'Authorised By'].map(label => (
-        <div key={label} className="signature-block">
-          <div className="signature-line" />
-          <p>{label}</p>
-        </div>
-      ))}
-    </div>
-  );
+  const iframe = document.createElement('iframe');
+  iframe.id = 'ds-print-frame';
+  iframe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;border:none;visibility:hidden;';
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentDocument!;
+  doc.open();
+  doc.write(html);
+  doc.close();
+
+  // Wait for images/fonts then print
+  iframe.onload = () => {
+    setTimeout(() => {
+      iframe.contentWindow!.focus();
+      iframe.contentWindow!.print();
+    }, 300);
+  };
 }
 
-// ─── BATCH MODE ───────────────────────────────────────────────────────────────
+// ─── Screen preview: plain table per batch ────────────────────────────────────
 
-function BatchModeSheet({ data, generatedDate, printedBy }: {
-  data: SingleBatchData; generatedDate: string; printedBy: string;
+function ScreenBatchTable({ batch, index, total, icdvName, vesselName }: {
+  batch: BatchSection; index: number; total: number;
+  icdvName: string; vesselName: string;
 }) {
-  const { batch, drivers, max_vehicles } = data;
   return (
-    <div className="delivery-sheet-section">
-      <div className="sheet-header">
-        <div className="sheet-header-top">
-          <h1 className="sheet-title">VEHICLE DELIVERY SHEET</h1>
-          <div className="sheet-logo-placeholder">ICDV</div>
+    <div style={{ marginBottom: 32, border: '1px solid #e2e8f0', borderRadius: 8, overflow: 'hidden' }}>
+      {/* Batch header */}
+      <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <span style={{ fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 1, marginRight: 10 }}>
+            Batch {index + 1} of {total}
+          </span>
+          <span style={{ fontSize: 14, fontWeight: 700, fontFamily: 'monospace' }}>{batch.batch_number}</span>
         </div>
-        <div className="sheet-meta-grid">
-          {([
-            ['ICDV Name',      batch.icdv_name  || '—', false],
-            ['Batch Number',   batch.batch_number,       true],
-            ['Vessel Name',    batch.vessel_name || '—', false],
-            ['Batch Date',     batch.batch_date  || '—', false],
-            ['Generated',      generatedDate,             false],
-            ['Printed By',     printedBy        || '—', false],
-            ['Total Vehicles', String(batch.vehicle_count), false],
-            ['Status',         (batch.status || '').toUpperCase(), false],
-          ] as [string, string, boolean][]).map(([label, value, mono]) => (
-            <div key={label} className="sheet-meta-item">
-              <span className="meta-label">{label}</span>
-              <span className={`meta-value${mono ? ' mono' : ''}`}>{value}</span>
-            </div>
-          ))}
+        <div style={{ display: 'flex', gap: 16, fontSize: 12, color: '#64748b' }}>
+          <span>{batch.vehicle_count} vehicles</span>
+          <span>{batch.drivers.length} drivers</span>
+          <span style={{ textTransform: 'uppercase', fontWeight: 600 }}>{batch.status}</span>
         </div>
       </div>
-      <DriverTable drivers={drivers} />
-      <SignatureFooter />
+
+      {/* Table */}
+      {batch.drivers.length === 0 ? (
+        <div style={{ padding: '20px', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
+          No transfer records for this batch yet.
+        </div>
+      ) : (
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #e2e8f0' }}>
+                {['No.', 'Driver ID', 'License No.', 'Driver Name', 'Mobile', 'Chassis Numbers', 'Total'].map(h => (
+                  <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#64748b', letterSpacing: 0.5, whiteSpace: 'nowrap' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {batch.drivers.map((d, i) => (
+                <tr key={d.driver_id} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc', borderBottom: '1px solid #f1f5f9' }}>
+                  <td style={{ padding: '7px 12px', color: '#94a3b8', textAlign: 'center', width: 40 }}>{i + 1}</td>
+                  <td style={{ padding: '7px 12px', fontFamily: 'monospace', fontSize: 12 }}>{d.id_number || '—'}</td>
+                  <td style={{ padding: '7px 12px', fontFamily: 'monospace', fontSize: 12 }}>{d.license_number || '—'}</td>
+                  <td style={{ padding: '7px 12px', fontWeight: 600 }}>{d.full_name}</td>
+                  <td style={{ padding: '7px 12px', fontFamily: 'monospace', fontSize: 12 }}>{d.phone || '—'}</td>
+                  <td style={{ padding: '7px 12px', fontFamily: 'monospace', fontSize: 11, color: '#334155' }}>{d.chassis_numbers.join('  ·  ') || '—'}</td>
+                  <td style={{ padding: '7px 12px', textAlign: 'center', fontWeight: 700, color: '#0f172a' }}>{d.chassis_numbers.length}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
 
-// ─── MANIFEST MODE ────────────────────────────────────────────────────────────
+// ─── BATCH MODE (screen) ──────────────────────────────────────────────────────
 
-function ManifestModeSheet({ data, generatedDate, printedBy }: {
-  data: ManifestData; generatedDate: string; printedBy: string;
-}) {
+function BatchModeScreen({ data }: { data: SingleBatchData }) {
+  const { batch, drivers } = data;
+  return (
+    <ScreenBatchTable
+      batch={{ ...batch, drivers }}
+      index={0} total={1}
+      icdvName={batch.icdv_name || 'ICDV'}
+      vesselName={batch.vessel_name || '—'}
+    />
+  );
+}
+
+// ─── MANIFEST MODE (screen) ───────────────────────────────────────────────────
+
+function ManifestModeScreen({ data }: { data: ManifestData }) {
   const { manifest, batches } = data;
-  const fmtDate = (d?: string) =>
-    d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-
   return (
     <>
-      {/* ── Manifest cover ──────────────────────────────────────────────────── */}
-      <div className="manifest-cover">
-        <div className="sheet-header-top">
-          <h1 className="sheet-title">VEHICLE DELIVERY SHEET</h1>
-          <div className="sheet-logo-placeholder">ICDV</div>
-        </div>
-        <div className="manifest-banner">
-          <span className="manifest-label">MANIFEST</span>
-          <span className="manifest-number mono">{manifest.manifest_number}</span>
-        </div>
-        <div className="sheet-meta-grid">
-          {([
-            ['ICDV Name',      manifest.icdv_name  || '—',              false],
-            ['Manifest No.',   manifest.manifest_number,                 true],
-            ['Vessel Name',    manifest.vessel_name || '—',              false],
-            ['Arrival Date',   fmtDate(manifest.arrival_date),           false],
-            ['Generated',      generatedDate,                            false],
-            ['Printed By',     printedBy || '—',                        false],
-            ['Total Vehicles', String(manifest.total_vehicles ?? '—'),  false],
-            ['Total Batches',  String(manifest.total_batches),           false],
-          ] as [string, string, boolean][]).map(([label, value, mono]) => (
-            <div key={label} className="sheet-meta-item">
-              <span className="meta-label">{label}</span>
-              <span className={`meta-value${mono ? ' mono' : ''}`}>{value}</span>
-            </div>
-          ))}
-        </div>
+      {/* Manifest summary */}
+      <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '14px 20px', marginBottom: 24, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
+        {[
+          ['Manifest',  manifest.manifest_number],
+          ['Vessel',    manifest.vessel_name || '—'],
+          ['ICDV',      manifest.icdv_name   || '—'],
+          ['Arrival',   fmtDate(manifest.arrival_date)],
+          ['Vehicles',  String(manifest.total_vehicles ?? '—')],
+          ['Batches',   String(manifest.total_batches)],
+        ].map(([label, value]) => (
+          <div key={label}>
+            <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: '#94a3b8', letterSpacing: 0.5, marginBottom: 2 }}>{label}</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', fontFamily: label === 'Manifest' ? 'monospace' : 'inherit' }}>{value}</div>
+          </div>
+        ))}
       </div>
 
-      {/* ── Batch sections ──────────────────────────────────────────────────── */}
       {batches.length === 0 ? (
-        <div style={{ padding: '24px', textAlign: 'center', color: '#888', fontSize: '12px' }}>
+        <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8', fontSize: 14 }}>
           No batch transfer records found for this manifest yet.
         </div>
       ) : (
         batches.map((batch, idx) => (
-          <div key={batch.batch_id} className="batch-section">
-
-            {/* Batch sub-header */}
-            <div className="batch-header">
-              <div className="batch-header-left">
-                <span className="batch-seq">Batch {idx + 1} of {batches.length}</span>
-                <span className="batch-number mono">{batch.batch_number}</span>
-              </div>
-              <div className="batch-header-right">
-                <span className="batch-stat">{batch.vehicle_count} vehicle{batch.vehicle_count !== 1 ? 's' : ''}</span>
-                <span className={`batch-status-badge status-${batch.status}`}>
-                  {(batch.status || '').toUpperCase()}
-                </span>
-              </div>
-            </div>
-
-            <DriverTable drivers={batch.drivers} />
-
-            {idx < batches.length - 1 && <div className="batch-divider" />}
-          </div>
+          <ScreenBatchTable
+            key={batch.batch_id}
+            batch={batch}
+            index={idx}
+            total={batches.length}
+            icdvName={manifest.icdv_name || 'ICDV'}
+            vesselName={manifest.vessel_name || '—'}
+          />
         ))
       )}
-
-      <SignatureFooter />
     </>
   );
 }
@@ -235,10 +447,9 @@ export default function DeliverySheetPage() {
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState('');
 
-  const printedBy     = sp.get('printed_by') || 'Operator';
-  const generatedDate = new Date().toLocaleString('en-GB', {
-    day: '2-digit', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
+  const printedBy   = sp.get('printed_by') || 'Operator';
+  const printDate   = new Date().toLocaleString('en-GB', {
+    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
   });
 
   const isManifestMode = Boolean(manifestId);
@@ -255,217 +466,92 @@ export default function DeliverySheetPage() {
         }
       } catch (e: any) {
         setError(e?.response?.data?.message ?? 'Failed to load delivery sheet');
-      } finally {
-        setLoading(false);
-      }
+      } finally { setLoading(false); }
     })();
   }, [batchId, manifestId]);
 
+  // Build print batches list from whichever mode
+  const handlePrint = () => {
+    let batches: Array<BatchSection & { vessel_name?: string; icdv_name?: string }> = [];
+    let meta = { icdv_name: 'ICDV', vessel_name: '—', manifest_number: '—', printed_by: printedBy, print_date: printDate };
+
+    if (manifestData) {
+      batches = manifestData.batches;
+      meta = {
+        icdv_name:       manifestData.manifest.icdv_name   || 'ICDV',
+        vessel_name:     manifestData.manifest.vessel_name || '—',
+        manifest_number: manifestData.manifest.manifest_number,
+        printed_by:      printedBy,
+        print_date:      printDate,
+      };
+    } else if (batchData) {
+      batches = [{ ...batchData.batch, drivers: batchData.drivers, max_vehicles: batchData.max_vehicles }];
+      meta = {
+        icdv_name:       batchData.batch.icdv_name   || 'ICDV',
+        vessel_name:     batchData.batch.vessel_name || '—',
+        manifest_number: batchData.batch.batch_number,
+        printed_by:      printedBy,
+        print_date:      printDate,
+      };
+    }
+
+    if (!batches.length) return;
+    printViaIframe(buildPrintHTML(batches, meta));
+  };
+
+  // Auto-print
   const didPrint = useRef(false);
   const hasData  = Boolean(batchData || manifestData);
   useEffect(() => {
     if (!loading && !error && hasData && sp.get('print') === '1' && !didPrint.current) {
       didPrint.current = true;
-      setTimeout(() => window.print(), 400);
+      setTimeout(handlePrint, 500);
     }
-  }, [loading, error, hasData, sp]);
+  }, [loading, error, hasData]); // eslint-disable-line
 
-  const toolbarTitle = isManifestMode ? 'Manifest Delivery Sheet' : 'Batch Delivery Sheet';
   const toolbarSub = isManifestMode && manifestData
-    ? `${manifestData.manifest.icdv_name} · ${manifestData.manifest.vessel_name} · ${manifestData.manifest.manifest_number} · ${manifestData.manifest.total_batches} batch${manifestData.manifest.total_batches !== 1 ? 'es' : ''}`
+    ? `${manifestData.manifest.icdv_name}  ·  ${manifestData.manifest.vessel_name}  ·  ${manifestData.manifest.manifest_number}  ·  ${manifestData.manifest.total_batches} batch${manifestData.manifest.total_batches !== 1 ? 'es' : ''}`
     : batchData
-    ? `${batchData.batch.icdv_name} · ${batchData.batch.vessel_name} · ${batchData.batch.batch_number}`
+    ? `${batchData.batch.icdv_name}  ·  ${batchData.batch.vessel_name}  ·  ${batchData.batch.batch_number}`
     : '';
 
   if (loading) return (
-    <div className="sheet-loading">
-      <div className="loading-spinner" />
-      <p>Generating delivery sheet…</p>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 200, gap: 14, color: '#64748b', fontSize: 13 }}>
+      <div style={{ width: 32, height: 32, border: '3px solid #e2e8f0', borderTopColor: '#0f172a', borderRadius: '50%', animation: 'spin .7s linear infinite' }} />
+      Generating delivery sheet…
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
-  if (error) return <div className="sheet-error">⚠ {error}</div>;
+
+  if (error) return (
+    <div style={{ margin: 20, padding: 16, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, color: '#dc2626', fontSize: 13 }}>
+      ⚠ {error}
+    </div>
+  );
 
   return (
-    <>
-      <div className="print-toolbar no-print">
-        <div className="toolbar-info">
-          <span className="toolbar-title">{toolbarTitle}</span>
-          {toolbarSub && <span className="toolbar-sub">{toolbarSub}</span>}
+    <div style={{ fontFamily: 'Arial, sans-serif' }}>
+      {/* Toolbar */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#0f172a', color: '#fff', padding: '11px 20px', borderRadius: 8, marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span style={{ fontWeight: 700, fontSize: 14 }}>
+            {isManifestMode ? 'Manifest Delivery Sheet' : 'Batch Delivery Sheet'}
+          </span>
+          {toolbarSub && <span style={{ fontSize: 11, opacity: .65 }}>{toolbarSub}</span>}
         </div>
-        <button className="print-button" onClick={() => window.print()}>
+        <button
+          onClick={handlePrint}
+          style={{ background: '#fff', color: '#0f172a', border: 'none', padding: '9px 20px', borderRadius: 6, fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}
+        >
           🖨 Print / Save PDF
         </button>
       </div>
 
-      <div className="delivery-sheet-root">
-        {isManifestMode && manifestData && (
-          <ManifestModeSheet data={manifestData} generatedDate={generatedDate} printedBy={printedBy} />
-        )}
-        {!isManifestMode && batchData && (
-          <BatchModeSheet data={batchData} generatedDate={generatedDate} printedBy={printedBy} />
-        )}
+      {/* Screen content */}
+      <div style={{ maxWidth: 1060, margin: '0 auto' }}>
+        {isManifestMode && manifestData && <ManifestModeScreen data={manifestData} />}
+        {!isManifestMode && batchData    && <BatchModeScreen   data={batchData}    />}
       </div>
-
-      <style>{`
-        .delivery-sheet-root {
-          background:#fff; font-family:Arial,sans-serif; font-size:11px;
-          color:#000; max-width:1280px; margin:0 auto; padding:8px;
-        }
-
-        /* ── Manifest cover ───────────────────────────── */
-        .manifest-cover { margin-bottom:0; }
-        .manifest-banner {
-          display:flex; align-items:center; gap:12px;
-          background:#0f2d52; color:#fff; padding:8px 14px;
-          border-left:4px solid #f59e0b;
-        }
-        .manifest-label { font-size:9px; font-weight:700; letter-spacing:2px; opacity:.7; text-transform:uppercase; }
-        .manifest-number { font-size:16px; font-weight:900; letter-spacing:1px; }
-
-        /* ── Batch section ────────────────────────────── */
-        .batch-section { margin-top:0; }
-        .batch-header {
-          display:flex; align-items:center; justify-content:space-between;
-          background:#e8f0fe; border:1px solid #1a3a5c; border-top:3px solid #1a3a5c;
-          padding:6px 12px; margin-top:18px;
-          -webkit-print-color-adjust:exact; print-color-adjust:exact;
-        }
-        .batch-header-left  { display:flex; align-items:center; gap:12px; }
-        .batch-header-right { display:flex; align-items:center; gap:10px; }
-        .batch-seq    { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#555; }
-        .batch-number { font-size:13px; font-weight:900; color:#1a3a5c; }
-        .batch-stat   { font-size:10px; color:#666; font-weight:600; }
-        .batch-status-badge {
-          font-size:8px; font-weight:700; letter-spacing:.5px;
-          padding:2px 7px; border-radius:9999px; text-transform:uppercase;
-          -webkit-print-color-adjust:exact; print-color-adjust:exact;
-        }
-        .status-open        { background:#dbeafe; color:#1d4ed8; }
-        .status-full        { background:#ffedd5; color:#c2410c; }
-        .status-closed      { background:#f3f4f6; color:#374151; }
-        .status-transferred { background:#dcfce7; color:#15803d; }
-        .batch-divider { border-top:2px dashed #cbd5e1; margin:20px 0; }
-
-        /* ── Shared header ────────────────────────────── */
-        .sheet-header { border:2px solid #1a1a1a; margin-bottom:0; }
-        .sheet-header-top {
-          display:flex; justify-content:space-between; align-items:center;
-          padding:10px 14px; border-bottom:1px solid #1a1a1a;
-          background:#1a3a5c; color:#fff;
-          -webkit-print-color-adjust:exact; print-color-adjust:exact;
-        }
-        .sheet-title { font-size:15px; font-weight:700; letter-spacing:1px; margin:0; }
-        .sheet-logo-placeholder { font-size:18px; font-weight:900; letter-spacing:2px; }
-        .sheet-meta-grid { display:grid; grid-template-columns:repeat(4,1fr); }
-        .sheet-meta-item {
-          padding:6px 12px; border-right:1px solid #ccc; border-bottom:1px solid #ccc;
-          display:flex; flex-direction:column; gap:1px;
-        }
-        .sheet-meta-item:nth-child(4n) { border-right:none; }
-        .meta-label { font-size:8px; font-weight:700; text-transform:uppercase; color:#666; letter-spacing:.5px; }
-        .meta-value { font-size:11px; font-weight:600; color:#111; }
-        .meta-value.mono,.mono { font-family:'Courier New',monospace; }
-
-        /* ── Driver table ─────────────────────────────── */
-        .delivery-table {
-          width:100%; border-collapse:collapse;
-          border:2px solid #1a1a1a; border-top:none; table-layout:auto;
-        }
-        .delivery-table thead tr {
-          background:#1a3a5c; color:#fff;
-          -webkit-print-color-adjust:exact; print-color-adjust:exact;
-        }
-        .delivery-table th {
-          padding:7px 8px; text-align:left; font-size:9px; font-weight:700;
-          text-transform:uppercase; letter-spacing:.5px;
-          border-right:1px solid rgba(255,255,255,.25); white-space:nowrap;
-        }
-        .delivery-table th:last-child { border-right:none; }
-        .delivery-table td {
-          padding:6px 8px; border-bottom:1px solid #ddd; border-right:1px solid #ddd;
-          vertical-align:middle; font-size:10.5px;
-        }
-        .delivery-table td:last-child { border-right:none; }
-        .row-even { background:#fff; }
-        .row-odd  { background:#f5f8fc; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-        .col-id      { width:100px; min-width:90px; }
-        .col-license { width:110px; min-width:100px; }
-        .col-name    { width:160px; min-width:140px; font-weight:600; }
-        .col-phone   { width:110px; min-width:100px; }
-        .col-chassis {
-          font-family:'Courier New',monospace; font-size:10px;
-          letter-spacing:.2px; word-break:break-all; color:#111;
-        }
-        /* chassis header cell must be white like other headers */
-        .delivery-table thead .col-chassis { color:#fff; }
-        .col-total {
-          width:52px; min-width:48px; text-align:center;
-          font-weight:700; font-size:11px; color:#1a3a5c;
-        }
-
-        /* ── Footer ───────────────────────────────────── */
-        .sheet-footer {
-          display:flex; justify-content:space-around;
-          padding:18px 20px 10px; border:2px solid #1a1a1a; border-top:1px solid #ccc; gap:20px;
-        }
-        .signature-block { flex:1; text-align:center; }
-        .signature-line  { border-bottom:1px solid #333; margin-bottom:6px; height:32px; }
-        .signature-block p { font-size:9px; text-transform:uppercase; color:#555; letter-spacing:.5px; margin:0; }
-
-        /* ── Misc ─────────────────────────────────────── */
-        .no-records { padding:16px 12px; font-size:11px; color:#888; border:2px solid #1a1a1a; border-top:none; }
-        .delivery-sheet-section { margin-bottom:40px; }
-
-        /* ── Screen toolbar ───────────────────────────── */
-        .print-toolbar {
-          display:flex; align-items:center; justify-content:space-between;
-          background:#1a3a5c; color:#fff; padding:10px 20px;
-          margin-bottom:16px; border-radius:8px; gap:12px; flex-wrap:wrap;
-        }
-        .toolbar-info  { display:flex; flex-direction:column; gap:2px; }
-        .toolbar-title { font-weight:700; font-size:14px; }
-        .toolbar-sub   { font-size:12px; opacity:.75; }
-        .print-button {
-          background:#fff; color:#1a3a5c; border:none;
-          padding:8px 18px; border-radius:6px; font-weight:700; font-size:13px;
-          cursor:pointer; white-space:nowrap;
-        }
-        .print-button:hover { background:#e8f0fe; }
-
-        /* ── Loading/error ────────────────────────────── */
-        .sheet-loading {
-          display:flex; flex-direction:column; align-items:center;
-          justify-content:center; height:200px; gap:12px; color:#666;
-        }
-        .loading-spinner {
-          width:32px; height:32px; border:3px solid #e2e8f0;
-          border-top-color:#1a3a5c; border-radius:50%;
-          animation:spin .8s linear infinite;
-        }
-        @keyframes spin { to { transform:rotate(360deg); } }
-        .sheet-error {
-          padding:20px; color:#dc2626; background:#fef2f2;
-          border:1px solid #fecaca; border-radius:8px; margin:20px;
-        }
-
-        /* ── Print ────────────────────────────────────── */
-        @media print {
-          @page { size:A4 landscape; margin:10mm 8mm; }
-          body { background:#fff !important; }
-          .no-print { display:none !important; }
-          .delivery-sheet-root { padding:0; max-width:none; }
-
-          /* Manifest: each batch starts on new page */
-          .batch-section { page-break-before:always; }
-          .batch-section:first-child { page-break-before:avoid; }
-          .batch-divider { display:none; }
-          .manifest-cover { page-break-after:always; }
-
-          .delivery-table th, .delivery-table td { font-size:9.5px; padding:5px 6px; }
-          .sheet-title { font-size:13px; }
-          .meta-value  { font-size:10px; }
-        }
-      `}</style>
-    </>
+    </div>
   );
 }
