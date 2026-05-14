@@ -133,19 +133,19 @@ export default function SignInForm() {
              - channel & otp steps → always shown with logo (no right panel context) */}
         {step === 'credentials' && (
           <div className="mb-8 text-center lg:hidden">
-            <img src="/logo.png" alt="TPFCS" className="w-20 h-20 object-contain mx-auto mb-3" />
+            <img src="/logo.png" alt="ICDV" className="w-20 h-20 object-contain mx-auto mb-3" />
             <h1 className="text-lg font-bold text-gray-800 dark:text-white">Tanzania Police Force</h1>
             <p className="text-xs font-semibold text-gray-600 dark:text-gray-400">Corporation Sole</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Project Management System</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">ICDV Management</p>
           </div>
         )}
 
         {(step === 'channel' || step === 'otp') && (
           <div className="mb-8 text-center">
-            <img src="/logo.png" alt="TPFCS" className="w-24 h-24 object-contain mx-auto mb-3 drop-shadow-md" />
+            <img src="/logo.png" alt="ICDV" className="w-24 h-24 object-contain mx-auto mb-3 drop-shadow-md" />
             <h1 className="text-base font-bold text-gray-800 dark:text-white">Tanzania Police Force</h1>
             <p className="text-xs font-semibold text-gray-600 dark:text-gray-400">Corporation Sole</p>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Project Management System</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">ICDV Management</p>
           </div>
         )}
 

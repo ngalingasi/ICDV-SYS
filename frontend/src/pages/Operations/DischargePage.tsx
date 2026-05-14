@@ -54,13 +54,11 @@ export default function DischargePage() {
 
   return (
     /*
-     * Container: no extra horizontal padding — AppLayout already applies
-     * px-4 md:px-6. max-w-2xl keeps it readable on desktop without stretching.
-     * Removed the p-4/p-6 that was doubling padding on mobile.
+     * Removed p-4/p-6 — AppLayout already provides horizontal padding.
+     * max-w-2xl keeps it readable on wide screens without double-indenting on mobile.
      */
     <div className="max-w-2xl mx-auto space-y-4 sm:space-y-5">
 
-      {/* Page header */}
       <div>
         <h1 className="text-lg sm:text-xl font-bold text-gray-800 dark:text-white">
           Discharge Process
@@ -70,32 +68,28 @@ export default function DischargePage() {
         </p>
       </div>
 
-      {/* Workflow stepper — only when vehicle is loaded */}
       {vehicle && <WorkflowProgress status={vehicle.workflow_status} />}
 
       {/* ── Step 1: Search ─────────────────────────────────────────────── */}
       {step === 'search' && (
         <Section title="Step 1 — Search Vehicle">
           <ChassisInput
-            value={chassis}
-            onChange={setChassis}
-            onSearch={handleSearch}
-            loading={loading}
+            value={chassis} onChange={setChassis}
+            onSearch={handleSearch} loading={loading}
           />
           {error && <ErrorAlert message={error} />}
           <p className="text-xs text-gray-400 dark:text-gray-500">
-            Enter the last 4 or more digits of the chassis number, then press Search or Enter.
+            Enter the last 4 or more digits of the chassis number.
           </p>
         </Section>
       )}
 
-      {/* ── Step 2 + 3: Confirm + Notes ────────────────────────────────── */}
+      {/* ── Steps 2 + 3: Confirm + Notes ───────────────────────────────── */}
       {step === 'confirm' && vehicle && (
         <>
           <Section title="Step 2 — Confirm Vehicle">
             <VehicleCard v={vehicle} />
-
-            {/* Warning — flex row so icon stays left of text even when text wraps */}
+            {/* Warning: flex row so icon stays left-aligned when text wraps */}
             <div className="flex items-start gap-2 rounded-lg bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 px-3 py-2.5">
               <span className="text-amber-500 dark:text-amber-400 mt-0.5 flex-shrink-0">
                 <WarningIcon />
@@ -109,10 +103,9 @@ export default function DischargePage() {
           <Section title="Step 3 — Notes &amp; Confirm">
             <NotesInput value={notes} onChange={setNotes} />
             {error && <ErrorAlert message={error} />}
-
             {/*
-             * Buttons: stacked (column-reverse) on mobile so the primary
-             * action stays on top, then side-by-side on sm+.
+             * Buttons: column-reverse on mobile (primary on top),
+             * side-by-side from sm upward.
              */}
             <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 pt-1">
               <button
@@ -123,7 +116,7 @@ export default function DischargePage() {
               </button>
               <div className="flex-1 sm:flex-[2]">
                 <ConfirmButton
-                  label="Confirm Discharge → Holding Ground"
+                  label="Confirm Discharge to Holding Ground"
                   onClick={handleConfirm}
                   loading={loading}
                   variant="warning"

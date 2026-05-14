@@ -6,6 +6,7 @@ export interface AuthState {
   isAuthenticated: boolean;
   isLoading:       boolean;
   isSuperAdmin:    boolean;
+  isSystemAdmin:   boolean;
   icdvId:          number | null;
   icdvName:        string | null;
 }

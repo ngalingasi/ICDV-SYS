@@ -75,8 +75,18 @@ const SUPER_ADMIN_NAV: NavItem[] = [
   { name: "Dashboard",    icon: <Icon.Dashboard />, path: "/" },
   { name: "ICDVs",        icon: <Icon.Icdv />,      path: "/super-admin/icdvs" },
   { name: "All Vessels",  icon: <Icon.Vessel />,    path: "/vessels" },
+  { name: "All Manifests",icon: <Icon.Manifest />,  path: "/manifests" },
   { name: "All Vehicles", icon: <Icon.Vehicle />,   path: "/vehicles" },
-  { name: "Operations",   icon: <Icon.Operation />, path: "/operations/search" },
+  {
+    name: "Operations", icon: <Icon.Operation />, subItems: [
+      { name: "1. Discharge",    path: "/operations/discharge" },
+      { name: "2. Batch",        path: "/operations/batch" },
+      { name: "3. TPA Transfer", path: "/operations/transfer" },
+      { name: "4. Yard Receive", path: "/operations/receive" },
+      { name: "Batches",         path: "/operations/batches" },
+      { name: "Chassis Search",  path: "/operations/search" },
+    ],
+  },
 ];
 
 const SUPER_ADMIN_BOTTOM_NAV: NavItem[] = [
@@ -88,11 +98,13 @@ const SUPER_ADMIN_BOTTOM_NAV: NavItem[] = [
 export default function AppSidebar() {
   const { isOpen, isExpanded, isMobileOpen, toggleMobileSidebar } = useSidebar();
   const { isSuperAdmin, icdvName } = useAuth();
+  const isSystemAdmin = (useAuth() as any).isSystemAdmin ?? false;
+  const isCrossTenant = isSuperAdmin || isSystemAdmin;
   const location = useLocation();
   const expanded = isOpen || isExpanded;
 
-  const NAV        = isSuperAdmin ? SUPER_ADMIN_NAV        : TENANT_NAV;
-  const BOTTOM_NAV = isSuperAdmin ? SUPER_ADMIN_BOTTOM_NAV : TENANT_BOTTOM_NAV;
+  const NAV        = isCrossTenant ? SUPER_ADMIN_NAV        : TENANT_NAV;
+  const BOTTOM_NAV = isCrossTenant ? SUPER_ADMIN_BOTTOM_NAV : TENANT_BOTTOM_NAV;
 
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
@@ -155,8 +167,8 @@ export default function AppSidebar() {
     );
   };
 
-  const topLabel    = isSuperAdmin ? "ICDV System"    : (icdvName ?? "ICDV System");
-  const topSubLabel = isSuperAdmin ? "Platform Admin" : "Vehicle Import & Delivery";
+  const topLabel    = isCrossTenant ? "ICDV System"    : (icdvName ?? "ICDV System");
+  const topSubLabel = isSuperAdmin ? "Platform Admin" : isSystemAdmin ? "System Operations" : "Vehicle Import & Delivery";
 
   const sidebarContent = (
     <div className="flex flex-col h-full">
@@ -181,7 +193,7 @@ export default function AppSidebar() {
       </div>
 
       {/* Super admin badge — SVG bolt icon instead of emoji */}
-      {expanded && isSuperAdmin && (
+      {expanded && isCrossTenant && (
         <div className="px-3 pt-2">
           <div className="px-3 py-1.5 rounded-lg bg-purple-50 dark:bg-purple-500/10 text-xs font-bold text-purple-600 dark:text-purple-400 flex items-center justify-center gap-1.5">
             <BoltIcon />

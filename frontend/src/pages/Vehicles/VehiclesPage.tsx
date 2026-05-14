@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { vehiclesApi } from '../../api';
+import { vehiclesApi, icdvsApi } from '../../api';
+import { useAuth } from '../../store/authStore';
 import type { Vehicle } from '../../types';
 import StatusBadge from '../../components/tpfcs/StatusBadge';
 import { toast } from '../../components/tpfcs/Toast';
@@ -14,7 +15,12 @@ export default function VehiclesPage() {
   const [releaseFilter, setRelease]   = useState(sp.get('release_status') ?? '');
   const [opFilter, setOp]             = useState(sp.get('operational_status') ?? '');
   const [page, setPage]               = useState(1);
+  const [icdvFilter, setIcdvFilter]     = useState('');
+  const [icdvs,      setIcdvs]          = useState<any[]>([]);
   const limit = 20;
+
+  const { isSuperAdmin, isSystemAdmin } = useAuth();
+  const isCrossTenant = isSuperAdmin || isSystemAdmin;
 
   const load = () => {
     setLoading(true);
@@ -23,15 +29,24 @@ export default function VehiclesPage() {
       release_status: releaseFilter || undefined,
       operational_status: opFilter || undefined,
       search: search || undefined,
+      icdv_id: icdvFilter || undefined,
     }).then(r => { setVehicles(r.data.results); setTotal(r.data.totalResults); })
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, [page, releaseFilter, opFilter]);
+  useEffect(() => { load(); }, [page, releaseFilter, opFilter, icdvFilter]);  // eslint-disable-line
   useEffect(() => {
     const t = setTimeout(load, 350);
     return () => clearTimeout(t);
-  }, [search]);
+  }, [search]);  // eslint-disable-line
+
+  useEffect(() => {
+    if (isCrossTenant) {
+      icdvsApi.list({ limit: 200, status: 'active' })
+        .then(r => setIcdvs(r.data.results ?? r.data))
+        .catch(() => {});
+    }
+  }, [isCrossTenant]);  // eslint-disable-line
 
   const totalPages = Math.ceil(total / limit);
 
@@ -57,6 +72,15 @@ export default function VehiclesPage() {
             {['pending','in_operation','ready','delivered','cancelled'].map(s =>
               <option key={s} value={s}>{s.replace(/_/g,' ')}</option>)}
           </select>
+          {isCrossTenant && icdvs.length > 0 && (
+            <select value={icdvFilter} onChange={e => setIcdvFilter(e.target.value)}
+              className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500">
+              <option value="">All ICDVs</option>
+              {icdvs.map((ic: any) => (
+                <option key={ic.icdv_id} value={ic.icdv_id}>{ic.name}</option>
+              ))}
+            </select>
+          )}
         </div>
       </div>
 

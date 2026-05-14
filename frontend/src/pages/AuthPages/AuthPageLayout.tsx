@@ -17,7 +17,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
               <Link to="/" className="block mb-6">
                 <img
                   src="/logo.png"
-                  alt="TPFCS Logo"
+                  alt="ICDV"
                   className="w-48 h-48 object-contain drop-shadow-2xl"
                 />
               </Link>
@@ -25,7 +25,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
                 Tanzania Police Force Corporation Sole
               </h2>
               <p className="text-center text-gray-400 dark:text-white/60 text-sm">
-                Project Management System
+                ICDV Management
               </p>
               <p className="mt-4 text-center text-gray-500 dark:text-white/40 text-xs italic">
                 "With Service, We Don't Compromise"

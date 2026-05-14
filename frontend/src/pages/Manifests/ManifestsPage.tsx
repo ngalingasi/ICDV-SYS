@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { manifestsApi } from '../../api';
+import { manifestsApi, icdvsApi } from '../../api';
+import { useAuth } from '../../store/authStore';
 import type { Manifest } from '../../types';
 import StatusBadge from '../../components/tpfcs/StatusBadge';
 import Modal from '../../components/tpfcs/Modal';
@@ -14,20 +15,33 @@ export default function ManifestsPage() {
   const [statusFilter, setStatus]   = useState('');
   const [page, setPage]             = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<Manifest | null>(null);
+  const [icdvFilter,   setIcdvFilter]   = useState('');
+  const [icdvs,        setIcdvs]        = useState<any[]>([]);
   const limit = 15;
+
+  const { isSuperAdmin, isSystemAdmin } = useAuth();
+  const isCrossTenant = isSuperAdmin || isSystemAdmin;
 
   const load = () => {
     setLoading(true);
-    manifestsApi.list({ page, limit, status: statusFilter || undefined, search: search || undefined })
+    manifestsApi.list({ page, limit, status: statusFilter || undefined, search: search || undefined, icdv_id: icdvFilter || undefined })
       .then(r => { setManifests(r.data.results); setTotal(r.data.totalResults); })
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, [page, statusFilter]);
+  useEffect(() => { load(); }, [page, statusFilter, icdvFilter]);  // eslint-disable-line
   useEffect(() => {
     const t = setTimeout(load, 350);
     return () => clearTimeout(t);
   }, [search]);
+
+  useEffect(() => {
+    if (isCrossTenant) {
+      icdvsApi.list({ limit: 200, status: 'active' })
+        .then(r => setIcdvs(r.data.results ?? r.data))
+        .catch(() => {});
+    }
+  }, [isCrossTenant]); // eslint-disable-line
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -60,6 +74,15 @@ export default function ManifestsPage() {
             {['pending','active','completed','cancelled'].map(s =>
               <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
           </select>
+          {isCrossTenant && icdvs.length > 0 && (
+            <select value={icdvFilter} onChange={e => setIcdvFilter(e.target.value)}
+              className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500">
+              <option value="">All ICDVs</option>
+              {icdvs.map((ic: any) => (
+                <option key={ic.icdv_id} value={ic.icdv_id}>{ic.name}</option>
+              ))}
+            </select>
+          )}
           <Link to="/manifests/new" className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-sm font-medium">+ Add Manifest</Link>
         </div>
       </div>
@@ -69,7 +92,7 @@ export default function ManifestsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-700">
-                {['Manifest #','Vessel','Arrival Date','Total Vehicles','Released','Delivered','Status','Actions'].map(h => (
+                {['Manifest #','Vessel','Arrival Date','Total Vehicles','Released','Delivered','Status',...(isCrossTenant ? ['ICDV'] : []),'Actions'].map(h => (
                   <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -94,6 +117,7 @@ export default function ManifestsPage() {
                   <td className="px-4 py-3 text-green-600 dark:text-green-400">{m.released_vehicles ?? 0}</td>
                   <td className="px-4 py-3 text-teal-600 dark:text-teal-400">{m.delivered_vehicles ?? 0}</td>
                   <td className="px-4 py-3"><StatusBadge status={m.status} /></td>
+                  {isCrossTenant && <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{(m as any).icdv_name ?? '—'}</td>}
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <Link to={`/manifests/${m.manifest_id}`} className="text-xs text-brand-600 hover:underline">View</Link>

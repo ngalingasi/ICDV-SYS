@@ -11,7 +11,10 @@ const createVessel = async (body, creatorId, icdvId) => {
     name, imo_number = null, vessel_type = null,
     country_of_origin = null, notes = null, status = 'active',
   } = body;
-  if (!icdvId) throw new ApiError(httpStatus.BAD_REQUEST, 'icdv_id is required');
+  // Super admin / system_admin pass icdv_id in body; tenant users get it from JWT
+  const effectiveIcdvId = icdvId ?? (body.icdv_id ? Number(body.icdv_id) : null);
+  if (!effectiveIcdvId) throw new ApiError(httpStatus.BAD_REQUEST, 'icdv_id is required. Select an ICDV to create this vessel under.');
+  icdvId = effectiveIcdvId;
   const r = await query(
     `INSERT INTO vessels (icdv_id, name, imo_number, vessel_type, country_of_origin, notes, status, created_by)
      VALUES (?,?,?,?,?,?,?,?)`,

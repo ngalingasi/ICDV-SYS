@@ -6,8 +6,8 @@ export default function SignIn() {
   return (
     <>
       <PageMeta
-        title="Sign In – TPFCS Project Management System"
-        description="Tanzania Police Force Corporation Sole – Project Management System"
+        title="Sign In – ICDV Management"
+        description="ICDV Management"
       />
       <AuthLayout>
         <SignInForm />

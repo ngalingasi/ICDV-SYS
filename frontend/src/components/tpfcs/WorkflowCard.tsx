@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import StatusBadge from './StatusBadge';
 
-// Derive static server base from VITE_API_URL (strips /api suffix)
 const RAW_API  = (import.meta as any).env?.VITE_API_URL ?? 'http://localhost:3000/api';
 const API_BASE = RAW_API.replace(/\/api(\/v\d+)?$/, '');
 
@@ -10,10 +9,10 @@ const buildPhotoUrl = (photo?: string | null): string | null =>
 
 // ── Vehicle info card ─────────────────────────────────────────────────────────
 export function VehicleCard({ v }: { v: any }) {
-  const details = [v.brand, v.model, v.year, v.color].filter(Boolean).join(' · ');
+  const details = [v.brand, v.model, v.year, v.color].filter(Boolean).join(' - ');
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-4 space-y-3">
-      {/* Header: chassis + badge — never let chassis overflow */}
+      {/* Header: chassis never overflows, badge never gets squeezed */}
       <div className="flex items-start justify-between gap-2 min-w-0">
         <div className="min-w-0 flex-1">
           <p className="font-mono text-base sm:text-lg font-bold text-gray-900 dark:text-white tracking-wide break-all">
@@ -30,8 +29,8 @@ export function VehicleCard({ v }: { v: any }) {
         </div>
       </div>
 
-      {/* Detail rows: 1 col on smallest screens, 2 cols from xsm (425px) */}
-      <div className="grid grid-cols-1 xsm:grid-cols-2 gap-x-4 gap-y-1.5">
+      {/* Detail grid: 1 col on xs, 2 cols from sm */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
         {v.vessel_name      && <Row label="Vessel"      value={v.vessel_name} />}
         {v.manifest_number  && <Row label="Manifest"    value={v.manifest_number} />}
         {v.customer_name    && <Row label="Customer"    value={v.customer_name} />}
@@ -61,7 +60,7 @@ export function DriverCard({ d }: { d: any }) {
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-4">
       <div className="flex items-center gap-3 sm:gap-4">
-        {/* Photo — slightly smaller on mobile */}
+        {/* Photo scales down on mobile */}
         <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full flex-shrink-0 overflow-hidden bg-gray-200 dark:bg-gray-700 border-2 border-white dark:border-gray-600 shadow-sm">
           {photoUrl ? (
             <img
@@ -79,7 +78,6 @@ export function DriverCard({ d }: { d: any }) {
           )}
         </div>
 
-        {/* Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <p className="font-semibold text-gray-900 dark:text-white truncate text-sm sm:text-base">
@@ -112,7 +110,7 @@ export function DriverCard({ d }: { d: any }) {
 }
 
 // ── Workflow progress stepper — responsive ────────────────────────────────────
-// Full labels on sm+, abbreviated on xs so stepper never overflows.
+// Full labels on sm+; abbreviated 3-letter codes on xs so stepper never overflows
 const STEPS       = ['Manifested', 'Discharged', 'Batched', 'In Transit', 'Received'];
 const STEPS_SHORT = ['MFD',        'DCH',        'BTH',     'TRN',        'RCV'];
 const STEP_MAP: Record<string, number> = {
@@ -121,13 +119,12 @@ const STEP_MAP: Record<string, number> = {
 
 export function WorkflowProgress({ status }: { status: string }) {
   const current = STEP_MAP[status] ?? -1;
-
   return (
     <div className="w-full overflow-x-auto pb-1 -mb-1">
       <div className="flex items-start min-w-[260px] w-full mb-1">
         {STEPS.map((step, i) => (
           <div key={step} className="flex items-start flex-1">
-            {/* Connector */}
+            {/* Connector line */}
             {i > 0 && (
               <div className="flex-1 flex items-center" style={{ paddingTop: '14px' }}>
                 <div className={`h-0.5 w-full ${i <= current ? 'bg-brand-500' : 'bg-gray-200 dark:bg-gray-700'}`} />
@@ -148,10 +145,10 @@ export function WorkflowProgress({ status }: { status: string }) {
                   </svg>
                 ) : String(i + 1)}
               </div>
-              {/* Full label sm+, short label xs */}
               <span className={`mt-1 text-center leading-tight font-medium ${
                 i === current ? 'text-brand-600 dark:text-brand-400' : 'text-gray-400 dark:text-gray-500'
               }`}>
+                {/* Full label on sm+, short on xs */}
                 <span className="hidden sm:block text-[10px]">{step}</span>
                 <span className="block sm:hidden text-[9px]">{STEPS_SHORT[i]}</span>
               </span>
@@ -163,7 +160,7 @@ export function WorkflowProgress({ status }: { status: string }) {
   );
 }
 
-// ── Chassis search input — search button never clips ─────────────────────────
+// ── Chassis search input — button never clips ─────────────────────────────────
 export function ChassisInput({
   value, onChange, onSearch, loading,
   placeholder = 'Enter last 4 chassis digits...',
@@ -181,7 +178,6 @@ export function ChassisInput({
         placeholder={placeholder}
         maxLength={17}
         autoComplete="off"
-        inputMode="text"
         className="flex-1 min-w-0 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2.5 text-sm font-mono bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-500 uppercase"
       />
       <button
@@ -233,7 +229,7 @@ export function Section({ title, children }: { title: string; children: ReactNod
   );
 }
 
-// ── Confirm button — full-width, spinner while loading ────────────────────────
+// ── Confirm button — spinner while loading ────────────────────────────────────
 export function ConfirmButton({
   label, onClick, loading, disabled = false, variant = 'primary',
 }: {
@@ -245,7 +241,6 @@ export function ConfirmButton({
     success: 'bg-green-600 hover:bg-green-700',
     warning: 'bg-orange-500 hover:bg-orange-600',
   }[variant];
-
   return (
     <button
       onClick={onClick}

@@ -124,13 +124,7 @@ export default function App() {
               <Route path="/drivers/:id"      element={<DriverDetail />} />
               <Route path="/drivers/:id/edit" element={<DriverForm />} />
 
-              {/* Operations (general) */}
-              <Route path="/operations"           element={<OperationsPage />} />
-              <Route path="/operations/new"       element={<OperationForm />} />
-              <Route path="/operations/:id/edit"  element={<OperationForm />} />
-              <Route path="/operations/:id"       element={<OperationDetail />} />
-
-              {/* ── Workflow (5-step flow) — must come before /operations/:id ── */}
+              {/* ── Workflow (5-step flow) — MUST be before /operations/:id ── */}
               <Route path="/operations/discharge"        element={<DischargePage />} />
               <Route path="/operations/batch"            element={<BatchPage />} />
               <Route path="/operations/batches"          element={<BatchListPage />} />
@@ -138,6 +132,12 @@ export default function App() {
               <Route path="/operations/transfer"         element={<TransferPage />} />
               <Route path="/operations/receive"          element={<ReceivePage />} />
               <Route path="/operations/search"           element={<ChassisSearchPage />} />
+
+              {/* Operations (general) — after workflow so :id doesn't swallow named paths */}
+              <Route path="/operations"           element={<OperationsPage />} />
+              <Route path="/operations/new"       element={<OperationForm />} />
+              <Route path="/operations/:id/edit"  element={<OperationForm />} />
+              <Route path="/operations/:id"       element={<OperationDetail />} />
 
               {/* Deliveries */}
               <Route path="/deliveries"           element={<DeliveriesPage />} />

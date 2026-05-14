@@ -88,7 +88,7 @@ export default function ChangePassword() {
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-8">
 
           <div className="text-center mb-8">
-            <img src="/logo.png" alt="TPFCS" className="w-24 h-24 object-contain mx-auto mb-4 drop-shadow-md" />
+            <img src="/logo.png" alt="ICDV" className="w-24 h-24 object-contain mx-auto mb-4 drop-shadow-md" />
             <h1 className="text-lg font-bold text-gray-800 dark:text-white">Tanzania Police Force</h1>
             <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Corporation Sole</p>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">

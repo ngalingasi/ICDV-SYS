@@ -58,7 +58,6 @@ export default function ReceivePage() {
 
       {assignment && <WorkflowProgress status={assignment.workflow_status} />}
 
-      {/* Step 1 — ID card lookup */}
       {step === 'lookup' && (
         <Section title="Driver ID Card Scan">
           <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
@@ -66,8 +65,7 @@ export default function ReceivePage() {
             fetch the driver's assigned vehicle.
           </p>
           <div className="flex gap-2">
-            <input
-              type="text" value={idCard} onChange={e => setIdCard(e.target.value)}
+            <input type="text" value={idCard} onChange={e => setIdCard(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleLookup()}
               placeholder="Driver ID card number..."
               autoComplete="off"
@@ -82,12 +80,9 @@ export default function ReceivePage() {
         </Section>
       )}
 
-      {/* Step 2 — Confirm */}
       {step === 'confirm' && driver && assignment && (
         <>
-          <Section title="Driver">
-            <DriverCard d={driver} />
-          </Section>
+          <Section title="Driver"><DriverCard d={driver} /></Section>
 
           <Section title="Assigned Vehicle">
             <VehicleCard v={{
@@ -124,12 +119,7 @@ export default function ReceivePage() {
                 Cancel
               </button>
               <div className="flex-1 sm:flex-[2]">
-                <ConfirmButton
-                  label="Confirm Receipt at ICDV Yard"
-                  onClick={handleConfirm}
-                  loading={loading}
-                  variant="success"
-                />
+                <ConfirmButton label="Confirm Receipt at ICDV Yard" onClick={handleConfirm} loading={loading} variant="success" />
               </div>
             </div>
           </Section>

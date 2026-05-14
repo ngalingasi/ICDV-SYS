@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { vesselsApi } from '../../api';
+import { vesselsApi, icdvsApi } from '../../api';
+import { useAuth } from '../../store/authStore';
 import { toast } from '../../components/tpfcs/Toast';
 import BackButton from '../../components/tpfcs/BackButton';
 
@@ -19,8 +20,18 @@ export default function VesselForm() {
     name: '', imo_number: '', vessel_type: '',
     country_of_origin: '', notes: '', status: 'active',
   });
-  const [saving, setSaving]   = useState(false);
-  const [loading, setLoading] = useState(isEdit);
+  const [saving, setSaving]         = useState(false);
+  const [loading, setLoading]       = useState(isEdit);
+  const [selectedIcdvId, setSelectedIcdvId] = useState('');
+  const [icdvs, setIcdvs]           = useState<any[]>([]);
+  const { isSuperAdmin, isSystemAdmin } = useAuth();
+  const isCrossTenant = isSuperAdmin || isSystemAdmin;
+
+  useEffect(() => {
+    if (isCrossTenant) {
+      icdvsApi.list({ limit: 200, status: 'active' }).then(r => setIcdvs(r.data.results ?? r.data));
+    }
+  }, [isCrossTenant]); // eslint-disable-line
 
   useEffect(() => {
     if (!id) return;
@@ -48,13 +59,19 @@ export default function VesselForm() {
     if (!form.name.trim()) { toast.error('Vessel name is required'); return; }
     setSaving(true);
     try {
-      const payload = {
+      if (isCrossTenant && !selectedIcdvId && !isEdit) {
+        toast.error('Please select an ICDV for this vessel');
+        setSaving(false);
+        return;
+      }
+      const payload: any = {
         name:              form.name,
         imo_number:        form.imo_number        || null,
         vessel_type:       form.vessel_type       || null,
         country_of_origin: form.country_of_origin || null,
         notes:             form.notes             || null,
         status:            form.status as import('../../types').VesselStatus,
+        ...(isCrossTenant && selectedIcdvId && !isEdit ? { icdv_id: Number(selectedIcdvId) } : {}),
       };
       if (isEdit) {
         await vesselsApi.update(Number(id), payload);

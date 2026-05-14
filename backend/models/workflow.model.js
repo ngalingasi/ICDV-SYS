@@ -46,22 +46,27 @@ const WORKFLOW_TO_RELEASE = {
 // HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
-const findByChassisLast4 = async (last4, icdvId) =>
-  query(
+const findByChassisLast4 = async (last4, icdvId) => {
+  const scopeClause = icdvId ? 'AND v.icdv_id = ?' : '';
+  const params      = icdvId ? [`%${last4}`, icdvId] : [`%${last4}`];
+  return query(
     `SELECT v.vehicle_id, v.icdv_id, v.chassis_number, v.brand, v.model,
             v.color, v.year, v.customer_name, v.destination,
             v.workflow_status, v.current_location, v.batch_id,
             v.release_status, v.operational_status,
             v.manifest_id,
             m.manifest_number, m.arrival_date AS manifest_arrival_date,
-            vs.name AS vessel_name, vs.vessel_id, vs.imo_number
+            vs.name AS vessel_name, vs.vessel_id, vs.imo_number,
+            ic.name AS icdv_name, ic.code AS icdv_code
      FROM vehicles v
      LEFT JOIN manifests m ON m.manifest_id = v.manifest_id
-     LEFT JOIN vessels vs ON vs.vessel_id = m.vessel_id
-     WHERE v.chassis_number LIKE ? AND v.icdv_id = ?
+     LEFT JOIN vessels vs  ON vs.vessel_id  = m.vessel_id
+     LEFT JOIN icdvs ic    ON ic.icdv_id    = v.icdv_id
+     WHERE v.chassis_number LIKE ? ${scopeClause}
      ORDER BY v.created_at DESC`,
-    [`%${last4}`, icdvId]
+    params
   );
+};
 
 const resolveVehicle = async (last4, icdvId) => {
   const matches = await findByChassisLast4(last4, icdvId);
@@ -187,8 +192,9 @@ const discharge = async (vehicleId, notes, operatorId, icdvId) =>
        FROM vehicles v WHERE v.vehicle_id=? FOR UPDATE`,
       [vehicleId]
     );
-    if (!vehicle || vehicle.icdv_id !== icdvId)
-      throw new ApiError(httpStatus.NOT_FOUND, 'Vehicle not found');
+    if (!vehicle) throw new ApiError(httpStatus.NOT_FOUND, 'Vehicle not found');
+    if (icdvId !== null && vehicle.icdv_id !== icdvId)
+      throw new ApiError(httpStatus.FORBIDDEN, 'Vehicle does not belong to your ICDV');
 
     assertTransition(vehicle.workflow_status, WORKFLOW_STATUSES.DISCHARGED);
 
@@ -219,32 +225,29 @@ const discharge = async (vehicleId, notes, operatorId, icdvId) =>
   });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ─────────────────────────────────────────────────────────────────────────────
-// 2. BATCH  (date-independent logic — batch persists across days until full)
+// 2. BATCH
 // ─────────────────────────────────────────────────────────────────────────────
 
 const BATCH_MAX = 20;
 
-/**
- * Generate batch number: VESSELCODE-BATCH-NN
- * Increments sequentially per vessel — NO date component.
- * e.g. VESSEL001-BATCH-01, VESSEL001-BATCH-02, …
- */
-const generateBatchNumber = async (vesselId, icdvId, conn = null) => {
-  const exec = (sql, params) => conn ? connQuery(conn, sql, params) : query(sql, params);
-
-  const [vessel] = await exec('SELECT name, imo_number FROM vessels WHERE vessel_id=?', [vesselId]);
+const generateBatchNumber = async (vesselId, batchDate, icdvId, conn = null) => {
+  const dateStr = batchDate.replace(/-/g, '');
+  const [vessel] = await (conn
+    ? connQuery(conn, 'SELECT name, imo_number FROM vessels WHERE vessel_id=?', [vesselId])
+    : query('SELECT name, imo_number FROM vessels WHERE vessel_id=?', [vesselId]));
   const code = (vessel?.imo_number || vessel?.name || 'VES')
     .toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
-
-  // Find the highest sequential number across ALL batches for this vessel
-  const rows = await exec(
-    `SELECT MAX(CAST(SUBSTRING_INDEX(batch_number, '-', -1) AS UNSIGNED)) AS last
-     FROM batches WHERE batch_number LIKE ? AND icdv_id=?`,
-    [`${code}-BATCH-%`, icdvId]
-  );
+  const rows = await (conn
+    ? connQuery(conn,
+        `SELECT MAX(CAST(SUBSTRING_INDEX(batch_number, '-', -1) AS UNSIGNED)) AS last
+         FROM batches WHERE batch_number LIKE ? AND icdv_id=?`,
+        [`${code}-${dateStr}-%`, icdvId])
+    : query(
+        `SELECT MAX(CAST(SUBSTRING_INDEX(batch_number, '-', -1) AS UNSIGNED)) AS last
+         FROM batches WHERE batch_number LIKE ? AND icdv_id=?`,
+        [`${code}-${dateStr}-%`, icdvId]));
   const last = rows[0]?.last || 0;
-  return `${code}-BATCH-${String(last + 1).padStart(2, '0')}`;
+  return `${code}-${dateStr}-${String(last + 1).padStart(2, '0')}`;
 };
 
 const lookupForBatch = async (last4, icdvId) => {
@@ -262,56 +265,39 @@ const addToBatch = async (vehicleId, notes, operatorId, icdvId) =>
   transaction(async (conn) => {
     const [vehicle] = await connQuery(conn,
       `SELECT v.vehicle_id, v.icdv_id, v.chassis_number, v.workflow_status,
-              v.batch_id, v.manifest_id, v.current_location, m.vessel_id
+              v.batch_id, v.manifest_id, m.vessel_id
        FROM vehicles v
        LEFT JOIN manifests m ON m.manifest_id = v.manifest_id
        WHERE v.vehicle_id=? FOR UPDATE`,
       [vehicleId]
     );
-    if (!vehicle || vehicle.icdv_id !== icdvId)
-      throw new ApiError(httpStatus.NOT_FOUND, 'Vehicle not found');
+    if (!vehicle) throw new ApiError(httpStatus.NOT_FOUND, 'Vehicle not found');
+    if (icdvId !== null && vehicle.icdv_id !== icdvId)
+      throw new ApiError(httpStatus.FORBIDDEN, 'Vehicle does not belong to your ICDV');
     if (vehicle.batch_id)
       throw new ApiError(httpStatus.CONFLICT, 'Vehicle is already in a batch');
 
+    const today = new Date().toISOString().slice(0, 10);
     const vesselId = vehicle.vessel_id;
 
-    // ── Find the single OPEN batch for this vessel (date-independent) ─────────
-    // A vessel should have at most one 'open' batch at any time.
+    // Find open batch with space or create new
     const [openBatch] = await connQuery(conn,
       `SELECT batch_id, vehicle_count, batch_number FROM batches
-       WHERE icdv_id=? AND vessel_id=? AND status='open'
-       ORDER BY batch_id DESC LIMIT 1 FOR UPDATE`,
-      [icdvId, vesselId]
+       WHERE icdv_id=? AND vessel_id=? AND batch_date=? AND status='open' AND vehicle_count < ?
+       ORDER BY batch_id ASC LIMIT 1 FOR UPDATE`,
+      [icdvId, vesselId, today, BATCH_MAX]
     );
 
     let batchId, batchNumber;
-
-    if (openBatch && openBatch.vehicle_count < BATCH_MAX) {
-      // ── Existing batch still has room — add to it ─────────────────────────
-      batchId     = openBatch.batch_id;
+    if (openBatch) {
+      batchId = openBatch.batch_id;
       batchNumber = openBatch.batch_number;
-
-      const newCount = openBatch.vehicle_count + 1;
-      // Mark 'full' automatically when we hit the limit
-      const newStatus = newCount >= BATCH_MAX ? 'full' : 'open';
-
       await connQuery(conn,
-        `UPDATE batches SET vehicle_count=?, status=?, updated_at=NOW() WHERE batch_id=?`,
-        [newCount, newStatus, batchId]
+        'UPDATE batches SET vehicle_count = vehicle_count + 1, updated_at=NOW() WHERE batch_id=?',
+        [batchId]
       );
-
     } else {
-      // ── No open batch (or open batch is somehow full) — create next one ────
-      // If the "open" batch was at capacity, mark it full first
-      if (openBatch && openBatch.vehicle_count >= BATCH_MAX) {
-        await connQuery(conn,
-          `UPDATE batches SET status='full', updated_at=NOW() WHERE batch_id=?`,
-          [openBatch.batch_id]
-        );
-      }
-
-      batchNumber = await generateBatchNumber(vesselId, icdvId, conn);
-      const today = new Date().toISOString().slice(0, 10); // kept for audit only
+      batchNumber = await generateBatchNumber(vesselId, today, icdvId, conn);
       const r = await connQuery(conn,
         `INSERT INTO batches (icdv_id, batch_number, vessel_id, manifest_id, batch_date, vehicle_count, status, created_by)
          VALUES (?,?,?,?,?,1,'open',?)`,
@@ -320,7 +306,7 @@ const addToBatch = async (vehicleId, notes, operatorId, icdvId) =>
       batchId = r.insertId;
     }
 
-    // Update vehicle — all statuses atomically
+    // 1. Update vehicle — set batch_id + all statuses
     await connQuery(conn,
       `UPDATE vehicles
        SET workflow_status    = ?,
@@ -342,8 +328,10 @@ const addToBatch = async (vehicleId, notes, operatorId, icdvId) =>
       ]
     );
 
+    // 2. Sync manifest
     await syncManifestStatus(conn, vehicle.manifest_id);
 
+    // 3. Audit log
     await logOperation(conn, {
       icdvId, vehicleId, chassisNumber: vehicle.chassis_number,
       operationType: 'batched',
@@ -355,21 +343,27 @@ const addToBatch = async (vehicleId, notes, operatorId, icdvId) =>
     return { vehicle_id: vehicleId, batch_id: batchId, batch_number: batchNumber };
   });
 
-
 const getBatch = async (batchId, icdvId) => {
+  const batchWhere = icdvId ? 'WHERE b.batch_id=? AND b.icdv_id=?' : 'WHERE b.batch_id=?';
+  const batchPrms  = icdvId ? [batchId, icdvId] : [batchId];
   const [batch] = await query(
-    `SELECT b.*, vs.name AS vessel_name, vs.imo_number
-     FROM batches b LEFT JOIN vessels vs ON vs.vessel_id = b.vessel_id
-     WHERE b.batch_id=? AND b.icdv_id=?`,
-    [batchId, icdvId]
+    `SELECT b.*, vs.name AS vessel_name, vs.imo_number,
+            ic.name AS icdv_name, ic.code AS icdv_code
+     FROM batches b
+     LEFT JOIN vessels vs ON vs.vessel_id = b.vessel_id
+     LEFT JOIN icdvs ic   ON ic.icdv_id   = b.icdv_id
+     ${batchWhere}`,
+    batchPrms
   );
   if (!batch) throw new ApiError(httpStatus.NOT_FOUND, 'Batch not found');
+  const vehWhere = icdvId ? 'WHERE v.batch_id=? AND v.icdv_id=?' : 'WHERE v.batch_id=?';
+  const vehPrms  = icdvId ? [batchId, icdvId] : [batchId];
   batch.vehicles = await query(
     `SELECT v.vehicle_id, v.chassis_number, v.brand, v.model, v.color,
             v.workflow_status, v.current_location, v.release_status,
             v.operational_status, v.customer_name
-     FROM vehicles v WHERE v.batch_id=? AND v.icdv_id=?`,
-    [batchId, icdvId]
+     FROM vehicles v ${vehWhere}`,
+    vehPrms
   );
   return batch;
 };
@@ -407,10 +401,8 @@ const lookupForTransfer = async (last4, icdvId) => {
 };
 
 const lookupDriverByIdCard = async (idCard, icdvId) => {
-  const [driver] = await query(
-    'SELECT * FROM drivers WHERE id_number=? AND icdv_id=?',
-    [idCard, icdvId]
-  );
+  const _drvSql = icdvId ? 'SELECT * FROM drivers WHERE id_number=? AND icdv_id=?' : 'SELECT * FROM drivers WHERE id_number=?';
+  const [driver] = await query(_drvSql, icdvId ? [idCard, icdvId] : [idCard]);
   if (!driver)
     throw new ApiError(httpStatus.NOT_FOUND, `No driver found with ID card '${idCard}'`);
   if (driver.status !== 'active')
@@ -438,8 +430,9 @@ const confirmTransfer = async (vehicleId, driverId, driverIdCard, notes, operato
        FROM vehicles v WHERE v.vehicle_id=? FOR UPDATE`,
       [vehicleId]
     );
-    if (!vehicle || vehicle.icdv_id !== icdvId)
-      throw new ApiError(httpStatus.NOT_FOUND, 'Vehicle not found');
+    if (!vehicle) throw new ApiError(httpStatus.NOT_FOUND, 'Vehicle not found');
+    if (icdvId !== null && vehicle.icdv_id !== icdvId)
+      throw new ApiError(httpStatus.FORBIDDEN, 'Vehicle does not belong to your ICDV');
     assertTransition(vehicle.workflow_status, WORKFLOW_STATUSES.IN_TRANSIT);
 
     // Lock driver
@@ -489,12 +482,11 @@ const confirmTransfer = async (vehicleId, driverId, driverIdCard, notes, operato
 // ─────────────────────────────────────────────────────────────────────────────
 
 const lookupForReceive = async (idCard, icdvId) => {
-  const [driver] = await query(
-    'SELECT * FROM drivers WHERE id_number=? AND icdv_id=?',
-    [idCard, icdvId]
-  );
+  const _dSql = icdvId ? 'SELECT * FROM drivers WHERE id_number=? AND icdv_id=?' : 'SELECT * FROM drivers WHERE id_number=?';
+  const [driver] = await query(_dSql, icdvId ? [idCard, icdvId] : [idCard]);
   if (!driver)
     throw new ApiError(httpStatus.NOT_FOUND, `No driver found with ID card '${idCard}'`);
+  const _rcvIcdvId = driver.icdv_id;
 
   const [assignment] = await query(
     `SELECT da.*,
@@ -510,7 +502,7 @@ const lookupForReceive = async (idCard, icdvId) => {
      LEFT JOIN vessels vs ON vs.vessel_id = m.vessel_id
      LEFT JOIN transfers t ON t.transfer_id = da.transfer_id
      WHERE da.driver_id=? AND da.status='active' AND da.icdv_id=?`,
-    [driver.driver_id, icdvId]
+    [driver.driver_id, _rcvIcdvId]
   );
   if (!assignment)
     throw new ApiError(httpStatus.NOT_FOUND, `Driver ${driver.full_name} has no active vehicle assignment`);
@@ -529,8 +521,9 @@ const confirmReceive = async (driverId, vehicleId, notes, operatorId, icdvId) =>
        FROM vehicles v WHERE v.vehicle_id=? FOR UPDATE`,
       [vehicleId]
     );
-    if (!vehicle || vehicle.icdv_id !== icdvId)
-      throw new ApiError(httpStatus.NOT_FOUND, 'Vehicle not found');
+    if (!vehicle) throw new ApiError(httpStatus.NOT_FOUND, 'Vehicle not found');
+    if (icdvId !== null && vehicle.icdv_id !== icdvId)
+      throw new ApiError(httpStatus.FORBIDDEN, 'Vehicle does not belong to your ICDV');
     assertTransition(vehicle.workflow_status, WORKFLOW_STATUSES.RECEIVED);
 
     const [assignment] = await connQuery(conn,
@@ -597,7 +590,9 @@ const confirmReceive = async (driverId, vehicleId, notes, operatorId, icdvId) =>
 // ─────────────────────────────────────────────────────────────────────────────
 
 const searchChassis = async (chassis, icdvId) => {
-  const like = chassis.length <= 6 ? `%${chassis}` : `%${chassis}%`;
+  const like        = chassis.length <= 6 ? `%${chassis}` : `%${chassis}%`;
+  const scopeClause = icdvId ? 'AND v.icdv_id=?' : '';
+  const params      = icdvId ? [like, icdvId] : [like];
   const vehicles = await query(
     `SELECT
        v.vehicle_id, v.icdv_id, v.chassis_number, v.brand, v.model,
@@ -607,21 +602,23 @@ const searchChassis = async (chassis, icdvId) => {
        v.batch_id, v.manifest_id,
        m.manifest_number, m.arrival_date AS manifest_date, m.status AS manifest_status,
        vs.name AS vessel_name, vs.vessel_id, vs.imo_number,
+       ic.name AS icdv_name, ic.code AS icdv_code,
        b.batch_number, b.batch_date, b.status AS batch_status,
        t.transfer_id, t.transferred_at, t.status AS transfer_status,
        dr.full_name AS driver_name, dr.phone AS driver_phone,
        dr.id_number AS driver_id_card,
        rl.received_at, rl.receive_id
      FROM vehicles v
-     LEFT JOIN manifests m ON m.manifest_id = v.manifest_id
-     LEFT JOIN vessels vs ON vs.vessel_id = m.vessel_id
-     LEFT JOIN batches b ON b.batch_id = v.batch_id
-     LEFT JOIN transfers t ON t.vehicle_id = v.vehicle_id AND t.status != 'cancelled'
-     LEFT JOIN drivers dr ON dr.driver_id = t.driver_id
+     LEFT JOIN manifests m  ON m.manifest_id  = v.manifest_id
+     LEFT JOIN vessels vs   ON vs.vessel_id   = m.vessel_id
+     LEFT JOIN icdvs ic     ON ic.icdv_id     = v.icdv_id
+     LEFT JOIN batches b    ON b.batch_id     = v.batch_id
+     LEFT JOIN transfers t  ON t.vehicle_id   = v.vehicle_id AND t.status != 'cancelled'
+     LEFT JOIN drivers dr   ON dr.driver_id   = t.driver_id
      LEFT JOIN receiving_logs rl ON rl.vehicle_id = v.vehicle_id
-     WHERE v.chassis_number LIKE ? AND v.icdv_id=?
+     WHERE v.chassis_number LIKE ? ${scopeClause}
      ORDER BY v.chassis_number ASC LIMIT 20`,
-    [like, icdvId]
+    params
   );
 
   for (const veh of vehicles) {

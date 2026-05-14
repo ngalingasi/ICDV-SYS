@@ -8,7 +8,7 @@ export default function UserProfiles() {
   return (
     <>
       <PageMeta
-        title="My Profile – TPFCS Project Management"
+        title="My Profile – ICDV Management"
         description="Manage your profile and account settings"
       />
       <PageBreadcrumb pageTitle="Profile" />
