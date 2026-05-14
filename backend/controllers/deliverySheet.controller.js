@@ -2,14 +2,18 @@
  * deliverySheet.controller.js
  *
  * GET /api/v1/workflow/batches/:batchId/delivery-sheet
- *   → Returns delivery sheet data for a single batch
+ *   → Single-batch delivery sheet (preserved)
  *
  * GET /api/v1/workflow/vessels/:vesselId/delivery-sheet
- *   → Returns delivery sheet data for all batches in a vessel
+ *   → All batches for a vessel (legacy, preserved)
+ *
+ * GET /api/v1/manifests/:manifestId/delivery-sheet   ← NEW
+ *   → Full manifest delivery sheet, grouped by batch
  */
-const catchAsync = require('../utils/catchAsync');
+const catchAsync         = require('../utils/catchAsync');
 const deliverySheetModel = require('../models/deliverySheet.model');
 
+// ── Batch-level (existing) ────────────────────────────────────────────────────
 const getBatchDeliverySheet = catchAsync(async (req, res) => {
   const data = await deliverySheetModel.getDeliverySheetData(
     Number(req.params.batchId),
@@ -18,6 +22,7 @@ const getBatchDeliverySheet = catchAsync(async (req, res) => {
   res.json(data);
 });
 
+// ── Vessel-level (legacy) ─────────────────────────────────────────────────────
 const getVesselDeliverySheet = catchAsync(async (req, res) => {
   const data = await deliverySheetModel.getDeliverySheetsByVessel(
     Number(req.params.vesselId),
@@ -26,4 +31,17 @@ const getVesselDeliverySheet = catchAsync(async (req, res) => {
   res.json(data);
 });
 
-module.exports = { getBatchDeliverySheet, getVesselDeliverySheet };
+// ── Manifest-level (new primary) ──────────────────────────────────────────────
+const getManifestDeliverySheet = catchAsync(async (req, res) => {
+  const data = await deliverySheetModel.getManifestDeliverySheet(
+    Number(req.params.manifestId),
+    req.icdvId
+  );
+  res.json(data);
+});
+
+module.exports = {
+  getBatchDeliverySheet,
+  getVesselDeliverySheet,
+  getManifestDeliverySheet,
+};

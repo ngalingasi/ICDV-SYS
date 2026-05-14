@@ -44,6 +44,7 @@ export const manifestsApi = {
   delete:         (id: number)                        => client.delete(`/manifests/${id}`),
   previewCSV:     (id: number, formData: FormData)    => client.post(`/manifests/${id}/preview-csv`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
   importVehicles: (id: number, formData: FormData)    => client.post(`/manifests/${id}/import-vehicles`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  deliverySheet:  (id: number)                        => client.get(`/manifests/${id}/delivery-sheet`),
 };
 
 // ── Vehicles ──────────────────────────────────────────────────────────────────
@@ -144,10 +145,12 @@ export const workflowApi = {
     client.get(`/workflow/vehicles/${vehicleId}/history`),
 
   // 6. Delivery Sheet
-  getBatchDeliverySheet:  (batchId: number) =>
+  getBatchDeliverySheet:    (batchId: number) =>
     client.get(`/workflow/batches/${batchId}/delivery-sheet`),
-  getVesselDeliverySheet: (vesselId: number) =>
+  getVesselDeliverySheet:   (vesselId: number) =>
     client.get(`/workflow/vessels/${vesselId}/delivery-sheet`),
+  getManifestDeliverySheet: (manifestId: number) =>
+    client.get(`/manifests/${manifestId}/delivery-sheet`),
 };
 
 // ── Lookups (extended) ────────────────────────────────────────────────────────

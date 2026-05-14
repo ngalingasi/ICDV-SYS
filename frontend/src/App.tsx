@@ -132,6 +132,7 @@ export default function App() {
               <Route path="/operations/batches/:batchId" element={<BatchDetailPage />} />
               <Route path="/operations/batches/:batchId/delivery-sheet" element={<DeliverySheetPage />} />
               <Route path="/operations/vessels/:vesselId/delivery-sheet" element={<DeliverySheetPage />} />
+              <Route path="/manifests/:manifestId/delivery-sheet" element={<DeliverySheetPage />} />
               <Route path="/operations/transfer"         element={<TransferPage />} />
               <Route path="/operations/receive"          element={<ReceivePage />} />
               <Route path="/operations/search"           element={<ChassisSearchPage />} />
