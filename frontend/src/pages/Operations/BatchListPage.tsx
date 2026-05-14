@@ -40,7 +40,7 @@ export function BatchListPage() {
           <select value={status} onChange={e => setStatus(e.target.value)}
             className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500">
             <option value="">All Statuses</option>
-            {['open','closed','transferred'].map(s => <option key={s} value={s}>{s}</option>)}
+            {['open','full','closed','transferred'].map(s => <option key={s} value={s}>{s}</option>)}
           </select>
           <Link to="/operations/batch"
             className="flex-shrink-0 px-4 py-2 rounded-lg bg-brand-500 text-white text-sm font-medium hover:bg-brand-600 transition-colors whitespace-nowrap">
@@ -138,7 +138,17 @@ export function BatchDetailPage() {
             {batch.vessel_name} · {batch.batch_date}
           </p>
         </div>
-        <div className="flex-shrink-0"><StatusBadge status={batch.status} /></div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <a
+            href={`/operations/batches/${batch.batch_id}/delivery-sheet`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 transition-colors whitespace-nowrap"
+          >
+            🖨 Print Delivery Sheet
+          </a>
+          <StatusBadge status={batch.status} />
+        </div>
       </div>
 
       {/* Stats — always 3 cols but text shrinks */}

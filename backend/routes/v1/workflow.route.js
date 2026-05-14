@@ -3,10 +3,11 @@
  * Mounts at /api/v1/workflow
  * Follows existing route pattern: auth() then tenant() on every route.
  */
-const express = require('express');
-const auth    = require('../../middlewares/auth');
-const tenant  = require('../../middlewares/tenant');
-const ctrl    = require('../../controllers/workflow.controller');
+const express  = require('express');
+const auth     = require('../../middlewares/auth');
+const tenant   = require('../../middlewares/tenant');
+const ctrl     = require('../../controllers/workflow.controller');
+const dsCtrl   = require('../../controllers/deliverySheet.controller');
 
 const router = express.Router();
 
@@ -35,5 +36,9 @@ router.post('/receive/confirm', auth('manageVehicles'), tenant(), ctrl.receiveCo
 // ── 5. SEARCH & HISTORY ───────────────────────────────────────────────────────
 router.get('/search',                      auth('getVehicles'), tenant(), ctrl.chassisSearch);
 router.get('/vehicles/:vehicleId/history', auth('getVehicles'), tenant(), ctrl.vehicleHistory);
+
+// ── 6. DELIVERY SHEET ─────────────────────────────────────────────────────────
+router.get('/batches/:batchId/delivery-sheet',   auth('getVehicles'), tenant(), dsCtrl.getBatchDeliverySheet);
+router.get('/vessels/:vesselId/delivery-sheet',  auth('getVehicles'), tenant(), dsCtrl.getVesselDeliverySheet);
 
 module.exports = router;

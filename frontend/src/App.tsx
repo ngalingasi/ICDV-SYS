@@ -44,6 +44,7 @@ import OperationDetail from "./pages/Operations/OperationDetail";
 import DischargePage     from "./pages/Operations/DischargePage";
 import BatchPage         from "./pages/Operations/BatchPage";
 import { BatchListPage, BatchDetailPage } from "./pages/Operations/BatchListPage";
+import DeliverySheetPage from "./pages/Operations/DeliverySheetPage";
 import TransferPage      from "./pages/Operations/TransferPage";
 import ReceivePage       from "./pages/Operations/ReceivePage";
 import ChassisSearchPage from "./pages/Operations/ChassisSearchPage";
@@ -129,6 +130,8 @@ export default function App() {
               <Route path="/operations/batch"            element={<BatchPage />} />
               <Route path="/operations/batches"          element={<BatchListPage />} />
               <Route path="/operations/batches/:batchId" element={<BatchDetailPage />} />
+              <Route path="/operations/batches/:batchId/delivery-sheet" element={<DeliverySheetPage />} />
+              <Route path="/operations/vessels/:vesselId/delivery-sheet" element={<DeliverySheetPage />} />
               <Route path="/operations/transfer"         element={<TransferPage />} />
               <Route path="/operations/receive"          element={<ReceivePage />} />
               <Route path="/operations/search"           element={<ChassisSearchPage />} />

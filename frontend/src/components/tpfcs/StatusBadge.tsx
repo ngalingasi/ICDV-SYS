@@ -40,6 +40,7 @@ const palettes: Record<string, string> = {
   icdv_yard:        'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300',
   // ── batch statuses ────────────────────────────────────────────────────────
   open:        'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300',
+  full:        'bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300',
   closed:      'bg-gray-100 text-gray-600 dark:bg-gray-500/20 dark:text-gray-400',
   transferred: 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-300',
 };

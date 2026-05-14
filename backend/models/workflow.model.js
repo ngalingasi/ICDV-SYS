@@ -230,24 +230,37 @@ const discharge = async (vehicleId, notes, operatorId, icdvId) =>
 
 const BATCH_MAX = 20;
 
-const generateBatchNumber = async (vesselId, batchDate, icdvId, conn = null) => {
-  const dateStr = batchDate.replace(/-/g, '');
-  const [vessel] = await (conn
-    ? connQuery(conn, 'SELECT name, imo_number FROM vessels WHERE vessel_id=?', [vesselId])
-    : query('SELECT name, imo_number FROM vessels WHERE vessel_id=?', [vesselId]));
+/**
+ * generateBatchNumber(vesselId, icdvId, conn)
+ *
+ * Produces sequential batch numbers per vessel — date-independent.
+ * Format: <VESSEL_CODE>-BATCH-<NN>
+ * Example: MARIECLAIRE-BATCH-01, MARIECLAIRE-BATCH-02, …
+ *
+ * The sequence is derived from the highest existing batch number for this
+ * vessel+icdv combination, so it remains monotonically increasing regardless
+ * of when batches are created.
+ */
+const generateBatchNumber = async (vesselId, icdvId, conn = null) => {
+  const exec = conn ? connQuery.bind(null, conn) : query;
+
+  const [vessel] = await exec(
+    'SELECT name, imo_number FROM vessels WHERE vessel_id=?',
+    [vesselId]
+  );
   const code = (vessel?.imo_number || vessel?.name || 'VES')
     .toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
-  const rows = await (conn
-    ? connQuery(conn,
-        `SELECT MAX(CAST(SUBSTRING_INDEX(batch_number, '-', -1) AS UNSIGNED)) AS last
-         FROM batches WHERE batch_number LIKE ? AND icdv_id=?`,
-        [`${code}-${dateStr}-%`, icdvId])
-    : query(
-        `SELECT MAX(CAST(SUBSTRING_INDEX(batch_number, '-', -1) AS UNSIGNED)) AS last
-         FROM batches WHERE batch_number LIKE ? AND icdv_id=?`,
-        [`${code}-${dateStr}-%`, icdvId]));
-  const last = rows[0]?.last || 0;
-  return `${code}-${dateStr}-${String(last + 1).padStart(2, '0')}`;
+
+  // Count total batches ever created for this vessel+icdv to get the next seq
+  const prefix = `${code}-BATCH-`;
+  const [row] = await exec(
+    `SELECT MAX(CAST(SUBSTRING_INDEX(batch_number, '-', -1) AS UNSIGNED)) AS last
+     FROM batches
+     WHERE icdv_id=? AND vessel_id=? AND batch_number LIKE ?`,
+    [icdvId, vesselId, `${prefix}%`]
+  );
+  const last = row?.last || 0;
+  return `${prefix}${String(last + 1).padStart(2, '0')}`;
 };
 
 const lookupForBatch = async (last4, icdvId) => {
@@ -277,29 +290,46 @@ const addToBatch = async (vehicleId, notes, operatorId, icdvId) =>
     if (vehicle.batch_id)
       throw new ApiError(httpStatus.CONFLICT, 'Vehicle is already in a batch');
 
-    const today = new Date().toISOString().slice(0, 10);
     const vesselId = vehicle.vessel_id;
 
-    // Find open batch with space or create new
+    // ── Find the single OPEN batch for this vessel (date-independent) ──────────
+    // There must only ever be one 'open' batch per vessel+icdv at a time.
+    // FOR UPDATE prevents two concurrent scans from both creating a new batch.
     const [openBatch] = await connQuery(conn,
       `SELECT batch_id, vehicle_count, batch_number FROM batches
-       WHERE icdv_id=? AND vessel_id=? AND batch_date=? AND status='open' AND vehicle_count < ?
+       WHERE icdv_id=? AND vessel_id=? AND status='open'
        ORDER BY batch_id ASC LIMIT 1 FOR UPDATE`,
-      [icdvId, vesselId, today, BATCH_MAX]
+      [icdvId, vesselId]
     );
 
     let batchId, batchNumber;
     if (openBatch) {
-      batchId = openBatch.batch_id;
+      // ── Existing open batch — assign vehicle to it ──────────────────────────
+      batchId     = openBatch.batch_id;
       batchNumber = openBatch.batch_number;
-      await connQuery(conn,
-        'UPDATE batches SET vehicle_count = vehicle_count + 1, updated_at=NOW() WHERE batch_id=?',
-        [batchId]
-      );
+      const newCount = openBatch.vehicle_count + 1;
+
+      if (newCount >= BATCH_MAX) {
+        // This vehicle fills the batch → mark 'full' atomically
+        await connQuery(conn,
+          `UPDATE batches SET vehicle_count=?, status='full', updated_at=NOW() WHERE batch_id=?`,
+          [newCount, batchId]
+        );
+      } else {
+        await connQuery(conn,
+          `UPDATE batches SET vehicle_count=vehicle_count+1, updated_at=NOW() WHERE batch_id=?`,
+          [batchId]
+        );
+      }
     } else {
-      batchNumber = await generateBatchNumber(vesselId, today, icdvId, conn);
+      // ── No open batch — create the next sequential one ──────────────────────
+      // batch_date records the creation date for audit purposes only; it is NOT
+      // used to route vehicles or determine batch boundaries.
+      const today = new Date().toISOString().slice(0, 10);
+      batchNumber = await generateBatchNumber(vesselId, icdvId, conn);
       const r = await connQuery(conn,
-        `INSERT INTO batches (icdv_id, batch_number, vessel_id, manifest_id, batch_date, vehicle_count, status, created_by)
+        `INSERT INTO batches
+           (icdv_id, batch_number, vessel_id, manifest_id, batch_date, vehicle_count, status, created_by)
          VALUES (?,?,?,?,?,1,'open',?)`,
         [icdvId, batchNumber, vesselId, vehicle.manifest_id, today, operatorId]
       );

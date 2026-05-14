@@ -142,6 +142,12 @@ export const workflowApi = {
     client.get('/workflow/search', { params: { chassis } }),
   getHistory: (vehicleId: number) =>
     client.get(`/workflow/vehicles/${vehicleId}/history`),
+
+  // 6. Delivery Sheet
+  getBatchDeliverySheet:  (batchId: number) =>
+    client.get(`/workflow/batches/${batchId}/delivery-sheet`),
+  getVesselDeliverySheet: (vesselId: number) =>
+    client.get(`/workflow/vessels/${vesselId}/delivery-sheet`),
 };
 
 // ── Lookups (extended) ────────────────────────────────────────────────────────
