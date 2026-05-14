@@ -76,7 +76,7 @@ export default function DriversPage() {
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-200 text-xs text-gray-500 uppercase">
             <tr>
-              {['Name', 'License Number', 'Phone', 'Email', 'Status', 'Actions'].map(h => (
+              {['Name', 'ID Number', 'License Number', 'Phone', 'Status', 'Actions'].map(h => (
                 <th key={h} className="px-4 py-3 text-left font-medium">{h}</th>
               ))}
             </tr>
@@ -102,9 +102,9 @@ export default function DriversPage() {
                       <span className="font-medium text-gray-900">{d.full_name}</span>
                     </div>
                   </td>
+                <td className="px-4 py-3 font-mono text-xs text-gray-700">{(d as any).id_number ?? '—'}</td>
                 <td className="px-4 py-3 font-mono text-gray-700">{d.license_number}</td>
                 <td className="px-4 py-3 text-gray-600">{d.phone ?? '—'}</td>
-                <td className="px-4 py-3 text-gray-600">{d.email ?? '—'}</td>
                 <td className="px-4 py-3"><StatusBadge status={d.status} /></td>
                 <td className="px-4 py-3">
                   <div className="flex gap-3">

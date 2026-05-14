@@ -78,6 +78,12 @@ const SUPER_ADMIN_NAV: NavItem[] = [
   { name: "All Manifests",icon: <Icon.Manifest />,  path: "/manifests" },
   { name: "All Vehicles", icon: <Icon.Vehicle />,   path: "/vehicles" },
   {
+    name: "Drivers", icon: <Icon.Driver />, subItems: [
+      { name: "All Drivers", path: "/drivers" },
+      { name: "Add Driver",  path: "/drivers/new" },
+    ],
+  },
+  {
     name: "Operations", icon: <Icon.Operation />, subItems: [
       { name: "1. Discharge",    path: "/operations/discharge" },
       { name: "2. Batch",        path: "/operations/batch" },

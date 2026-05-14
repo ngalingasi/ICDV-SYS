@@ -60,15 +60,16 @@ export const vehiclesApi = {
 
 // ── Drivers ───────────────────────────────────────────────────────────────────
 export const driversApi = {
-  list:   (params?: any)  => client.get<PaginatedResponse<Driver>>('/drivers', { params }),
-  get:    (id: number)    => client.get<Driver>(`/drivers/${id}`),
-  create: (data: FormData | Partial<Driver>) =>
+  list:    (params?: any)  => client.get<PaginatedResponse<Driver>>('/drivers', { params }),
+  get:     (id: number)    => client.get<Driver>(`/drivers/${id}`),
+  create:  (data: FormData | Partial<Driver>) =>
     client.post<Driver>('/drivers', data,
       data instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : {}),
-  update: (id: number, data: FormData | Partial<Driver>) =>
+  update:  (id: number, data: FormData | Partial<Driver>) =>
     client.patch<Driver>(`/drivers/${id}`, data,
       data instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : {}),
-  delete: (id: number)    => client.delete(`/drivers/${id}`),
+  release: (id: number)    => client.patch(`/drivers/${id}/release`),
+  delete:  (id: number)    => client.delete(`/drivers/${id}`),
 };
 
 // ── Operations ────────────────────────────────────────────────────────────────
