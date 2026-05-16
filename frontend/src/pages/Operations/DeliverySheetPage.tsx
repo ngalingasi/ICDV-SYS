@@ -90,8 +90,14 @@ function buildPrintHTML(
         <table class="header-table">
           <tr>
             <td style="width:33%">
-              <strong>${meta.icdv_name}</strong><br>
-              <span style="font-size:8pt;color:#555">Vehicle Delivery Sheet</span>
+              <div style="display:flex;align-items:center;gap:10px">
+                <img src="/images/logo/logo.png" alt="Logo"
+                     style="height:44px;width:44px;object-fit:contain;border-radius:6px;flex-shrink:0" />
+                <div>
+                  <strong>${meta.icdv_name}</strong><br>
+                  <span style="font-size:8pt;color:#555">Vehicle Delivery Sheet</span>
+                </div>
+              </div>
             </td>
             <td style="width:34%;text-align:center">
               <div style="font-size:14pt;font-weight:900;letter-spacing:1px">DELIVERY SHEET</div>

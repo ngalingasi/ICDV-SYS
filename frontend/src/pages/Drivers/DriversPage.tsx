@@ -285,10 +285,22 @@ export default function DriversPage() {
               <tr>
                 <td style={{ verticalAlign: 'middle', paddingRight: '16px', width: '60px' }}>
                   {/* Logo placeholder — replace src with actual logo path if available */}
+                  <img
+                    src="/images/logo/logo.png"
+                    alt="Logo"
+                    style={{ height: '52px', width: '52px', objectFit: 'contain', borderRadius: '8px', flexShrink: 0 }}
+                    onError={e => {
+                      const el = e.currentTarget as HTMLImageElement;
+                      el.style.display = 'none';
+                      const next = el.nextSibling as HTMLElement;
+                      if (next) next.style.display = 'flex';
+                    }}
+                  />
+                  {/* Fallback if logo fails */}
                   <div style={{
                     width: '52px', height: '52px', borderRadius: '8px',
-                    background: '#1e3a5f', display: 'flex', alignItems: 'center',
-                    justifyContent: 'center', color: '#fff', fontWeight: 'bold', fontSize: '14pt',
+                    background: '#1e3a5f', display: 'none', alignItems: 'center',
+                    justifyContent: 'center', color: '#fff', fontWeight: 'bold', fontSize: '14pt', flexShrink: 0,
                   }}>
                     IC
                   </div>
