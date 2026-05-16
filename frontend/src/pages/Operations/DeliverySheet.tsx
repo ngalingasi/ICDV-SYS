@@ -50,8 +50,8 @@ export default function DeliverySheet() {
 
   useEffect(() => {
     if (!batchId) return;
-    workflowApi.getDeliverySheet(Number(batchId))
-      .then(r => setData(r.data))
+    workflowApi.getBatchDeliverySheet(Number(batchId))
+      .then((r: any) => setData(r.data))
       .catch(() => setError('Failed to load delivery sheet'))
       .finally(() => setLoading(false));
   }, [batchId]);
