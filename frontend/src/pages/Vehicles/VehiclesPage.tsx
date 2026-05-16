@@ -90,7 +90,7 @@ export default function VehiclesPage() {
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-700">
                 {['Chassis #','Brand','Model','Year','Color','Manifest','Vessel','Customer','Destination','Release','Op. Status',''].map(h => (
-                  <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                  <th key={h} className={`text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap${['Brand','Model','Year','Color'].includes(h) ? ' hidden' : ''}`}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -108,10 +108,10 @@ export default function VehiclesPage() {
                   <td className="px-4 py-3 font-mono text-xs text-gray-800 dark:text-white">
                     <Link to={`/vehicles/${v.vehicle_id}`} className="hover:text-brand-600">{v.chassis_number}</Link>
                   </td>
-                  <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{v.brand ?? '—'}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{v.model ?? '—'}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{v.year ?? '—'}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{v.color ?? '—'}</td>
+                  <td className="hidden px-4 py-3 text-gray-700 dark:text-gray-300">{v.brand ?? '—'}</td>
+                  <td className="hidden px-4 py-3 text-gray-600 dark:text-gray-400">{v.model ?? '—'}</td>
+                  <td className="hidden px-4 py-3 text-gray-600 dark:text-gray-400">{v.year ?? '—'}</td>
+                  <td className="hidden px-4 py-3 text-gray-600 dark:text-gray-400">{v.color ?? '—'}</td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
                     {v.manifest_number ? <Link to={`/manifests/${v.manifest_id}`} className="hover:text-brand-600">{v.manifest_number}</Link> : '—'}
                   </td>

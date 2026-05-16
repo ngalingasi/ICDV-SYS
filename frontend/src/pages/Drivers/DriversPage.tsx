@@ -433,11 +433,11 @@ export default function DriversPage() {
               ) : printDrivers.map((d, idx) => (
                 <tr key={d.driver_id} style={{ background: idx % 2 === 0 ? '#fff' : '#f5f7fa' }}>
                   <td style={{ ...td, textAlign: 'center', color: '#888', width: '36px' }}>{idx + 1}</td>
-                  <td style={{ ...td, fontFamily: 'Courier New, monospace', fontSize: '8.5pt' }}>
+                  <td style={{ ...td, fontFamily: 'Courier New, monospace', fontSize: '8.5pt', fontWeight: '700' }}>
                     {(d as any).id_number ?? '—'}
                   </td>
                   <td style={{ ...td, fontWeight: '600' }}>{d.full_name}</td>
-                  <td style={{ ...td, fontFamily: 'Courier New, monospace', fontSize: '8.5pt' }}>
+                  <td style={{ ...td, fontFamily: 'Courier New, monospace', fontSize: '8.5pt', fontWeight: '700' }}>
                     {d.license_number}
                   </td>
                   <td style={td}>{d.phone ?? '—'}</td>

@@ -90,14 +90,8 @@ function buildPrintHTML(
         <table class="header-table">
           <tr>
             <td style="width:33%">
-              <div style="display:flex;align-items:center;gap:10px">
-                <img src="/images/logo/logo.png" alt="Logo"
-                     style="height:44px;width:44px;object-fit:contain;border-radius:6px;flex-shrink:0" />
-                <div>
-                  <strong>${meta.icdv_name}</strong><br>
-                  <span style="font-size:8pt;color:#555">Vehicle Delivery Sheet</span>
-                </div>
-              </div>
+              <strong>${meta.icdv_name}</strong><br>
+              <span style="font-size:8pt;color:#555">Vehicle Delivery Sheet</span>
             </td>
             <td style="width:34%;text-align:center">
               <div style="font-size:14pt;font-weight:900;letter-spacing:1px">DELIVERY SHEET</div>
@@ -369,8 +363,8 @@ function ScreenBatchTable({ batch, index, total, icdvName, vesselName }: {
               {batch.drivers.map((d, i) => (
                 <tr key={d.driver_id} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc', borderBottom: '1px solid #f1f5f9' }}>
                   <td style={{ padding: '7px 12px', color: '#94a3b8', textAlign: 'center', width: 40 }}>{i + 1}</td>
-                  <td style={{ padding: '7px 12px', fontFamily: 'monospace', fontSize: 12 }}>{d.id_number || '—'}</td>
-                  <td style={{ padding: '7px 12px', fontFamily: 'monospace', fontSize: 12 }}>{d.license_number || '—'}</td>
+                  <td style={{ padding: '7px 12px', fontFamily: 'monospace', fontSize: 12, fontWeight: 700 }}>{d.id_number || '—'}</td>
+                  <td style={{ padding: '7px 12px', fontFamily: 'monospace', fontSize: 12, fontWeight: 700 }}>{d.license_number || '—'}</td>
                   <td style={{ padding: '7px 12px', fontWeight: 600 }}>{d.full_name}</td>
                   <td style={{ padding: '7px 12px', fontFamily: 'monospace', fontSize: 12 }}>{d.phone || '—'}</td>
                   <td style={{ padding: '7px 12px', fontFamily: 'monospace', fontSize: 11, color: '#334155' }}>{d.chassis_numbers.join('  ·  ') || '—'}</td>
