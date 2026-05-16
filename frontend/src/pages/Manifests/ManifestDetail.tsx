@@ -182,8 +182,8 @@ export default function ManifestDetail() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
-                {['Chassis #','Brand / Model','Customer','Release','Workflow Status','Location',''].map(h => (
-                  <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                {['Chassis #','Brand / Model','Customer','Workflow Status','Location','Release',''].map(h => (
+                  <th key={h} className={`text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap${h === 'Brand / Model' || h === 'Customer' ? ' hidden' : ''}`}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -201,11 +201,11 @@ export default function ManifestDetail() {
                     <td className="px-4 py-3 font-mono text-xs font-semibold text-gray-800 dark:text-white">
                       <Link to={`/vehicles/${v.vehicle_id}`} className="hover:text-brand-600">{v.chassis_number}</Link>
                     </td>
-                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{[v.brand,v.model].filter(Boolean).join(' ') || '—'}</td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400 max-w-[120px] truncate">{v.customer_name ?? '—'}</td>
-                    <td className="px-4 py-3"><StatusBadge status={v.release_status} /></td>
+                    <td className="hidden px-4 py-3 text-gray-700 dark:text-gray-300">{[v.brand,v.model].filter(Boolean).join(' ') || '—'}</td>
+                    <td className="hidden px-4 py-3 text-gray-500 dark:text-gray-400 max-w-[120px] truncate">{v.customer_name ?? '—'}</td>
                     <td className="px-4 py-3"><StatusBadge status={vv.workflow_status ?? v.operational_status} /></td>
                     <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{vv.current_location?.replace(/_/g,' ') ?? '—'}</td>
+                    <td className="px-4 py-3"><StatusBadge status={v.release_status} /></td>
                     <td className="px-4 py-3"><Link to={`/vehicles/${v.vehicle_id}`} className="text-xs text-brand-600 hover:underline">View</Link></td>
                   </tr>
                 );
