@@ -6,37 +6,38 @@ import StatusBadge from '../../components/tpfcs/StatusBadge';
 import { toast } from '../../components/tpfcs/Toast';
 import { useAuth } from '../../store/authStore';
 
-// ─── Print styles ─────────────────────────────────────────────────────────────
-// Injected into <head> only while the print dialog is open.
+// ── Print CSS — injected on mount, hides screen UI during print ───────────────
 const PRINT_CSS = `
-  /* Hide print root on screen — overridden at print time */
   .driver-print-hidden { display: none; }
 
   @media print {
-    /* Hide all normal page chrome */
     body > * { visibility: hidden; }
-    .driver-print-hidden { display: block !important; visibility: visible; }
-    .driver-print-hidden * { visibility: visible; }
-
-    /* Position the sheet to fill the page */
     .driver-print-hidden {
+      display: block !important;
+      visibility: visible;
       position: fixed;
       top: 0; left: 0;
       width: 100%; height: auto;
       background: white;
       z-index: 99999;
     }
-
-    /* A4 portrait, 15 mm margins */
+    .driver-print-hidden * { visibility: visible; }
     @page { size: A4 portrait; margin: 15mm 12mm; }
-
-    /* Prevent rows from splitting across page breaks */
     table  { border-collapse: collapse; width: 100%; page-break-inside: auto; }
     thead  { display: table-header-group; }
     tfoot  { display: table-footer-group; }
     tr     { page-break-inside: avoid; }
   }
 `;
+
+// ── Cell styles used in the printable table ───────────────────────────────────
+const th: React.CSSProperties = {
+  padding: '6px 10px', textAlign: 'left', fontSize: '8.5pt',
+  fontWeight: 'bold', border: '1px solid #374151', whiteSpace: 'nowrap',
+};
+const td: React.CSSProperties = {
+  padding: '5px 10px', border: '1px solid #d1d5db', verticalAlign: 'middle',
+};
 
 export default function DriversPage() {
   const { icdvName, user } = useAuth();
@@ -49,11 +50,28 @@ export default function DriversPage() {
   const [delId,     setDelId]     = useState<number | null>(null);
   const [deleting,  setDeleting]  = useState(false);
 
-  // Print state
+  // ── Selection state ───────────────────────────────────────────────────────
+  const [selected,     setSelected]     = useState<Set<number>>(new Set());
+  // Ref mirrors selected so handlePrint always reads the LATEST set,
+  // even if called immediately after a checkbox change (before React re-render).
+  const selectedRef = useRef<Set<number>>(new Set());
   const [printing,     setPrinting]     = useState(false);
   const [printDrivers, setPrintDrivers] = useState<Driver[]>([]);
-  const limit = 20;
-  const timer = useRef<ReturnType<typeof setTimeout>>(undefined as any);
+
+  const limit    = 20;
+  const timer    = useRef<ReturnType<typeof setTimeout>>(undefined as any);
+  const printDate = new Date().toLocaleString('en-GB', {
+    day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+
+  // ── Inject print CSS on mount ─────────────────────────────────────────────
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.id = 'driver-print-css';
+    style.innerHTML = PRINT_CSS;
+    document.head.appendChild(style);
+    return () => { style.remove(); };
+  }, []);
 
   const load = () => {
     setLoading(true);
@@ -62,15 +80,6 @@ export default function DriversPage() {
       .finally(() => setLoading(false));
   };
 
-  // Inject the screen-hiding CSS for the print section on mount
-  useEffect(() => {
-    const style = document.createElement('style');
-    style.id = 'driver-print-screen-css';
-    style.innerHTML = PRINT_CSS;
-    document.head.appendChild(style);
-    return () => { style.remove(); };
-  }, []);
-
   useEffect(() => {
     clearTimeout(timer.current);
     timer.current = setTimeout(() => { setPage(1); load(); }, 350);
@@ -78,6 +87,81 @@ export default function DriversPage() {
   }, [search]); // eslint-disable-line
 
   useEffect(() => { load(); }, [page]); // eslint-disable-line
+
+  // ── Checkbox helpers ──────────────────────────────────────────────────────
+  const toggleOne = (id: number) =>
+    setSelected(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      selectedRef.current = next;   // keep ref in sync
+      return next;
+    });
+
+  const allOnPageSelected =
+    drivers.length > 0 && drivers.every(d => selected.has(d.driver_id));
+
+  const someOnPageSelected = drivers.some(d => selected.has(d.driver_id));
+
+  const toggleAllOnPage = () => {
+    if (allOnPageSelected) {
+      setSelected(prev => {
+        const next = new Set(prev);
+        drivers.forEach(d => next.delete(d.driver_id));
+        selectedRef.current = next;
+        return next;
+      });
+    } else {
+      setSelected(prev => {
+        const next = new Set(prev);
+        drivers.forEach(d => next.add(d.driver_id));
+        selectedRef.current = next;
+        return next;
+      });
+    }
+  };
+
+  const clearSelection = () => { const empty = new Set<number>(); selectedRef.current = empty; setSelected(empty); };
+
+  // ── Print — only checked drivers ─────────────────────────────────────────
+  const handlePrint = async () => {
+    // Read from ref — always reflects the LATEST selection
+    const currentSelected = new Set(selectedRef.current);
+    if (currentSelected.size === 0) {
+      toast.error('Select at least one driver to print.');
+      return;
+    }
+    setPrinting(true);
+    try {
+      // Fetch ALL drivers with NO search filter so selected IDs from any
+      // previous search term are always included. Then filter by selected IDs.
+      const r = await driversApi.list({ page: 1, limit: 9999 });
+      const all: Driver[] = r.data.results ?? [];
+
+      // Keep only selected drivers, preserving order:
+      // 1. Currently visible page drivers first (in their displayed order)
+      // 2. Then any selected from other pages / previous searches, alphabetically
+      const onPage  = drivers.filter(d => currentSelected.has(d.driver_id));
+      const onPageIds = new Set(onPage.map(d => d.driver_id));
+      const others  = all
+        .filter(d => currentSelected.has(d.driver_id) && !onPageIds.has(d.driver_id))
+        .sort((a, b) => a.full_name.localeCompare(b.full_name));
+
+      const toPrint = [...onPage, ...others];
+
+      if (toPrint.length !== currentSelected.size) {
+        // Some selected IDs weren't found in the full list (deleted drivers etc.)
+        toast.error(`${currentSelected.size - toPrint.length} selected driver(s) could not be found.`);
+      }
+
+      setPrintDrivers(toPrint);
+      await new Promise(res => setTimeout(res, 200));
+      window.print();
+    } catch {
+      toast.error('Failed to load drivers for printing.');
+    } finally {
+      setPrinting(false);
+    }
+  };
 
   const handleDelete = async () => {
     if (!delId) return;
@@ -92,37 +176,14 @@ export default function DriversPage() {
     } finally { setDeleting(false); }
   };
 
-  // ── Print handler ─────────────────────────────────────────────────────────
-  const handlePrint = async () => {
-    setPrinting(true);
-    try {
-      // Fetch ALL drivers (no pagination limit) for the print
-      const r = await driversApi.list({ page: 1, limit: 9999, search: search || undefined });
-      setPrintDrivers(r.data.results ?? []);
-
-      // Let React re-render the print DOM with the new data before opening print dialog
-      await new Promise(res => setTimeout(res, 200));
-      window.print();
-    } catch {
-      toast.error('Failed to load drivers for printing');
-    } finally {
-      setPrinting(false);
-    }
-  };
-
-  const totalPages = Math.ceil(total / limit);
-
-  const printDate = new Date().toLocaleDateString('en-GB', {
-    day: '2-digit', month: 'long', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  });
-
-  const orgName = icdvName ?? 'ICDV Management';
+  const totalPages  = Math.ceil(total / limit);
+  const orgName     = icdvName ?? 'ICDV Management';
+  const selCount    = selected.size;
 
   return (
-    <div className="p-4 sm:p-6 space-y-5">
+    <div className="p-6 space-y-5">
 
-      {/* ── Page Header ───────────────────────────────────────────────────── */}
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">Drivers</h1>
@@ -130,18 +191,23 @@ export default function DriversPage() {
             {total} driver{total !== 1 ? 's' : ''} registered
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {/* Print button */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Print button — shows selection count when any checked */}
           <button
             onClick={handlePrint}
-            disabled={printing || loading}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors"
+            disabled={printing || selCount === 0}
+            title={selCount === 0 ? 'Check drivers below to enable printing' : `Print ${selCount} selected driver${selCount !== 1 ? 's' : ''}`}
+            className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${
+              selCount > 0
+                ? 'border-gray-800 bg-gray-800 text-white hover:bg-gray-700'
+                : 'border-gray-300 dark:border-gray-700 text-gray-400 dark:text-gray-600 cursor-not-allowed'
+            } disabled:opacity-60`}
           >
             {printing ? (
               <>
                 <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
                 </svg>
                 Preparing…
               </>
@@ -151,37 +217,59 @@ export default function DriversPage() {
                   <path strokeLinecap="round" strokeLinejoin="round"
                     d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                 </svg>
-                Print Driver List
+                Print{selCount > 0 ? ` (${selCount})` : ''}
               </>
             )}
           </button>
 
-          <Link
-            to="/drivers/new"
-            className="px-4 py-2 text-sm font-medium bg-brand-500 hover:bg-brand-600 text-white rounded-lg transition-colors"
-          >
+          <Link to="/drivers/new"
+            className="px-4 py-2 text-sm font-medium bg-brand-500 hover:bg-brand-600 text-white rounded-lg transition-colors">
             + Add Driver
           </Link>
         </div>
       </div>
 
-      {/* ── Search ────────────────────────────────────────────────────────── */}
+      {/* ── Selection action bar — appears when any driver is checked ──────── */}
+      {selCount > 0 && (
+        <div className="flex items-center justify-between px-4 py-2.5 rounded-lg bg-brand-50 dark:bg-brand-500/10 border border-brand-200 dark:border-brand-500/30 text-sm">
+          <span className="font-medium text-brand-700 dark:text-brand-300">
+            {selCount} driver{selCount !== 1 ? 's' : ''} selected
+          </span>
+          <button
+            onClick={clearSelection}
+            className="text-xs text-brand-500 hover:text-brand-700 dark:hover:text-brand-300 font-medium"
+          >
+            Clear selection
+          </button>
+        </div>
+      )}
+
+      {/* ── Search ─────────────────────────────────────────────────────────── */}
       <div className="flex gap-3 flex-wrap">
         <input
-          type="text"
-          placeholder="Search by name or license…"
-          value={search}
+          type="text" placeholder="Search by name or license…" value={search}
           onChange={e => setSearch(e.target.value)}
           className="border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200"
         />
       </div>
 
-      {/* ── Table ─────────────────────────────────────────────────────────── */}
+      {/* ── Table ──────────────────────────────────────────────────────────── */}
       <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 uppercase">
             <tr>
-              {['Name','ID Number','License Number','Phone','Status','Actions'].map(h => (
+              {/* Select-all checkbox */}
+              <th className="px-4 py-3 w-10">
+                <input
+                  type="checkbox"
+                  checked={allOnPageSelected}
+                  ref={el => { if (el) el.indeterminate = someOnPageSelected && !allOnPageSelected; }}
+                  onChange={toggleAllOnPage}
+                  title={allOnPageSelected ? 'Deselect all on this page' : 'Select all on this page'}
+                  className="w-4 h-4 rounded accent-brand-500 cursor-pointer"
+                />
+              </th>
+              {['Name', 'ID Number', 'License Number', 'Phone', 'Status', 'Actions'].map(h => (
                 <th key={h} className="px-4 py-3 text-left font-medium">{h}</th>
               ))}
             </tr>
@@ -190,7 +278,7 @@ export default function DriversPage() {
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i} className="animate-pulse">
-                  {Array.from({ length: 6 }).map((_, j) => (
+                  {Array.from({ length: 7 }).map((_, j) => (
                     <td key={j} className="px-4 py-3">
                       <div className="h-4 bg-gray-100 dark:bg-gray-800 rounded w-24" />
                     </td>
@@ -199,38 +287,53 @@ export default function DriversPage() {
               ))
             ) : drivers.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-gray-400">
+                <td colSpan={7} className="px-4 py-10 text-center text-gray-400">
                   No drivers found
                 </td>
               </tr>
-            ) : drivers.map(d => (
-              <tr key={d.driver_id} className="hover:bg-gray-50 dark:hover:bg-gray-800/40">
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-100 flex-shrink-0 flex items-center justify-center">
-                      {(d as any).photo
-                        ? <img src={`http://localhost:3000${(d as any).photo}`} alt="" className="w-full h-full object-cover" />
-                        : <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                          </svg>
-                      }
+            ) : drivers.map(d => {
+              const isChecked = selected.has(d.driver_id);
+              return (
+                <tr
+                  key={d.driver_id}
+                  className={`hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors ${isChecked ? 'bg-brand-50 dark:bg-brand-500/10' : ''}`}
+                >
+                  {/* Row checkbox */}
+                  <td className="px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => toggleOne(d.driver_id)}
+                      className="w-4 h-4 rounded accent-brand-500 cursor-pointer"
+                    />
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-100 flex-shrink-0 flex items-center justify-center">
+                        {(d as any).photo
+                          ? <img src={`http://localhost:3000${(d as any).photo}`} alt="" className="w-full h-full object-cover" />
+                          : <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                        }
+                      </div>
+                      <span className="font-medium text-gray-900 dark:text-white">{d.full_name}</span>
                     </div>
-                    <span className="font-medium text-gray-900 dark:text-white">{d.full_name}</span>
-                  </div>
-                </td>
-                <td className="px-4 py-3 font-mono text-xs text-gray-700 dark:text-gray-300">{(d as any).id_number ?? '—'}</td>
-                <td className="px-4 py-3 font-mono text-gray-700 dark:text-gray-300">{d.license_number}</td>
-                <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{d.phone ?? '—'}</td>
-                <td className="px-4 py-3"><StatusBadge status={d.status} /></td>
-                <td className="px-4 py-3">
-                  <div className="flex gap-3">
-                    <Link to={`/drivers/${d.driver_id}`} className="text-brand-600 hover:underline text-xs">View</Link>
-                    <Link to={`/drivers/${d.driver_id}/edit`} className="text-gray-600 hover:underline text-xs">Edit</Link>
-                    <button onClick={() => setDelId(d.driver_id)} className="text-red-500 hover:underline text-xs">Delete</button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td className="px-4 py-3 font-mono text-xs text-gray-700 dark:text-gray-300">{(d as any).id_number ?? '—'}</td>
+                  <td className="px-4 py-3 font-mono text-gray-700 dark:text-gray-300">{d.license_number}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{d.phone ?? '—'}</td>
+                  <td className="px-4 py-3"><StatusBadge status={d.status} /></td>
+                  <td className="px-4 py-3">
+                    <div className="flex gap-3">
+                      <Link to={`/drivers/${d.driver_id}`} className="text-brand-600 hover:underline text-xs">View</Link>
+                      <Link to={`/drivers/${d.driver_id}/edit`} className="text-gray-600 hover:underline text-xs">Edit</Link>
+                      <button onClick={() => setDelId(d.driver_id)} className="text-red-500 hover:underline text-xs">Delete</button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
 
@@ -240,19 +343,15 @@ export default function DriversPage() {
             <span>Page {page} of {totalPages}</span>
             <div className="flex gap-2">
               <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                className="px-3 py-1 rounded border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40">
-                Prev
-              </button>
+                className="px-3 py-1 rounded border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40">Prev</button>
               <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                className="px-3 py-1 rounded border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40">
-                Next
-              </button>
+                className="px-3 py-1 rounded border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40">Next</button>
             </div>
           </div>
         )}
       </div>
 
-      {/* ── Delete modal ──────────────────────────────────────────────────── */}
+      {/* ── Delete modal ───────────────────────────────────────────────────── */}
       {delId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl p-6 w-full max-w-sm mx-4 border border-gray-200 dark:border-gray-700">
@@ -260,9 +359,7 @@ export default function DriversPage() {
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-5">This action cannot be undone.</p>
             <div className="flex gap-3 justify-end">
               <button onClick={() => setDelId(null)}
-                className="px-4 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
-                Cancel
-              </button>
+                className="px-4 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">Cancel</button>
               <button onClick={handleDelete} disabled={deleting}
                 className="px-4 py-2 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">
                 {deleting ? 'Deleting…' : 'Delete'}
@@ -272,38 +369,20 @@ export default function DriversPage() {
         </div>
       )}
 
-      {/* ── Hidden printable section ─────────────────────────────────────────
-          Rendered in the DOM but invisible on screen.
-          The print CSS makes ONLY this visible when printing.
+      {/* ── Hidden printable section ───────────────────────────────────────────
+          Only rendered when print is triggered. Hidden on screen via CSS class.
       ─────────────────────────────────────────────────────────────────────── */}
-      <div id="driver-print-root" className="driver-print-hidden">
+      <div className="driver-print-hidden">
         <div style={{ fontFamily: 'Arial, sans-serif', fontSize: '10pt', color: '#000' }}>
 
-          {/* ── Document header ───────────────────────────────────────────── */}
+          {/* Header */}
           <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '16px' }}>
             <tbody>
               <tr>
                 <td style={{ verticalAlign: 'middle', paddingRight: '16px', width: '60px' }}>
-                  {/* Logo placeholder — replace src with actual logo path if available */}
-                  <img
-                    src="/images/logo/logo.png"
-                    alt="Logo"
-                    style={{ height: '52px', width: '52px', objectFit: 'contain', borderRadius: '8px', flexShrink: 0 }}
-                    onError={e => {
-                      const el = e.currentTarget as HTMLImageElement;
-                      el.style.display = 'none';
-                      const next = el.nextSibling as HTMLElement;
-                      if (next) next.style.display = 'flex';
-                    }}
-                  />
-                  {/* Fallback if logo fails */}
-                  <div style={{
-                    width: '52px', height: '52px', borderRadius: '8px',
-                    background: '#1e3a5f', display: 'none', alignItems: 'center',
-                    justifyContent: 'center', color: '#fff', fontWeight: 'bold', fontSize: '14pt', flexShrink: 0,
-                  }}>
-                    IC
-                  </div>
+                  <img src="/images/logo/logo.png" alt="Logo"
+                    style={{ height: '52px', width: '52px', objectFit: 'contain', borderRadius: '8px' }}
+                    onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
                 </td>
                 <td style={{ verticalAlign: 'middle' }}>
                   <div style={{ fontSize: '14pt', fontWeight: 'bold', color: '#111' }}>{orgName}</div>
@@ -312,7 +391,7 @@ export default function DriversPage() {
                   </div>
                 </td>
                 <td style={{ verticalAlign: 'middle', textAlign: 'right' }}>
-                  <div style={{ fontSize: '16pt', fontWeight: 'black', color: '#111', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                  <div style={{ fontSize: '16pt', fontWeight: '900', color: '#111', textTransform: 'uppercase', letterSpacing: '1px' }}>
                     DRIVER LIST
                   </div>
                   <div style={{ fontSize: '8pt', color: '#666', marginTop: '4px' }}>
@@ -322,18 +401,17 @@ export default function DriversPage() {
                     Generated By: {(user as any)?.full_name ?? (user as any)?.username ?? 'System'}
                   </div>
                   <div style={{ fontSize: '8pt', color: '#666' }}>
-                    Total Drivers: {printDrivers.length}
-                    {search ? ` (filtered: "${search}")` : ''}
+                    Drivers Selected: {printDrivers.length}
+                    {search ? ` · Filter: "${search}"` : ''}
                   </div>
                 </td>
               </tr>
             </tbody>
           </table>
 
-          {/* Separator */}
           <div style={{ borderTop: '2px solid #111', marginBottom: '12px' }} />
 
-          {/* ── Driver table ──────────────────────────────────────────────── */}
+          {/* Driver table */}
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9pt' }}>
             <thead>
               <tr style={{ background: '#1e3a5f', color: '#fff' }}>
@@ -349,7 +427,7 @@ export default function DriversPage() {
               {printDrivers.length === 0 ? (
                 <tr>
                   <td colSpan={6} style={{ ...td, textAlign: 'center', color: '#888', padding: '24px' }}>
-                    No drivers to print
+                    No drivers selected
                   </td>
                 </tr>
               ) : printDrivers.map((d, idx) => (
@@ -365,14 +443,11 @@ export default function DriversPage() {
                   <td style={td}>{d.phone ?? '—'}</td>
                   <td style={{ ...td, textAlign: 'center' }}>
                     <span style={{
-                      display: 'inline-block',
-                      padding: '1px 8px',
-                      borderRadius: '10px',
-                      fontSize: '8pt',
-                      fontWeight: '600',
+                      display: 'inline-block', padding: '1px 8px', borderRadius: '10px',
+                      fontSize: '8pt', fontWeight: '600',
                       background: d.status === 'active' ? '#dcfce7' : '#fee2e2',
                       color:      d.status === 'active' ? '#166534' : '#991b1b',
-                      border:     `1px solid ${d.status === 'active' ? '#86efac' : '#fca5a5'}`,
+                      border:    `1px solid ${d.status === 'active' ? '#86efac' : '#fca5a5'}`,
                     }}>
                       {d.status?.toUpperCase()}
                     </span>
@@ -380,21 +455,19 @@ export default function DriversPage() {
                 </tr>
               ))}
             </tbody>
-
-            {/* Summary row */}
             {printDrivers.length > 0 && (
               <tfoot>
                 <tr style={{ background: '#1e3a5f', color: '#fff', fontWeight: 'bold' }}>
-                  <td colSpan={3} style={{ ...td, textAlign: 'right', fontSize: '8.5pt' }}>
-                    TOTAL DRIVERS:
+                  <td colSpan={3} style={{ ...td, textAlign: 'right', fontSize: '8.5pt', color: '#fff', borderColor: '#374151' }}>
+                    TOTAL:
                   </td>
-                  <td colSpan={1} style={{ ...td, fontSize: '8.5pt' }}>
+                  <td style={{ ...td, fontSize: '8.5pt', color: '#fff', borderColor: '#374151' }}>
                     {printDrivers.length}
                   </td>
-                  <td style={{ ...td, fontSize: '8.5pt' }}>
+                  <td style={{ ...td, fontSize: '8.5pt', color: '#fff', borderColor: '#374151' }}>
                     Active: {printDrivers.filter(d => d.status === 'active').length}
                   </td>
-                  <td style={{ ...td, fontSize: '8.5pt' }}>
+                  <td style={{ ...td, fontSize: '8.5pt', color: '#fff', borderColor: '#374151' }}>
                     Inactive: {printDrivers.filter(d => d.status !== 'active').length}
                   </td>
                 </tr>
@@ -402,43 +475,22 @@ export default function DriversPage() {
             )}
           </table>
 
-          {/* ── Footer / signature section ─────────────────────────────────── */}
+          {/* Signature footer */}
           <div style={{ marginTop: '48px' }}>
             <div style={{ borderTop: '1px solid #ccc', marginBottom: '24px' }} />
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <tbody>
                 <tr>
-                  <td style={{ width: '33%', paddingRight: '24px', verticalAlign: 'top' }}>
-                    <div style={{ fontSize: '8.5pt', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>
-                      PREPARED BY:
-                    </div>
-                    <div style={{ borderBottom: '1px solid #9ca3af', height: '36px' }} />
-                    <div style={{ fontSize: '8pt', color: '#6b7280', marginTop: '4px' }}>
-                      Name &amp; Signature
-                    </div>
-                  </td>
-                  <td style={{ width: '33%', paddingRight: '24px', verticalAlign: 'top' }}>
-                    <div style={{ fontSize: '8.5pt', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>
-                      VERIFIED BY:
-                    </div>
-                    <div style={{ borderBottom: '1px solid #9ca3af', height: '36px' }} />
-                    <div style={{ fontSize: '8pt', color: '#6b7280', marginTop: '4px' }}>
-                      Name &amp; Signature
-                    </div>
-                  </td>
-                  <td style={{ width: '33%', verticalAlign: 'top' }}>
-                    <div style={{ fontSize: '8.5pt', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>
-                      APPROVED BY:
-                    </div>
-                    <div style={{ borderBottom: '1px solid #9ca3af', height: '36px' }} />
-                    <div style={{ fontSize: '8pt', color: '#6b7280', marginTop: '4px' }}>
-                      Name &amp; Signature
-                    </div>
-                  </td>
+                  {['PREPARED BY:', 'VERIFIED BY:', 'APPROVED BY:'].map(label => (
+                    <td key={label} style={{ width: '33%', paddingRight: '24px', verticalAlign: 'top' }}>
+                      <div style={{ fontSize: '8.5pt', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>{label}</div>
+                      <div style={{ borderBottom: '1px solid #9ca3af', height: '36px' }} />
+                      <div style={{ fontSize: '8pt', color: '#6b7280', marginTop: '4px' }}>Name &amp; Signature</div>
+                    </td>
+                  ))}
                 </tr>
               </tbody>
             </table>
-
             <div style={{ textAlign: 'center', fontSize: '7.5pt', color: '#9ca3af', marginTop: '24px' }}>
               {orgName} · Driver List · Printed {printDate} · ICDV Vehicle Import & Delivery Management System
             </div>
@@ -449,19 +501,3 @@ export default function DriversPage() {
     </div>
   );
 }
-
-// ── Inline table cell styles (used in print DOM) ──────────────────────────────
-const th: React.CSSProperties = {
-  padding: '6px 10px',
-  textAlign: 'left',
-  fontSize: '8.5pt',
-  fontWeight: 'bold',
-  border: '1px solid #374151',
-  whiteSpace: 'nowrap',
-};
-
-const td: React.CSSProperties = {
-  padding: '5px 10px',
-  border: '1px solid #d1d5db',
-  verticalAlign: 'middle',
-};

@@ -37,7 +37,7 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({
 
   useEffect(() => {
     const handleResize = () => {
-      const mobile = window.innerWidth < 1280; // Mobile behavior up to xl breakpoint (1280px)
+      const mobile = window.innerWidth < 1024; // Persistent sidebar only on lg+ (1024px)
       setIsMobile(mobile);
       if (!mobile) {
         setIsMobileOpen(false);

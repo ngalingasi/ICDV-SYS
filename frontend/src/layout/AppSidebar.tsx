@@ -103,11 +103,11 @@ const SUPER_ADMIN_BOTTOM_NAV: NavItem[] = [
 
 export default function AppSidebar() {
   const { isOpen, isExpanded, isMobileOpen, toggleMobileSidebar } = useSidebar();
-  const { isSuperAdmin, icdvName } = useAuth();
-  const isSystemAdmin = (useAuth() as any).isSystemAdmin ?? false;
-  const isCrossTenant = isSuperAdmin || isSystemAdmin;
+  const { isSuperAdmin, isSystemAdmin, icdvName } = useAuth();
+  const isCrossTenant = isSuperAdmin || (isSystemAdmin ?? false);
   const location = useLocation();
-  const expanded = isOpen || isExpanded;
+  // On mobile drawer (isMobileOpen) always show full expanded sidebar
+  const expanded = isOpen || isExpanded || isMobileOpen;
 
   const NAV        = isCrossTenant ? SUPER_ADMIN_NAV        : TENANT_NAV;
   const BOTTOM_NAV = isCrossTenant ? SUPER_ADMIN_BOTTOM_NAV : TENANT_BOTTOM_NAV;
@@ -151,7 +151,9 @@ export default function AppSidebar() {
             <ul className="mt-1 ml-7 space-y-0.5 border-l border-gray-200 dark:border-gray-700 pl-3">
               {item.subItems.map(s => (
                 <li key={s.path}>
-                  <Link to={s.path} className={`block px-2 py-1.5 rounded text-xs transition-colors ${
+                  <Link to={s.path}
+                    onClick={() => { if (isMobileOpen) toggleMobileSidebar(); }}
+                    className={`block px-2 py-1.5 rounded text-xs transition-colors ${
                     isActive(s.path)
                       ? "text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-500/10 font-medium"
                       : "text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
@@ -165,7 +167,9 @@ export default function AppSidebar() {
     }
     return (
       <li key={item.name}>
-        <Link to={item.path!} className={linkCls(isActive(item.path!))}>
+        <Link to={item.path!}
+          onClick={() => { if (isMobileOpen) toggleMobileSidebar(); }}
+          className={linkCls(isActive(item.path!))}>
           {item.icon}
           {expanded && <span>{item.name}</span>}
         </Link>

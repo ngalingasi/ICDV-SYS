@@ -8,13 +8,13 @@ const LayoutContent: React.FC = () => {
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
 
   return (
-    <div className="min-h-screen xl:flex">
+    <div className="min-h-screen lg:flex">
       <AppSidebar />
       <Backdrop />
       {/* Main content — offset matches sidebar width exactly */}
       <div
         className={`flex-1 transition-all duration-300 ease-in-out ${
-          isExpanded || isHovered ? "xl:ml-[260px]" : "xl:ml-[68px]"
+          isExpanded || isHovered ? "lg:ml-[260px]" : "lg:ml-[72px]"
         } ${isMobileOpen ? "ml-0" : ""}`}
       >
         <AppHeader />
