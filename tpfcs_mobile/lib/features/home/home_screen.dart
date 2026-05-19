@@ -10,11 +10,16 @@ import '../../core/utils/widgets.dart';
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
-  static const _ops = [
-    _Op('Discharge',    Icons.anchor_rounded,         '/discharge', AppBrand.info,    AppBrand.infoDim,    'Vessel → Holding Ground'),
-    _Op('Batch',        Icons.layers_rounded,          '/batch',     AppBrand.violet,  AppBrand.violetDim,  'Assign to batch'),
-    _Op('TPA Transfer', Icons.local_shipping_rounded,  '/transfer',  AppBrand.orange,  AppBrand.orangeDim,  'Gate → ICDV Yard'),
-    _Op('Yard Receive', Icons.warehouse_rounded,       '/receive',   AppBrand.success, AppBrand.successDim, 'Confirm arrival'),
+  // Not const — Color values can't be const in all Flutter versions
+  static final _ops = [
+    _Op('Discharge',    Icons.anchor_rounded,        '/discharge',
+        const Color(0xFFCFDEF7), const Color(0xFFADC6F0), const Color(0xFF6AAEF5)),
+    _Op('Batch',        Icons.layers_rounded,         '/batch',
+        const Color(0xFFE2D4F7), const Color(0xFFCBB8F0), const Color(0xFFB28CF5)),
+    _Op('TPA Transfer', Icons.local_shipping_rounded, '/transfer',
+        const Color(0xFFFDE8CC), const Color(0xFFF9D0A0), const Color(0xFFF5A652)),
+    _Op('Yard Receive', Icons.warehouse_rounded,      '/receive',
+        const Color(0xFFCCF0DC), const Color(0xFFA0E0BC), const Color(0xFF4DC98A)),
   ];
 
   @override
@@ -51,7 +56,7 @@ class HomeScreen extends ConsumerWidget {
                         width: 22, height: 22, fit: BoxFit.cover)),
                       const SizedBox(width: 8),
                       Text('TPFCS', style: TextStyle(
-                        color: c.goldActive, fontSize: 11,
+                        color: c.accent, fontSize: 11,
                         fontWeight: FontWeight.w800, letterSpacing: 1.5)),
                     ]),
                   ),
@@ -66,7 +71,7 @@ class HomeScreen extends ConsumerWidget {
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(color: c.border)),
                       child: Icon(dark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
-                        color: c.goldActive, size: 18)),
+                        color: c.accent, size: 18)),
                   ),
                   const SizedBox(width: 10),
 
@@ -75,27 +80,34 @@ class HomeScreen extends ConsumerWidget {
                     onTap: () => context.push('/profile'),
                     child: Container(width: 38, height: 38,
                       decoration: BoxDecoration(shape: BoxShape.circle, color: c.surface1,
-                          border: Border.all(color: AppBrand.gold.withOpacity(0.5), width: 1.5)),
+                          border: Border.all(color: c.accent.withOpacity(0.5), width: 1.5)),
                       child: Center(child: Text(initial, style: TextStyle(
-                        color: c.goldActive, fontWeight: FontWeight.w900, fontSize: 16)))),
+                        color: c.accent, fontWeight: FontWeight.w900, fontSize: 16)))),
                   ),
                 ]),
                 const SizedBox(height: 28),
 
-                Text('Hey, $firstName 👋', style: TextStyle(color: c.textSecond, fontSize: 14)),
+                Text('Hello, $firstName', style: TextStyle(color: c.textSecond, fontSize: 14)),
                 const SizedBox(height: 4),
-                Text('Operations\nDashboard', style: TextStyle(
-                  color: c.textPrimary, fontSize: 34,
-                  fontWeight: FontWeight.w900, height: 1.1, letterSpacing: -0.8)),
+                Text(
+                  'Operations Dashboard',
+                  style: TextStyle(
+                    color: c.textPrimary,
+                    fontSize: 30,
+                    fontWeight: FontWeight.w900,
+                    height: 1.1,
+                    letterSpacing: -0.8,
+                  ),
+                ),
                 if (user?.icdvName != null) ...[
                   const SizedBox(height: 10),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(color: AppBrand.goldDim,
+                    decoration: BoxDecoration(color: c.accentDim,
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: AppBrand.gold.withOpacity(0.3))),
+                        border: Border.all(color: c.accent.withOpacity(0.3))),
                     child: Text(user!.icdvName!, style: TextStyle(
-                      color: c.goldActive, fontSize: 11, fontWeight: FontWeight.w700))),
+                      color: c.accent, fontSize: 11, fontWeight: FontWeight.w700))),
                 ],
                 const SizedBox(height: 28),
               ]),
@@ -140,34 +152,78 @@ class HomeScreen extends ConsumerWidget {
 }
 
 class _Op {
-  final String label, route, subtitle; final IconData icon; final Color color, colorDim;
-  const _Op(this.label, this.icon, this.route, this.color, this.colorDim, this.subtitle);
+  final String label, route;
+  final IconData icon;
+  final Color gradStart, gradEnd, symbolColor;
+  const _Op(this.label, this.icon, this.route,
+      this.gradStart, this.gradEnd, this.symbolColor);
 }
 
 class _OpCard extends ConsumerWidget {
   final _Op op;
   const _OpCard({super.key, required this.op});
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final c = AppColors(isDarkMode(context));
+    final dark = isDarkMode(context);
+    final c    = AppColors(dark);
+
+    // Light mode: soft pastel gradient
+    // Dark mode: stronger tinted gradient — visible but not garish
+    final cardBg = dark
+        ? LinearGradient(colors: [
+            op.gradStart.withOpacity(0.35),
+            op.gradEnd.withOpacity(0.20),
+          ], begin: Alignment.topLeft, end: Alignment.bottomRight)
+        : LinearGradient(colors: [op.gradStart, op.gradEnd],
+            begin: Alignment.topLeft, end: Alignment.bottomRight);
+
+    final symbolOpacity  = dark ? 0.25 : 0.22;
+    final borderColor    = dark ? op.gradStart.withOpacity(0.4) : Colors.transparent;
+
+    final labelColor = dark ? Colors.white : AppColors.navy;
+
     return GestureDetector(
       onTap: () => context.push(op.route),
       child: Container(
-        decoration: BoxDecoration(color: c.surface0,
-          borderRadius: BorderRadius.circular(20), border: Border.all(color: c.border)),
-        padding: const EdgeInsets.all(18),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Container(width: 46, height: 46,
-            decoration: BoxDecoration(color: op.colorDim, borderRadius: BorderRadius.circular(14)),
-            child: Icon(op.icon, color: op.color, size: 24)),
-          const Spacer(),
-          Text(op.label, style: TextStyle(
-            color: c.textPrimary, fontWeight: FontWeight.w800, fontSize: 15)),
-          const SizedBox(height: 4),
-          Text(op.subtitle, style: TextStyle(color: c.textMuted, fontSize: 11)),
-          const SizedBox(height: 8),
-          Text('Start →', style: TextStyle(color: op.color, fontSize: 11, fontWeight: FontWeight.w700)),
-        ]),
+        decoration: BoxDecoration(
+          gradient: cardBg,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: borderColor, width: 1.5),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: Stack(children: [
+            // ── Large watermark icon (bottom-right) ──────────────────────
+            Positioned(
+              right: -18, bottom: -18,
+              child: Icon(op.icon, size: 110,
+                color: dark
+                    ? op.symbolColor.withOpacity(0.30)
+                    : op.symbolColor.withOpacity(0.22)),
+            ),
+            // ── Content ──────────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(op.label,
+                    style: TextStyle(
+                      color: labelColor,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      height: 1.2,
+                    )),
+                  const Spacer(),
+                  // Small outlined symbol (bottom-left)
+                  Icon(op.icon, size: 28,
+                    color: op.symbolColor.withOpacity(dark ? 0.9 : 0.65)),
+                ],
+              ),
+            ),
+          ]),
+        ),
       ),
     );
   }
@@ -187,8 +243,8 @@ class _QuickRow extends StatelessWidget {
           borderRadius: BorderRadius.circular(16), border: Border.all(color: c.border)),
         child: Row(children: [
           Container(width: 38, height: 38,
-            decoration: BoxDecoration(color: AppBrand.goldDim, borderRadius: BorderRadius.circular(10)),
-            child: Icon(icon, color: AppBrand.gold, size: 18)),
+            decoration: BoxDecoration(color: c.accentDim, borderRadius: BorderRadius.circular(10)),
+            child: Icon(icon, color: c.accent, size: 18)),
           const SizedBox(width: 14),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(label, style: TextStyle(

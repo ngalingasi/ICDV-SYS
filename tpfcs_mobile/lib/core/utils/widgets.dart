@@ -175,19 +175,19 @@ class ChassisInput extends StatelessWidget {
       required this.onSearch, this.loading = false, this.hintText});
 
   @override
-  Widget build(BuildContext context) => Row(children: [
+  Widget build(BuildContext context) {
+    final c = AppColors(isDarkMode(context));
+    return Row(children: [
     Expanded(child: TextField(
       controller: controller,
       textCapitalization: TextCapitalization.characters,
       textInputAction: TextInputAction.search,
       inputFormatters: [UpperCaseFormatter()],
       style: TextStyle(fontFamily: 'monospace', fontSize: 15,
-        fontWeight: FontWeight.w700,
-        color: AppColors(isDarkMode(context)).gold, letterSpacing: 1),
+        fontWeight: FontWeight.w700, color: c.accent, letterSpacing: 1),
       decoration: InputDecoration(
         hintText: hintText ?? 'Enter chassis digits…',
-        prefixIcon: Icon(Icons.search_rounded,
-          color: AppColors(isDarkMode(context)).textMuted, size: 20),
+        prefixIcon: Icon(Icons.search_rounded, color: c.textMuted, size: 20),
       ),
       onSubmitted: (_) => onSearch(),
     )),
@@ -197,14 +197,18 @@ class ChassisInput extends StatelessWidget {
         onPressed: loading ? null : onSearch,
         style: ElevatedButton.styleFrom(
           padding: EdgeInsets.zero, minimumSize: Size.zero,
+          backgroundColor: c.accent,
+          foregroundColor: c.accentText,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          elevation: 0,
         ),
         child: loading
-            ? const SizedBox(width: 18, height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF060A18)))
-            : const Icon(Icons.arrow_forward_rounded, size: 20, color: Color(0xFF060A18)),
+            ? SizedBox(width: 18, height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2, color: c.accentText))
+            : Icon(Icons.arrow_forward_rounded, size: 20, color: c.accentText),
       )),
   ]);
+  }
 }
 
 // ── ID Card Input ─────────────────────────────────────────────────────────────
@@ -216,14 +220,16 @@ class IdCardInput extends StatelessWidget {
       required this.onLookup, this.loading = false});
 
   @override
-  Widget build(BuildContext context) => Row(children: [
+  Widget build(BuildContext context) {
+    final c = AppColors(isDarkMode(context));
+    return Row(children: [
     Expanded(child: TextField(
       controller: controller,
       textInputAction: TextInputAction.done,
-      style: TextStyle(color: AppColors(isDarkMode(context)).textPrimary, fontSize: 15),
-      decoration: const InputDecoration(
+      style: TextStyle(color: c.textPrimary, fontSize: 15),
+      decoration: InputDecoration(
         hintText: 'Driver ID card number…',
-        prefixIcon: Icon(Icons.badge_outlined, color: Color(0xFF4A5E8A), size: 20),
+        prefixIcon: Icon(Icons.badge_outlined, color: c.textMuted, size: 20),
       ),
       onSubmitted: (_) => onLookup(),
     )),
@@ -233,15 +239,19 @@ class IdCardInput extends StatelessWidget {
         onPressed: loading ? null : onLookup,
         style: ElevatedButton.styleFrom(
           padding: EdgeInsets.zero, minimumSize: Size.zero,
+          backgroundColor: c.accent,
+          foregroundColor: c.accentText,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          elevation: 0,
         ),
         child: loading
-            ? const SizedBox(width: 18, height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF060A18)))
-            : const Text('Lookup', style: TextStyle(
-                fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF060A18))),
+            ? SizedBox(width: 18, height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2, color: c.accentText))
+            : Text('Lookup', style: TextStyle(
+                fontSize: 12, fontWeight: FontWeight.w800, color: c.accentText)),
       )),
   ]);
+  }
 }
 
 // ── Notes Field ───────────────────────────────────────────────────────────────
@@ -272,23 +282,34 @@ class ConfirmButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = color ?? AppBrand.gold;
-    final fg = const Color(0xFF060A18);
+    final c  = AppColors(isDarkMode(context));
+    final bg = color ?? c.accent;
+    // Operation colors (orange, violet, success, danger) → always white text
+    // Primary accent → theme-aware: dark text on gold, white text on navy
+    final fg = color != null ? AppColors.white : c.accentText;
     return SizedBox(width: double.infinity, height: 56,
       child: ElevatedButton(
         onPressed: loading ? null : onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: bg, foregroundColor: fg,
+          backgroundColor: bg,
+          foregroundColor: fg,
+          disabledBackgroundColor: bg.withOpacity(0.5),
+          disabledForegroundColor: fg.withOpacity(0.7),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           elevation: 0,
+        ).copyWith(
+          // Force foreground color — overrides Material3 state-layer tinting
+          foregroundColor: WidgetStateProperty.resolveWith((_) => fg),
+          iconColor: WidgetStateProperty.resolveWith((_) => fg),
         ),
         child: loading
             ? SizedBox(width: 22, height: 22,
-                child: CircularProgressIndicator(strokeWidth: 2, color: fg))
+                child: CircularProgressIndicator(strokeWidth: 2.5, color: fg))
             : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                 if (icon != null) ...[Icon(icon, size: 18, color: fg), const SizedBox(width: 8)],
                 Text(label, style: TextStyle(
-                  fontSize: 15, fontWeight: FontWeight.w800, color: fg, letterSpacing: 0.3)),
+                  fontSize: 15, fontWeight: FontWeight.w800,
+                  color: fg, letterSpacing: 0.3)),
               ]),
       ));
   }
@@ -399,27 +420,27 @@ class StepIndicator extends StatelessWidget {
         final active = i == current;
         return Expanded(child: Row(children: [
           if (i > 0) Expanded(child: Container(height: 1,
-            color: done ? AppBrand.gold : c.border)),
+            color: done ? c.accent : c.border)),
           Column(mainAxisSize: MainAxisSize.min, children: [
             Container(width: 26, height: 26,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: done || active ? AppBrand.gold : c.surface1,
+                color: done || active ? c.accent : c.surface1,
                 border: Border.all(
-                  color: active || done ? AppBrand.gold : c.border,
+                  color: active || done ? c.accent : c.border,
                   width: active ? 2 : 1),
                 boxShadow: active ? [BoxShadow(
-                    color: AppBrand.gold.withOpacity(0.4), blurRadius: 10)] : null,
+                    color: c.accent.withOpacity(0.4), blurRadius: 10)] : null,
               ),
               child: Center(child: done
-                  ? const Icon(Icons.check_rounded, size: 13, color: Color(0xFF060A18))
+                  ? Icon(Icons.check_rounded, size: 13, color: c.accentText)
                   : Text('${i + 1}', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800,
-                      color: active ? const Color(0xFF060A18) : c.textMuted)))),
+                      color: active ? c.accentText : c.textMuted)))),
             const SizedBox(height: 4),
             if (i < labels.length)
               Text(labels[i], style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700,
                   letterSpacing: 0.5,
-                  color: active ? AppBrand.gold : c.textMuted)),
+                  color: active ? c.accent : c.textMuted)),
           ]),
         ]));
       }),
@@ -435,3 +456,28 @@ class UpperCaseFormatter extends TextInputFormatter {
 }
 
 
+
+// ── Brand logo chip (reusable) ────────────────────────────────────────────────
+class BrandChip extends StatelessWidget {
+  const BrandChip({super.key});
+  @override
+  Widget build(BuildContext context) {
+    final c = AppColors(isDarkMode(context));
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: c.surface1,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: c.border),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        ClipOval(child: Image.asset('assets/images/logo.png',
+          width: 20, height: 20, fit: BoxFit.cover)),
+        const SizedBox(width: 7),
+        Text('TPFCS', style: TextStyle(
+          color: c.accent, fontSize: 10,
+          fontWeight: FontWeight.w800, letterSpacing: 1.5)),
+      ]),
+    );
+  }
+}

@@ -94,7 +94,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         Positioned(top: -80, right: -60, child: _Glow(r: 280,
           color: AppColors.navy.withOpacity(dark ? 0.45 : 0.10))),
         Positioned(bottom: -60, left: -40, child: _Glow(r: 200,
-          color: AppBrand.gold.withOpacity(dark ? 0.06 : 0.08))),
+          color: c.accent.withOpacity(dark ? 0.06 : 0.08))),
 
         SafeArea(child: FadeTransition(opacity: _fade, child: SlideTransition(position: _slide,
           child: SingleChildScrollView(
@@ -107,18 +107,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                 width: 96, height: 96,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle, color: c.surface1,
-                  border: Border.all(color: AppBrand.gold.withOpacity(0.5), width: 2),
+                  border: Border.all(color: c.accent.withOpacity(0.5), width: 2),
                   boxShadow: [
-                    BoxShadow(color: AppBrand.gold.withOpacity(0.15), blurRadius: 28),
+                    BoxShadow(color: c.accent.withOpacity(0.15), blurRadius: 28),
                     BoxShadow(color: AppColors.navy.withOpacity(dark ? 0.5 : 0.15), blurRadius: 14),
                   ],
                 ),
-                child: ClipOval(child: Image.asset('assets/images/logo.png',
-                  width: 96, height: 96, fit: BoxFit.cover)),
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Image.asset('assets/images/logo.png',
+                    width: 80, height: 80, fit: BoxFit.contain)),
               )),
               const SizedBox(height: 14),
               Text('TANZANIA POLICE FORCE', style: TextStyle(
-                color: c.goldActive, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 2.5)),
+                color: c.accent, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 2.5)),
               const SizedBox(height: 2),
               Text('CORPORATION SOLE', style: TextStyle(
                 color: c.textMuted, fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 2)),
@@ -262,19 +264,19 @@ class _ChannelCard extends StatelessWidget {
             duration: const Duration(milliseconds: 200),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: selectedChannel == ch.type ? AppBrand.goldDim : c.surface1,
+              color: selectedChannel == ch.type ? c.accentDim : c.surface1,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
                 color: selectedChannel == ch.type
-                    ? AppBrand.gold.withOpacity(0.6) : c.border,
+                    ? c.accent.withOpacity(0.6) : c.border,
                 width: selectedChannel == ch.type ? 1.5 : 1),
             ),
             child: Row(children: [
               Container(width: 42, height: 42,
-                decoration: BoxDecoration(color: AppBrand.goldDim,
+                decoration: BoxDecoration(color: c.accentDim,
                     borderRadius: BorderRadius.circular(10)),
                 child: Icon(ch.type == 'email' ? Icons.email_outlined : Icons.sms_outlined,
-                  color: AppBrand.gold, size: 20)),
+                  color: c.accent, size: 20)),
               const SizedBox(width: 14),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(ch.label, style: TextStyle(
@@ -282,8 +284,8 @@ class _ChannelCard extends StatelessWidget {
                 Text(ch.display, style: TextStyle(color: c.textSecond, fontSize: 12)),
               ])),
               if (loading && selectedChannel == ch.type)
-                const SizedBox(width: 18, height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: AppBrand.gold)),
+                SizedBox(width: 18, height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: c.accent)),
             ]),
           ),
         ),
@@ -356,7 +358,7 @@ class _OtpCard extends StatelessWidget {
         GestureDetector(
           onTap: loading ? null : onResend,
           child: Text('Resend code', style: TextStyle(
-            color: c.goldActive, fontSize: 13, fontWeight: FontWeight.w700))),
+            color: c.accent, fontSize: 13, fontWeight: FontWeight.w700))),
       ]),
     ]));
   }
@@ -381,17 +383,17 @@ class _OtpBox extends StatelessWidget {
         textAlign: TextAlign.center,
         keyboardType: TextInputType.number, maxLength: 1,
         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        style: TextStyle(color: c.goldActive, fontSize: 22, fontWeight: FontWeight.w900),
+        style: TextStyle(color: c.accent, fontSize: 22, fontWeight: FontWeight.w900),
         decoration: InputDecoration(
           counterText: '',
           filled: true,
-          fillColor: full ? AppBrand.goldDim : c.surface1,
+          fillColor: full ? c.accentDim : c.surface1,
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: full ? AppBrand.gold.withOpacity(0.6) : c.border)),
+            borderSide: BorderSide(color: full ? c.accent.withOpacity(0.6) : c.border)),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: AppBrand.gold, width: 1.5)),
+            borderSide: BorderSide(color: c.accent, width: 1.5)),
           contentPadding: const EdgeInsets.symmetric(vertical: 14),
         ),
         onChanged: onChanged,

@@ -5,6 +5,13 @@ import '../../core/models/models.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/widgets.dart';
+import '../shared/op_header.dart';
+
+// Brand colors for Transfer — amber/orange
+const _kGradStart = Color(0xFFFDE8CC);
+const _kGradEnd   = Color(0xFFF9D0A0);
+const _kSymbol    = Color(0xFFF5A652);
+const _kAccent    = Color(0xFFB85C00);
 
 enum _Step { vehicle, driver, confirm, done }
 
@@ -18,7 +25,7 @@ class _TransferScreenState extends ConsumerState<TransferScreen> {
   final _chassisCtrl = TextEditingController();
   final _idCardCtrl  = TextEditingController();
   final _notesCtrl   = TextEditingController();
-  _Step    _step    = _Step.vehicle;
+  _Step    _step   = _Step.vehicle;
   Vehicle? _vehicle;
   Driver?  _driver;
   bool     _loading = false;
@@ -61,24 +68,26 @@ class _TransferScreenState extends ConsumerState<TransferScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final c = AppColors(isDarkMode(context));
+    final c    = AppColors(isDarkMode(context));
+    final dark = isDarkMode(context);
     return Scaffold(
       backgroundColor: c.bg,
-      appBar: AppBar(
-        backgroundColor: c.bg,
-        leading: IconButton(icon: Icon(Icons.arrow_back_rounded, color: c.textSecond),
-            onPressed: () => Navigator.of(context).maybePop()),
-        title: Text('TPA Transfer', style: TextStyle(color: c.textPrimary)),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(52),
-          child: Padding(padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-            child: StepIndicator(current: _step.index, total: 4,
-              labels: const ['Vehicle', 'Driver', 'Confirm', 'Done']))),
-      ),
-      body: SafeArea(child: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: _step == _Step.done ? _buildDone() : _buildForm(c),
-      )),
+      body: Column(children: [
+        OpHeader(
+          dark: dark, title: 'TPA Transfer',
+          subtitle: 'Gate → ICDV Yard',
+          icon: Icons.local_shipping_rounded,
+          gradStart: _kGradStart, gradEnd: _kGradEnd,
+          symbolColor: _kSymbol,
+          step: _step.index, totalSteps: 4,
+          stepLabels: const ['Vehicle', 'Driver', 'Confirm', 'Done'],
+          onBack: () => Navigator.of(context).maybePop(),
+        ),
+        Expanded(child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: _step == _Step.done ? _buildDone() : _buildForm(c),
+        )),
+      ]),
     );
   }
 
@@ -106,12 +115,13 @@ class _TransferScreenState extends ConsumerState<TransferScreen> {
       const SectionLabel('Transfer Summary'),
       Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: AppBrand.orangeDim,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppBrand.orange.withOpacity(0.3))),
+        decoration: BoxDecoration(
+          color: _kGradStart.withOpacity(0.5),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: _kSymbol.withOpacity(0.4))),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Confirming will:', style: TextStyle(
-            fontWeight: FontWeight.w700, color: AppBrand.orange, fontSize: 12, letterSpacing: 0.5)),
+          Text('Confirming will:', style: TextStyle(
+            fontWeight: FontWeight.w700, color: _kAccent, fontSize: 12, letterSpacing: 0.5)),
           const SizedBox(height: 8),
           Text('• Assign ${_vehicle!.chassisNumber} to ${_driver!.fullName}',
             style: TextStyle(color: c.textSecond, fontSize: 13)),
@@ -127,7 +137,7 @@ class _TransferScreenState extends ConsumerState<TransferScreen> {
     const SizedBox(height: 24),
     if (_step == _Step.confirm) ...[
       ConfirmButton(label: 'Confirm Transfer — In Transit',
-        onPressed: _confirm, loading: _loading, color: AppBrand.orange,
+        onPressed: _confirm, loading: _loading, color: _kAccent,
         icon: Icons.local_shipping_rounded),
       const SizedBox(height: 10),
       _OutlineBtn('Cancel', _reset),

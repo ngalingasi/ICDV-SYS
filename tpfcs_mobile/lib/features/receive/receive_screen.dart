@@ -5,6 +5,13 @@ import '../../core/models/models.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/widgets.dart';
+import '../shared/op_header.dart';
+
+// Brand colors for Receive — mint/green
+const _kGradStart = Color(0xFFCCF0DC);
+const _kGradEnd   = Color(0xFFA0E0BC);
+const _kSymbol    = Color(0xFF4DC98A);
+const _kAccent    = Color(0xFF0A7A40);
 
 enum _Step { lookup, confirm, done }
 
@@ -49,24 +56,26 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final c = AppColors(isDarkMode(context));
+    final c    = AppColors(isDarkMode(context));
+    final dark = isDarkMode(context);
     return Scaffold(
       backgroundColor: c.bg,
-      appBar: AppBar(
-        backgroundColor: c.bg,
-        leading: IconButton(icon: Icon(Icons.arrow_back_rounded, color: c.textSecond),
-            onPressed: () => Navigator.of(context).maybePop()),
-        title: Text('Yard Receiving', style: TextStyle(color: c.textPrimary)),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(52),
-          child: Padding(padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-            child: StepIndicator(current: _step.index, total: 3,
-              labels: const ['Scan ID', 'Confirm', 'Done']))),
-      ),
-      body: SafeArea(child: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: _step == _Step.done ? _buildDone() : _buildForm(c),
-      )),
+      body: Column(children: [
+        OpHeader(
+          dark: dark, title: 'Yard Receiving',
+          subtitle: 'Confirm vehicle arrival',
+          icon: Icons.warehouse_rounded,
+          gradStart: _kGradStart, gradEnd: _kGradEnd,
+          symbolColor: _kSymbol,
+          step: _step.index, totalSteps: 3,
+          stepLabels: const ['Scan ID', 'Confirm', 'Done'],
+          onBack: () => Navigator.of(context).maybePop(),
+        ),
+        Expanded(child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: _step == _Step.done ? _buildDone() : _buildForm(c),
+        )),
+      ]),
     );
   }
 
@@ -79,6 +88,7 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> {
       IdCardInput(controller: _idCardCtrl, onLookup: _lookup, loading: _loading),
     ],
     if (_data != null) ...[
+      const SizedBox(height: 4),
       const SectionLabel('Driver'),
       DriverCard(driver: _data!.driver),
       const SizedBox(height: 14),
@@ -92,12 +102,13 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> {
       const SizedBox(height: 14),
       Container(
         padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: AppBrand.successDim,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppBrand.success.withOpacity(0.3))),
+        decoration: BoxDecoration(
+          color: _kGradStart.withOpacity(0.5),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: _kSymbol.withOpacity(0.5))),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Ready to Receive', style: TextStyle(
-            fontWeight: FontWeight.w800, color: AppBrand.success, fontSize: 13)),
+          Text('Ready to Receive', style: TextStyle(
+            fontWeight: FontWeight.w800, color: _kAccent, fontSize: 13)),
           const SizedBox(height: 4),
           Text('Confirming will mark ${_data!.vehicle.chassisNumber} as RECEIVED at ICDV Yard.',
             style: TextStyle(color: c.textSecond, fontSize: 13)),
@@ -111,7 +122,7 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> {
     const SizedBox(height: 24),
     if (_step == _Step.confirm) ...[
       ConfirmButton(label: 'Confirm Receipt at ICDV Yard',
-        onPressed: _confirm, loading: _loading, color: AppBrand.success,
+        onPressed: _confirm, loading: _loading, color: _kAccent,
         icon: Icons.warehouse_rounded),
       const SizedBox(height: 10),
       _OutlineBtn('Cancel', _reset),

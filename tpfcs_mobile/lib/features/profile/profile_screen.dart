@@ -36,13 +36,13 @@ class ProfileScreen extends ConsumerWidget {
             Container(width: 100, height: 100,
               decoration: BoxDecoration(shape: BoxShape.circle,
                 gradient: RadialGradient(colors: [
-                  AppBrand.gold.withOpacity(dark ? 0.15 : 0.10), Colors.transparent]))),
+                  c.accent.withOpacity(c.isDark ? 0.15 : 0.10), Colors.transparent]))),
             Container(width: 84, height: 84,
               decoration: BoxDecoration(shape: BoxShape.circle, color: c.surface1,
-                border: Border.all(color: AppBrand.gold.withOpacity(0.5), width: 2),
-                boxShadow: [BoxShadow(color: AppBrand.gold.withOpacity(0.2), blurRadius: 20)]),
+                border: Border.all(color: c.accent.withOpacity(0.5), width: 2),
+                boxShadow: [BoxShadow(color: c.accent.withOpacity(0.2), blurRadius: 20)]),
               child: Center(child: Text(initial, style: TextStyle(
-                color: c.goldActive, fontWeight: FontWeight.w900, fontSize: 36)))),
+                color: c.accent, fontWeight: FontWeight.w900, fontSize: 36)))),
           ]),
           const SizedBox(height: 16),
 
@@ -51,10 +51,10 @@ class ProfileScreen extends ConsumerWidget {
           const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-            decoration: BoxDecoration(color: AppBrand.goldDim, borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppBrand.gold.withOpacity(0.3))),
+            decoration: BoxDecoration(color: c.accentDim, borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: c.accent.withOpacity(0.3))),
             child: Text(user?.role.replaceAll('_', ' ').toUpperCase() ?? '—',
-              style: TextStyle(color: c.goldActive, fontSize: 11,
+              style: TextStyle(color: c.accent, fontSize: 11,
                 fontWeight: FontWeight.w800, letterSpacing: 1.5))),
           if (user?.icdvName != null) ...[
             const SizedBox(height: 8),
@@ -120,8 +120,8 @@ class _ThemeRow extends StatelessWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Container(width: 36, height: 36,
-            decoration: BoxDecoration(color: AppBrand.goldDim, borderRadius: BorderRadius.circular(10)),
-            child: Icon(Icons.palette_outlined, color: AppBrand.gold, size: 18)),
+            decoration: BoxDecoration(color: c.accentDim, borderRadius: BorderRadius.circular(10)),
+            child: Icon(Icons.palette_outlined, color: c.accent, size: 18)),
           const SizedBox(width: 14),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('Appearance', style: TextStyle(
@@ -160,18 +160,18 @@ class _ThemeChip extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? AppBrand.goldDim : c.surface1,
+          color: selected ? c.accentDim : c.surface1,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: selected ? AppBrand.gold.withOpacity(0.6) : c.border,
+            color: selected ? c.accent.withOpacity(0.6) : c.border,
             width: selected ? 1.5 : 1),
         ),
         child: Column(children: [
-          Icon(icon, size: 18, color: selected ? AppBrand.gold : c.textMuted),
+          Icon(icon, size: 18, color: selected ? c.accent : c.textMuted),
           const SizedBox(height: 4),
           Text(label, style: TextStyle(
             fontSize: 11, fontWeight: FontWeight.w700,
-            color: selected ? c.goldActive : c.textMuted)),
+            color: selected ? c.accent : c.textMuted)),
         ]),
       ),
     ));
@@ -196,8 +196,8 @@ class _InfoCard extends StatelessWidget {
           Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: Row(children: [
               Container(width: 36, height: 36,
-                decoration: BoxDecoration(color: AppBrand.goldDim, borderRadius: BorderRadius.circular(10)),
-                child: Icon(item.icon, color: AppBrand.gold, size: 18)),
+                decoration: BoxDecoration(color: c.accentDim, borderRadius: BorderRadius.circular(10)),
+                child: Icon(item.icon, color: c.accent, size: 18)),
               const SizedBox(width: 14),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(item.label, style: TextStyle(

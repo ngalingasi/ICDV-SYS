@@ -59,13 +59,15 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
             // Logo
             Container(width: 88, height: 88,
               decoration: BoxDecoration(shape: BoxShape.circle, color: c.surface1,
-                border: Border.all(color: AppBrand.gold.withOpacity(0.45), width: 2),
-                boxShadow: [BoxShadow(color: AppBrand.gold.withOpacity(0.12), blurRadius: 24)]),
-              child: ClipOval(child: Image.asset('assets/images/logo.png',
-                width: 88, height: 88, fit: BoxFit.cover))),
+                border: Border.all(color: c.accent.withOpacity(0.45), width: 2),
+                boxShadow: [BoxShadow(color: c.accent.withOpacity(0.12), blurRadius: 24)]),
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Image.asset('assets/images/logo.png',
+                  width: 72, height: 72, fit: BoxFit.contain))),
             const SizedBox(height: 12),
             Text('TANZANIA POLICE FORCE', style: TextStyle(
-              color: c.goldActive, fontSize: 10,
+              color: c.accent, fontSize: 10,
               fontWeight: FontWeight.w800, letterSpacing: 2.5)),
             const SizedBox(height: 2),
             Text('CORPORATION SOLE', style: TextStyle(

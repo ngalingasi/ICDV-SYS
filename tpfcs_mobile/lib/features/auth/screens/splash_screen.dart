@@ -49,7 +49,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         Positioned(top: -100, left: -80,
           child: _Glow(size: 420, color: AppColors.navy.withOpacity(dark ? 0.35 : 0.12))),
         Positioned(bottom: -80, right: -60,
-          child: _Glow(size: 320, color: AppBrand.gold.withOpacity(dark ? 0.08 : 0.10))),
+          child: _Glow(size: 320, color: c.accent.withOpacity(dark ? 0.08 : 0.10))),
 
         Center(child: AnimatedBuilder(
           animation: _ctrl,
@@ -65,17 +65,19 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                     color: c.surface1,
                     border: Border.all(color: AppBrand.gold.withOpacity(0.5), width: 2.5),
                     boxShadow: [
-                      BoxShadow(color: AppBrand.gold.withOpacity(0.2), blurRadius: 40, spreadRadius: 4),
+                      BoxShadow(color: c.accent.withOpacity(0.2), blurRadius: 40, spreadRadius: 4),
                       BoxShadow(color: AppColors.navy.withOpacity(0.6), blurRadius: 20),
                     ],
                   ),
-                  child: ClipOval(child: Image.asset('assets/images/logo.png',
-                    width: 130, height: 130, fit: BoxFit.cover)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: Image.asset('assets/images/logo.png',
+                      width: 110, height: 110, fit: BoxFit.contain)),
                 ),
                 const SizedBox(height: 32),
 
                 Text('TANZANIA POLICE FORCE', style: TextStyle(
-                  color: c.goldActive, fontSize: 13,
+                  color: c.accent, fontSize: 13,
                   fontWeight: FontWeight.w800, letterSpacing: 3)),
                 const SizedBox(height: 4),
                 Text('CORPORATION SOLE', style: TextStyle(
@@ -102,9 +104,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                   FractionallySizedBox(
                     widthFactor: _progress.value,
                     child: Container(height: 2, decoration: BoxDecoration(
-                      color: AppBrand.gold,
+                      color: c.accent,
                       borderRadius: BorderRadius.circular(2),
-                      boxShadow: [BoxShadow(color: AppBrand.gold.withOpacity(0.7), blurRadius: 8)],
+                      boxShadow: [BoxShadow(color: c.accent.withOpacity(0.7), blurRadius: 8)],
                     )),
                   ),
                 ])),
