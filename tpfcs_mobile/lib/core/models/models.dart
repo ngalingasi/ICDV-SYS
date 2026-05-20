@@ -161,14 +161,17 @@ class OperationHistory {
   });
 
   factory OperationHistory.fromJson(Map<String, dynamic> j) => OperationHistory(
-    opId:          j['op_id']          as int,
-    operationType: j['operation_type'] as String,
+    // handle both op_id and id (vehicle operations endpoint uses 'id')
+    opId:          (j['op_id'] ?? j['id'] ?? 0) as int,
+    // normalise 'transferred' → 'transfer' for icon mapping
+    operationType: (j['operation_type'] as String? ?? '')
+        .replaceAll('transferred', 'transfer'),
     fromStatus:    j['from_status']    as String?,
     toStatus:      j['to_status']      as String?,
     fromLocation:  j['from_location']  as String?,
     toLocation:    j['to_location']    as String?,
     notes:         j['notes']          as String?,
     operatorName:  j['operator_name']  as String?,
-    performedAt:   j['performed_at']   as String,
+    performedAt:   (j['performed_at'] ?? j['created_at'] ?? '') as String,
   );
 }

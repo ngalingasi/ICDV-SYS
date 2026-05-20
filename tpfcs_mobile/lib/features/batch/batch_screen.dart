@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/api/workflow_api.dart';
 import '../../core/models/models.dart';
 import '../../core/providers/theme_provider.dart';
@@ -81,7 +82,7 @@ class _BatchScreenState extends ConsumerState<BatchScreen> {
           gradStart: _kGradStart, gradEnd: _kGradEnd, symbolColor: _kSymbol,
           step: _step.index, totalSteps: 3,
           stepLabels: const ['Search', 'Confirm', 'Done'],
-          onBack: () => Navigator.of(context).maybePop(),
+          onBack: () => context.pop(),
         ),
         Expanded(child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),

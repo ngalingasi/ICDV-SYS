@@ -675,7 +675,6 @@ class _AppShellState extends ConsumerState<AppShell> {
     final c    = AppColors(isDarkMode(context));
     final dark = isDarkMode(context);
 
-    // Sync index to current route
     final path = GoRouterState.of(context).matchedLocation;
     final idx = path.startsWith('/home')    ? 1
               : path.startsWith('/search')  ? 2
@@ -696,10 +695,10 @@ class _AppShellState extends ConsumerState<AppShell> {
         child: SafeArea(top: false, child: SizedBox(
           height: 62,
           child: Row(children: [
-            _NavItem(icon: Icons.dashboard_rounded,       label: 'Dashboard',  index: 0, current: idx, c: c, onTap: _onTap),
-            _NavItem(icon: Icons.grid_view_rounded,       label: 'Operations', index: 1, current: idx, c: c, onTap: _onTap),
-            _NavItem(icon: Icons.manage_search_rounded,   label: 'Search',     index: 2, current: idx, c: c, onTap: _onTap),
-            _NavItem(icon: Icons.person_outline_rounded,  label: 'Profile',    index: 3, current: idx, c: c, onTap: _onTap),
+            _NavItem(icon: Icons.dashboard_rounded,      label: 'Dashboard',  index: 0, current: idx, c: c, onTap: _onTap),
+            _NavItem(icon: Icons.swap_horiz_rounded,     label: 'Operations', index: 1, current: idx, c: c, onTap: _onTap),
+            _NavItem(icon: Icons.manage_search_rounded,  label: 'Search',     index: 2, current: idx, c: c, onTap: _onTap),
+            _NavItem(icon: Icons.account_circle_outlined,label: 'Profile',    index: 3, current: idx, c: c, onTap: _onTap),
           ]),
         )),
       ),

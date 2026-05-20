@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/api/workflow_api.dart';
 import '../../core/models/models.dart';
 import '../../core/providers/theme_provider.dart';
@@ -47,8 +48,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   Future<void> _selectVehicle(Vehicle v) async {
     setState(() { _selected = v; _history = []; _searching = true; });
     try {
-      final h = await ref.read(workflowApiProvider).getVehicleHistory(v.vehicleId);
-      if (mounted) setState(() => _history = h);
+      // Try workflow history first; fall back to vehicle operations endpoint
+      var history = await ref.read(workflowApiProvider).getVehicleHistory(v.vehicleId);
+      if (history.isEmpty) {
+        history = await ref.read(workflowApiProvider).getVehicleOperations(v.vehicleId);
+      }
+      if (mounted) setState(() => _history = history);
     } catch (_) {}
     if (mounted) setState(() => _searching = false);
   }
@@ -76,7 +81,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           loading: _loading,
           onSearch: _search,
           onClear: _clear,
-          onBack: () => Navigator.of(context).maybePop(),
+          onBack: () => context.pop(),
           hasResults: _selected != null || _results.isNotEmpty,
         ),
 
@@ -516,23 +521,33 @@ class _TimelineItem extends StatelessWidget {
 
   Color get _dotColor {
     switch (h.operationType.toLowerCase()) {
-      case 'manifest':   return AppBrand.info;
-      case 'discharge':  return const Color(0xFF6AAEF5);
-      case 'batch':      return AppBrand.violet;
-      case 'transfer':   return AppBrand.orange;
-      case 'receive':    return AppBrand.success;
-      default:           return c.textMuted;
+      case 'manifest':
+      case 'manifested':  return AppBrand.info;
+      case 'discharge':
+      case 'discharged':  return const Color(0xFF6AAEF5);
+      case 'batch':
+      case 'batched':     return AppBrand.violet;
+      case 'transfer':
+      case 'transferred': return AppBrand.orange;
+      case 'receive':
+      case 'received':    return AppBrand.success;
+      default:            return AppColors(true).textMuted;
     }
   }
 
   IconData get _opIcon {
     switch (h.operationType.toLowerCase()) {
-      case 'manifest':   return Icons.description_outlined;
-      case 'discharge':  return Icons.anchor_rounded;
-      case 'batch':      return Icons.layers_rounded;
-      case 'transfer':   return Icons.local_shipping_rounded;
-      case 'receive':    return Icons.warehouse_rounded;
-      default:           return Icons.circle_outlined;
+      case 'manifest':
+      case 'manifested':  return Icons.description_outlined;
+      case 'discharge':
+      case 'discharged':  return Icons.anchor_rounded;
+      case 'batch':
+      case 'batched':     return Icons.layers_rounded;
+      case 'transfer':
+      case 'transferred': return Icons.local_shipping_rounded;
+      case 'receive':
+      case 'received':    return Icons.warehouse_rounded;
+      default:            return Icons.circle_outlined;
     }
   }
 

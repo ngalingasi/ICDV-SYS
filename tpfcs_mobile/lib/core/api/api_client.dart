@@ -3,14 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 // ── Base URL ──────────────────────────────────────────────────────────────────
-// Backend: app.use('/api', routes) → routes at /api/auth, /api/workflow, etc.
-// No /v1 prefix in the actual routes.
-//
-// Real server (use this for emulator + physical device on same network):
 const kBaseUrl = 'https://bandari.tpfcs.co.tz/api';
-//
-// Local dev only (Android emulator → Mac localhost):
-// const kBaseUrl = 'http://10.0.2.2:3000/api';
+// const kBaseUrl = 'http://10.0.2.2:3000/api';  // local emulator
 
 const _storage = FlutterSecureStorage(
   aOptions: AndroidOptions(encryptedSharedPreferences: true),
@@ -35,19 +29,14 @@ Future<void> clearTokens() async {
 final dioProvider = Provider<Dio>((ref) {
   final dio = Dio(BaseOptions(
     baseUrl: kBaseUrl,
-    connectTimeout: const Duration(seconds: 20),
-    receiveTimeout: const Duration(seconds: 30),
+    // Generous timeouts — server is remote, may have cold-start delay
+    connectTimeout: const Duration(seconds: 60),
+    receiveTimeout: const Duration(seconds: 60),
+    sendTimeout:    const Duration(seconds: 60),
     headers: {'Content-Type': 'application/json'},
   ));
 
-  // ── Logging (remove in production) ──────────────────────────────────────
-  dio.interceptors.add(LogInterceptor(
-    requestBody: true,
-    responseBody: true,
-    logPrint: (o) => print('[DIO] $o'),
-  ));
-
-  // ── Auth + token refresh ─────────────────────────────────────────────────
+  // ── Auth token injection ──────────────────────────────────────────────────
   dio.interceptors.add(InterceptorsWrapper(
     onRequest: (options, handler) async {
       final token = await getAccessToken();
@@ -55,11 +44,16 @@ final dioProvider = Provider<Dio>((ref) {
       handler.next(options);
     },
     onError: (error, handler) async {
+      // Auto-refresh on 401
       if (error.response?.statusCode == 401) {
         final refreshToken = await getRefreshToken();
         if (refreshToken != null) {
           try {
-            final refreshDio = Dio(BaseOptions(baseUrl: kBaseUrl));
+            final refreshDio = Dio(BaseOptions(
+              baseUrl: kBaseUrl,
+              connectTimeout: const Duration(seconds: 60),
+              receiveTimeout: const Duration(seconds: 60),
+            ));
             final res = await refreshDio.post('/auth/refresh-tokens',
                 data: {'refreshToken': refreshToken});
             final newAccess  = res.data['access']['token']  as String;
@@ -75,6 +69,15 @@ final dioProvider = Provider<Dio>((ref) {
       }
       handler.next(error);
     },
+  ));
+
+  // ── Debug logging (remove before release) ────────────────────────────────
+  dio.interceptors.add(LogInterceptor(
+    requestBody: false,
+    responseBody: false,
+    requestHeader: false,
+    responseHeader: false,
+    logPrint: (o) => print('[API] $o'),
   ));
 
   return dio;

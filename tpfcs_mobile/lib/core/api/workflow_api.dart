@@ -102,11 +102,31 @@ class WorkflowApi {
 
   // ── 6. Vehicle operation history ────────────────────────────────────────────
   Future<List<OperationHistory>> getVehicleHistory(int vehicleId) async {
-    final res = await _ref.read(dioProvider)
-        .get('/workflow/vehicles/$vehicleId/history');
-    final data = res.data;
-    final list = data is List ? data : (data['data'] as List? ?? []);
-    return list.map((e) => OperationHistory.fromJson(e as Map<String, dynamic>)).toList();
+    try {
+      final res = await _ref.read(dioProvider)
+          .get('/workflow/vehicles/$vehicleId/history');
+      final data = res.data;
+      final list = data is List ? data
+          : (data['data'] as List? ?? data['operations'] as List? ?? []);
+      return list.map((e) => OperationHistory.fromJson(e as Map<String, dynamic>)).toList();
+    } catch (e) {
+      // 404 means vehicle belongs to a different ICDV or no history yet — return empty
+      return [];
+    }
+  }
+
+  // ── 7. Vehicle operations via vehicles route (fallback) ───────────────────
+  Future<List<OperationHistory>> getVehicleOperations(int vehicleId) async {
+    try {
+      final res = await _ref.read(dioProvider)
+          .get('/vehicles/$vehicleId/operations');
+      final data = res.data;
+      final list = data is List ? data
+          : (data['data'] as List? ?? data['operations'] as List? ?? []);
+      return list.map((e) => OperationHistory.fromJson(e as Map<String, dynamic>)).toList();
+    } catch (e) {
+      return [];
+    }
   }
 }
 

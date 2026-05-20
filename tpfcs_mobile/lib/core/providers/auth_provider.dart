@@ -226,8 +226,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   String _parseError(Object e) {
     final s = e.toString();
+    if (s.contains('connection timeout') || s.contains('connectTimeout')) 
+      return 'Connection timed out. Check your internet connection and try again.';
+    if (s.contains('SocketException') || s.contains('connection'))
+      return 'Cannot connect to server. Check your internet connection.';
     if (s.contains('401')) return 'Invalid credentials. Please try again.';
-    if (s.contains('SocketException') || s.contains('connection')) return 'Cannot connect to server';
+    if (s.contains('certificate') || s.contains('HandshakeException'))
+      return 'Secure connection failed. Please check your network.';
     return 'Login failed. Please try again.';
   }
 
