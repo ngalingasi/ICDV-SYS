@@ -78,7 +78,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     await ref.read(authProvider.notifier).verifyOtp(_otpValue);
     final auth = ref.read(authProvider);
     if (auth.isAuthenticated && mounted)
-      context.go(auth.user!.mustChangePassword ? '/change-password' : '/home');
+      context.go(auth.user!.mustChangePassword ? '/change-password' : '/dashboard');
   }
 
   @override
@@ -129,7 +129,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
               if (auth.error != null) ...[ErrorBanner(auth.error!), const SizedBox(height: 16)],
 
               // Step 1
-              if (step == AuthStep.idle || step == AuthStep.credentials || step == AuthStep.authenticated)
+              if (step == AuthStep.idle || step == AuthStep.credentials)
                 _CredentialsCard(
                   loginCtrl: _loginCtrl, passwordCtrl: _passwordCtrl,
                   obscure: _obscure, loading: auth.isLoading,

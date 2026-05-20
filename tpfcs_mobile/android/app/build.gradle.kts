@@ -22,7 +22,7 @@ android {
     defaultConfig {
         applicationId = "com.icdv.tpfcs_mobile"
         // flutter_secure_storage requires minSdk 18; Flutter default is already 21
-        minSdk = 21
+        minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

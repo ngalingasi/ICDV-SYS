@@ -6,8 +6,8 @@ import '../../core/providers/theme_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/widgets.dart';
 import '../shared/op_header.dart';
+import '../shared/op_confirm_sheet.dart';
 
-// Brand colors for Receive — mint/green
 const _kGradStart = Color(0xFFCCF0DC);
 const _kGradEnd   = Color(0xFFA0E0BC);
 const _kSymbol    = Color(0xFF4DC98A);
@@ -24,7 +24,7 @@ class ReceiveScreen extends ConsumerStatefulWidget {
 class _ReceiveScreenState extends ConsumerState<ReceiveScreen> {
   final _idCardCtrl = TextEditingController();
   final _notesCtrl  = TextEditingController();
-  _Step          _step    = _Step.lookup;
+  _Step          _step   = _Step.lookup;
   ReceiveLookup? _data;
   bool           _loading = false;
   String?        _error;
@@ -40,15 +40,23 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> {
     finally { setState(() => _loading = false); }
   }
 
-  Future<void> _confirm() async {
-    setState(() { _loading = true; _error = null; });
-    try {
-      await ref.read(workflowApiProvider).receiveConfirm(
+  Future<void> _showConfirmSheet() async {
+    final notes = _notesCtrl.text.trim();
+    final ok = await showOpConfirmSheet(
+      context: context,
+      title: 'Confirm Receipt',
+      subtitle: 'Mark ${_data!.vehicle.chassisNumber} as RECEIVED at ICDV Yard\nand close driver assignment?',
+      confirmLabel: 'Receive',
+      icon: Icons.warehouse_rounded,
+      gradStart: _kGradStart, gradEnd: _kGradEnd,
+      symbolColor: _kSymbol, accentColor: _kAccent,
+      successTitle: 'Vehicle Received!',
+      successMessage: '${_data!.vehicle.chassisNumber} is now at ICDV Yard.\nDriver assignment closed.',
+      onConfirm: () => ref.read(workflowApiProvider).receiveConfirm(
         _data!.driver.driverId, _data!.vehicle.vehicleId,
-        notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim());
-      setState(() => _step = _Step.done);
-    } catch (e) { setState(() => _error = _parseError(e)); }
-    finally { setState(() => _loading = false); }
+        notes: notes.isEmpty ? null : notes),
+    );
+    if (ok && mounted) setState(() => _step = _Step.done);
   }
 
   @override
@@ -56,7 +64,7 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final c    = AppColors(isDarkMode(context));
+    final c = AppColors(isDarkMode(context));
     final dark = isDarkMode(context);
     return Scaffold(
       backgroundColor: c.bg,
@@ -65,8 +73,7 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> {
           dark: dark, title: 'Yard Receiving',
           subtitle: 'Confirm vehicle arrival',
           icon: Icons.warehouse_rounded,
-          gradStart: _kGradStart, gradEnd: _kGradEnd,
-          symbolColor: _kSymbol,
+          gradStart: _kGradStart, gradEnd: _kGradEnd, symbolColor: _kSymbol,
           step: _step.index, totalSteps: 3,
           stepLabels: const ['Scan ID', 'Confirm', 'Done'],
           onBack: () => Navigator.of(context).maybePop(),
@@ -100,21 +107,6 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> {
           style: TextStyle(color: c.textMuted, fontSize: 11)),
       ],
       const SizedBox(height: 14),
-      Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: _kGradStart.withOpacity(0.5),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: _kSymbol.withOpacity(0.5))),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Ready to Receive', style: TextStyle(
-            fontWeight: FontWeight.w800, color: _kAccent, fontSize: 13)),
-          const SizedBox(height: 4),
-          Text('Confirming will mark ${_data!.vehicle.chassisNumber} as RECEIVED at ICDV Yard.',
-            style: TextStyle(color: c.textSecond, fontSize: 13)),
-        ]),
-      ),
-      const SizedBox(height: 14),
       const SectionLabel('Notes'),
       NotesField(controller: _notesCtrl),
     ],
@@ -122,8 +114,8 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> {
     const SizedBox(height: 24),
     if (_step == _Step.confirm) ...[
       ConfirmButton(label: 'Confirm Receipt at ICDV Yard',
-        onPressed: _confirm, loading: _loading, color: _kAccent,
-        icon: Icons.warehouse_rounded),
+        onPressed: _showConfirmSheet, loading: false,
+        color: _kAccent, icon: Icons.warehouse_rounded),
       const SizedBox(height: 10),
       _OutlineBtn('Cancel', _reset),
     ],

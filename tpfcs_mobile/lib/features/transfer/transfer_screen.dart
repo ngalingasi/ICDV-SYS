@@ -6,8 +6,8 @@ import '../../core/providers/theme_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/widgets.dart';
 import '../shared/op_header.dart';
+import '../shared/op_confirm_sheet.dart';
 
-// Brand colors for Transfer — amber/orange
 const _kGradStart = Color(0xFFFDE8CC);
 const _kGradEnd   = Color(0xFFF9D0A0);
 const _kSymbol    = Color(0xFFF5A652);
@@ -51,16 +51,24 @@ class _TransferScreenState extends ConsumerState<TransferScreen> {
     finally { setState(() => _loading = false); }
   }
 
-  Future<void> _confirm() async {
-    setState(() { _loading = true; _error = null; });
-    try {
-      await ref.read(workflowApiProvider).transferConfirm(
+  Future<void> _showConfirmSheet() async {
+    final notes = _notesCtrl.text.trim();
+    final ok = await showOpConfirmSheet(
+      context: context,
+      title: 'Confirm Transfer',
+      subtitle: 'Assign ${_vehicle!.chassisNumber} to ${_driver!.fullName} and mark IN TRANSIT?',
+      confirmLabel: 'Transfer',
+      icon: Icons.local_shipping_rounded,
+      gradStart: _kGradStart, gradEnd: _kGradEnd,
+      symbolColor: _kSymbol, accentColor: _kAccent,
+      successTitle: 'Transfer Confirmed!',
+      successMessage: '${_vehicle!.chassisNumber} is now IN TRANSIT\nDriver: ${_driver!.fullName}',
+      onConfirm: () => ref.read(workflowApiProvider).transferConfirm(
         vehicleId: _vehicle!.vehicleId, driverId: _driver!.driverId,
         driverIdCard: _idCardCtrl.text.trim(),
-        notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim());
-      setState(() => _step = _Step.done);
-    } catch (e) { setState(() => _error = _parseError(e)); }
-    finally { setState(() => _loading = false); }
+        notes: notes.isEmpty ? null : notes),
+    );
+    if (ok && mounted) setState(() => _step = _Step.done);
   }
 
   @override
@@ -68,7 +76,7 @@ class _TransferScreenState extends ConsumerState<TransferScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final c    = AppColors(isDarkMode(context));
+    final c = AppColors(isDarkMode(context));
     final dark = isDarkMode(context);
     return Scaffold(
       backgroundColor: c.bg,
@@ -77,8 +85,7 @@ class _TransferScreenState extends ConsumerState<TransferScreen> {
           dark: dark, title: 'TPA Transfer',
           subtitle: 'Gate → ICDV Yard',
           icon: Icons.local_shipping_rounded,
-          gradStart: _kGradStart, gradEnd: _kGradEnd,
-          symbolColor: _kSymbol,
+          gradStart: _kGradStart, gradEnd: _kGradEnd, symbolColor: _kSymbol,
           step: _step.index, totalSteps: 4,
           stepLabels: const ['Vehicle', 'Driver', 'Confirm', 'Done'],
           onBack: () => Navigator.of(context).maybePop(),
@@ -112,33 +119,14 @@ class _TransferScreenState extends ConsumerState<TransferScreen> {
       const SizedBox(height: 16),
     ],
     if (_step == _Step.confirm) ...[
-      const SectionLabel('Transfer Summary'),
-      Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: _kGradStart.withOpacity(0.5),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: _kSymbol.withOpacity(0.4))),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Confirming will:', style: TextStyle(
-            fontWeight: FontWeight.w700, color: _kAccent, fontSize: 12, letterSpacing: 0.5)),
-          const SizedBox(height: 8),
-          Text('• Assign ${_vehicle!.chassisNumber} to ${_driver!.fullName}',
-            style: TextStyle(color: c.textSecond, fontSize: 13)),
-          Text('• Set workflow status to IN_TRANSIT',
-            style: TextStyle(color: c.textSecond, fontSize: 13)),
-        ]),
-      ),
-      const SizedBox(height: 14),
       const SectionLabel('Notes'),
       NotesField(controller: _notesCtrl),
     ],
     if (_error != null) ...[const SizedBox(height: 14), ErrorBanner(_error!)],
     const SizedBox(height: 24),
     if (_step == _Step.confirm) ...[
-      ConfirmButton(label: 'Confirm Transfer — In Transit',
-        onPressed: _confirm, loading: _loading, color: _kAccent,
-        icon: Icons.local_shipping_rounded),
+      ConfirmButton(label: 'Confirm Transfer', onPressed: _showConfirmSheet,
+        loading: false, color: _kAccent, icon: Icons.local_shipping_rounded),
       const SizedBox(height: 10),
       _OutlineBtn('Cancel', _reset),
     ],

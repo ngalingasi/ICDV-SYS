@@ -6,8 +6,8 @@ import '../../core/providers/theme_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/widgets.dart';
 import '../shared/op_header.dart';
+import '../shared/op_confirm_sheet.dart';
 
-// Brand colors for Batch — violet/purple
 const _kGradStart = Color(0xFFE2D4F7);
 const _kGradEnd   = Color(0xFFCBB8F0);
 const _kSymbol    = Color(0xFFB28CF5);
@@ -36,19 +36,32 @@ class _BatchScreenState extends ConsumerState<BatchScreen> {
     final q = _chassisCtrl.text.trim();
     if (q.length < 4) { setState(() => _error = 'Enter at least 4 digits'); return; }
     setState(() { _loading = true; _error = null; });
-    try { final v = await ref.read(workflowApiProvider).batchLookup(q); setState(() { _vehicle = v; _step = _Step.confirm; }); }
-    catch (e) { setState(() => _error = _parseError(e)); }
+    try {
+      final v = await ref.read(workflowApiProvider).batchLookup(q);
+      setState(() { _vehicle = v; _step = _Step.confirm; });
+    } catch (e) { setState(() => _error = _parseError(e)); }
     finally { setState(() => _loading = false); }
   }
 
-  Future<void> _confirm() async {
-    setState(() { _loading = true; _error = null; });
-    try {
-      final r = await ref.read(workflowApiProvider).batchConfirm(_vehicle!.vehicleId,
-        notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim());
-      setState(() { _result = r; _step = _Step.done; });
-    } catch (e) { setState(() => _error = _parseError(e)); }
-    finally { setState(() => _loading = false); }
+  Future<void> _showConfirmSheet() async {
+    final notes = _notesCtrl.text.trim();
+    Map<String, dynamic>? batchResult;
+    final ok = await showOpConfirmSheet(
+      context: context,
+      title: 'Add to Batch',
+      subtitle: 'Assign ${_vehicle!.chassisNumber} to the current open batch?',
+      confirmLabel: 'Add to Batch',
+      icon: Icons.layers_rounded,
+      gradStart: _kGradStart, gradEnd: _kGradEnd,
+      symbolColor: _kSymbol, accentColor: _kAccent,
+      successTitle: 'Added to Batch!',
+      successMessage: '${_vehicle!.chassisNumber} has been assigned to a batch.',
+      onConfirm: () async {
+        batchResult = await ref.read(workflowApiProvider).batchConfirm(
+          _vehicle!.vehicleId, notes: notes.isEmpty ? null : notes);
+      },
+    );
+    if (ok && mounted) setState(() { _result = batchResult; _step = _Step.done; });
   }
 
   @override
@@ -56,7 +69,7 @@ class _BatchScreenState extends ConsumerState<BatchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final c    = AppColors(isDarkMode(context));
+    final c = AppColors(isDarkMode(context));
     final dark = isDarkMode(context);
     return Scaffold(
       backgroundColor: c.bg,
@@ -65,8 +78,7 @@ class _BatchScreenState extends ConsumerState<BatchScreen> {
           dark: dark, title: 'Batch Process',
           subtitle: 'Assign vehicle to batch',
           icon: Icons.layers_rounded,
-          gradStart: _kGradStart, gradEnd: _kGradEnd,
-          symbolColor: _kSymbol,
+          gradStart: _kGradStart, gradEnd: _kGradEnd, symbolColor: _kSymbol,
           step: _step.index, totalSteps: 3,
           stepLabels: const ['Search', 'Confirm', 'Done'],
           onBack: () => Navigator.of(context).maybePop(),
@@ -94,8 +106,8 @@ class _BatchScreenState extends ConsumerState<BatchScreen> {
     if (_error != null) ...[const SizedBox(height: 14), ErrorBanner(_error!)],
     const SizedBox(height: 24),
     if (_step == _Step.confirm) ...[
-      ConfirmButton(label: 'Add to Batch', onPressed: _confirm,
-        loading: _loading, color: _kAccent, icon: Icons.layers_rounded),
+      ConfirmButton(label: 'Add to Batch', onPressed: _showConfirmSheet,
+        loading: false, color: _kAccent, icon: Icons.layers_rounded),
       const SizedBox(height: 10),
       _OutlineBtn('Cancel', _reset),
     ],
@@ -110,10 +122,10 @@ class _BatchScreenState extends ConsumerState<BatchScreen> {
       Container(
         width: double.infinity, padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          gradient: LinearGradient(colors: dark
-              ? [_kGradStart.withOpacity(0.3), _kGradEnd.withOpacity(0.15)]
-              : [_kGradStart, _kGradEnd],
-              begin: Alignment.topLeft, end: Alignment.bottomRight),
+          gradient: LinearGradient(
+            colors: dark ? [_kGradStart.withOpacity(0.3), _kGradEnd.withOpacity(0.15)]
+                         : [_kGradStart, _kGradEnd],
+            begin: Alignment.topLeft, end: Alignment.bottomRight),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: _kSymbol.withOpacity(0.4))),
         child: Column(children: [

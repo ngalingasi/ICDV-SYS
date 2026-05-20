@@ -22,15 +22,17 @@ enum AuthStep { idle, credentials, channel, otp, authenticated, mustChangePasswo
 class AuthState {
   final User?         user;
   final bool          isLoading;
+  final bool          isInitializing; // true while restoring session on app start
   final String?       error;
   final AuthStep      step;
   final List<OtpChannel> channels;
   final String        maskedContact;
-  final String        loginField; // persist login across OTP steps
+  final String        loginField;
 
   const AuthState({
     this.user,
-    this.isLoading  = false,
+    this.isLoading      = false,
+    this.isInitializing = true, // starts true until session check completes
     this.error,
     this.step       = AuthStep.idle,
     this.channels   = const [],
@@ -43,19 +45,21 @@ class AuthState {
   AuthState copyWith({
     User? user,
     bool? isLoading,
+    bool? isInitializing,
     String? error,
     AuthStep? step,
     List<OtpChannel>? channels,
     String? maskedContact,
     String? loginField,
   }) => AuthState(
-    user:          user          ?? this.user,
-    isLoading:     isLoading     ?? this.isLoading,
-    error:         error,                            // null clears error
-    step:          step          ?? this.step,
-    channels:      channels      ?? this.channels,
-    maskedContact: maskedContact ?? this.maskedContact,
-    loginField:    loginField    ?? this.loginField,
+    user:           user           ?? this.user,
+    isLoading:      isLoading      ?? this.isLoading,
+    isInitializing: isInitializing ?? this.isInitializing,
+    error:          error,
+    step:           step           ?? this.step,
+    channels:       channels       ?? this.channels,
+    maskedContact:  maskedContact  ?? this.maskedContact,
+    loginField:     loginField     ?? this.loginField,
   );
 }
 
@@ -67,17 +71,22 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> _tryRestoreSession() async {
     final token = await getAccessToken();
-    if (token == null) return;
+    if (token == null) {
+      state = state.copyWith(isInitializing: false);
+      return;
+    }
     try {
       final dio = _ref.read(dioProvider);
       final res = await dio.getJson('/auth/me');
       final user = User.fromJson(res);
       state = AuthState(
         user: user,
+        isInitializing: false,
         step: user.mustChangePassword ? AuthStep.mustChangePassword : AuthStep.authenticated,
       );
     } catch (_) {
       await clearTokens();
+      state = state.copyWith(isInitializing: false);
     }
   }
 

@@ -34,7 +34,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
   Future<void> _submit() async {
     if (!_isValid) return;
     final ok = await ref.read(authProvider.notifier).changePassword(_currentCtrl.text, _newCtrl.text);
-    if (ok && mounted) context.go('/home');
+    if (ok && mounted) context.go('/dashboard');
   }
 
   @override

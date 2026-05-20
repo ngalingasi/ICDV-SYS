@@ -6,12 +6,12 @@ import '../../core/providers/theme_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/widgets.dart';
 import '../shared/op_header.dart';
+import '../shared/op_confirm_sheet.dart';
 
-// Brand colors for Discharge — blue
-const _kGradStart   = Color(0xFFCFDEF7);
-const _kGradEnd     = Color(0xFFADC6F0);
-const _kSymbol      = Color(0xFF6AAEF5);
-const _kAccent      = Color(0xFF0D4E9E);
+const _kGradStart = Color(0xFFCFDEF7);
+const _kGradEnd   = Color(0xFFADC6F0);
+const _kSymbol    = Color(0xFF6AAEF5);
+const _kAccent    = Color(0xFF0D4E9E);
 
 enum _Step { search, confirm, done }
 
@@ -35,19 +35,29 @@ class _DischargeScreenState extends ConsumerState<DischargeScreen> {
     final q = _chassisCtrl.text.trim();
     if (q.length < 4) { setState(() => _error = 'Enter at least 4 digits'); return; }
     setState(() { _loading = true; _error = null; });
-    try { final v = await ref.read(workflowApiProvider).dischargeLookup(q); setState(() { _vehicle = v; _step = _Step.confirm; }); }
-    catch (e) { setState(() => _error = _parseError(e)); }
+    try {
+      final v = await ref.read(workflowApiProvider).dischargeLookup(q);
+      setState(() { _vehicle = v; _step = _Step.confirm; });
+    } catch (e) { setState(() => _error = _parseError(e)); }
     finally { setState(() => _loading = false); }
   }
 
-  Future<void> _confirm() async {
-    setState(() { _loading = true; _error = null; });
-    try {
-      await ref.read(workflowApiProvider).dischargeConfirm(_vehicle!.vehicleId,
-        notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim());
-      setState(() => _step = _Step.done);
-    } catch (e) { setState(() => _error = _parseError(e)); }
-    finally { setState(() => _loading = false); }
+  Future<void> _showConfirmSheet() async {
+    final notes = _notesCtrl.text.trim();
+    final ok = await showOpConfirmSheet(
+      context: context,
+      title: 'Confirm Discharge',
+      subtitle: 'Move ${_vehicle!.chassisNumber} from Vessel to Holding Ground?',
+      confirmLabel: 'Discharge',
+      icon: Icons.anchor_rounded,
+      gradStart: _kGradStart, gradEnd: _kGradEnd,
+      symbolColor: _kSymbol, accentColor: _kAccent,
+      successTitle: 'Discharged!',
+      successMessage: '${_vehicle!.chassisNumber} moved to Holding Ground.',
+      onConfirm: () => ref.read(workflowApiProvider).dischargeConfirm(
+        _vehicle!.vehicleId, notes: notes.isEmpty ? null : notes),
+    );
+    if (ok && mounted) setState(() => _step = _Step.done);
   }
 
   @override
@@ -55,7 +65,7 @@ class _DischargeScreenState extends ConsumerState<DischargeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final c    = AppColors(isDarkMode(context));
+    final c = AppColors(isDarkMode(context));
     final dark = isDarkMode(context);
     return Scaffold(
       backgroundColor: c.bg,
@@ -64,8 +74,7 @@ class _DischargeScreenState extends ConsumerState<DischargeScreen> {
           dark: dark, title: 'Discharge',
           subtitle: 'Vessel → Holding Ground',
           icon: Icons.anchor_rounded,
-          gradStart: _kGradStart, gradEnd: _kGradEnd,
-          symbolColor: _kSymbol,
+          gradStart: _kGradStart, gradEnd: _kGradEnd, symbolColor: _kSymbol,
           step: _step.index, totalSteps: 3,
           stepLabels: const ['Search', 'Confirm', 'Done'],
           onBack: () => Navigator.of(context).maybePop(),
@@ -82,7 +91,8 @@ class _DischargeScreenState extends ConsumerState<DischargeScreen> {
     if (_step == _Step.search) ...[
       ChassisInput(controller: _chassisCtrl, onSearch: _search, loading: _loading),
       const SizedBox(height: 8),
-      Text('Enter last 4+ digits of chassis number', style: TextStyle(color: c.textMuted, fontSize: 12)),
+      Text('Enter last 4+ digits of chassis number',
+        style: TextStyle(color: c.textMuted, fontSize: 12)),
     ],
     if (_vehicle != null) ...[
       const SizedBox(height: 16),
@@ -96,8 +106,8 @@ class _DischargeScreenState extends ConsumerState<DischargeScreen> {
     if (_error != null) ...[const SizedBox(height: 14), ErrorBanner(_error!)],
     const SizedBox(height: 24),
     if (_step == _Step.confirm) ...[
-      ConfirmButton(label: 'Confirm Discharge', onPressed: _confirm,
-        loading: _loading, color: _kAccent, icon: Icons.anchor_rounded),
+      ConfirmButton(label: 'Confirm Discharge', onPressed: _showConfirmSheet,
+        loading: false, color: _kAccent, icon: Icons.anchor_rounded),
       const SizedBox(height: 10),
       _OutlineBtn('Cancel', _reset),
     ],
@@ -131,5 +141,3 @@ class _OutlineBtn extends StatelessWidget {
         child: Text(label)));
   }
 }
-
-// ── Shared branded header used by all 4 op screens ────────────────────────────
