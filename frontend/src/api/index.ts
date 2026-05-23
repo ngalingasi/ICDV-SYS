@@ -145,7 +145,24 @@ export const workflowApi = {
   getHistory: (vehicleId: number) =>
     client.get(`/workflow/vehicles/${vehicleId}/history`),
 
-  // 6. Delivery Sheet
+  // 6. Batch status management (migration 008 — backoffice_officer right)
+  updateBatchStatus: (batchId: number, data: {
+    document_status?: 'not_ready' | 'ready';
+    document_remark?: string;
+    gc_status?: 'not_sent' | 'sent';
+    gc_remark?: string;
+  }) =>
+    client.patch(`/workflow/batches/${batchId}/status`, data),
+
+  // 7. Batch print (chassis list — printBatches right)
+  getBatchPrint: (batchId: number) =>
+    client.get(`/workflow/batches/${batchId}/print`),
+
+  // 8. TPA Stats (viewTpaStats right — transfer_officer + admin+)
+  getTpaStats: () =>
+    client.get('/workflow/transfer/tpa-stats'),
+
+  // 9. Delivery Sheet
   getBatchDeliverySheet:    (batchId: number) =>
     client.get(`/workflow/batches/${batchId}/delivery-sheet`),
   getVesselDeliverySheet:   (vesselId: number) =>

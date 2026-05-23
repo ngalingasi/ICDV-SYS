@@ -43,7 +43,7 @@ import OperationDetail from "./pages/Operations/OperationDetail";
 // ── Workflow (5-step operational flow) ────────────────────────────────────────
 import DischargePage     from "./pages/Operations/DischargePage";
 import BatchPage         from "./pages/Operations/BatchPage";
-import { BatchListPage, BatchDetailPage } from "./pages/Operations/BatchListPage";
+import { BatchListPage, BatchDetailPage, BatchPrintPage } from "./pages/Operations/BatchListPage";
 import DeliverySheetPage from "./pages/Operations/DeliverySheetPage";
 import TransferPage      from "./pages/Operations/TransferPage";
 import ReceivePage       from "./pages/Operations/ReceivePage";
@@ -91,6 +91,12 @@ export default function App() {
           {/* ── Change password (auth required, no shell) ─────────────────── */}
           <Route element={<ProtectedRoute />}>
             <Route path="/change-password" element={<ChangePassword />} />
+          </Route>
+
+          {/* ── Batch print — auth required, no shell (clean print page) ──── */}
+          {/* printBatches right: backoffice_officer + operator/supervisor/admin/system_admin/super_admin */}
+          <Route element={<ProtectedRoute allowedRoles={["backoffice_officer","operator","supervisor","admin","system_admin","super_admin"]} />}>
+            <Route path="/operations/batches/:batchId/print" element={<BatchPrintPage />} />
           </Route>
 
           {/* ── All authenticated users ───────────────────────────────────── */}
@@ -156,7 +162,7 @@ export default function App() {
           </Route>
 
           {/* ── Admin / Supervisor only ───────────────────────────────────── */}
-          <Route element={<ProtectedRoute allowedRoles={["admin", "supervisor", "super_admin"]} />}>
+          <Route element={<ProtectedRoute allowedRoles={["admin", "supervisor", "super_admin", "system_admin"]} />}>
             <Route element={<AppLayout />}>
               <Route path="/users"   element={<UsersPage />} />
               <Route path="/lookups" element={<LookupsPage />} />

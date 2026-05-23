@@ -2,13 +2,17 @@ import { createContext, useContext } from 'react';
 import type { User } from '../types';
 
 export interface AuthState {
-  user:            User | null;
-  isAuthenticated: boolean;
-  isLoading:       boolean;
-  isSuperAdmin:    boolean;
-  isSystemAdmin:   boolean;
-  icdvId:          number | null;
-  icdvName:        string | null;
+  user:                 User | null;
+  isAuthenticated:      boolean;
+  isLoading:            boolean;
+  isSuperAdmin:         boolean;
+  isSystemAdmin:        boolean;
+  isDischargeOfficer:   boolean;
+  isBackofficeOfficer:  boolean;
+  isTransferOfficer:    boolean;
+  isYardOfficer:        boolean;
+  icdvId:               number | null;
+  icdvName:             string | null;
 }
 
 export interface AuthActions {

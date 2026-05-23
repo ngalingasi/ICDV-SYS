@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { workflowApi } from '../../api';
+import { useAuth } from '../../store/authStore';
 import { toast } from '../../components/tpfcs/Toast';
 import {
   ChassisInput, VehicleCard, DriverCard, NotesInput,
@@ -8,6 +9,93 @@ import {
 
 const RAW_API  = (import.meta as any).env?.VITE_API_URL ?? 'http://localhost:3000/api';
 const API_BASE = RAW_API.replace(/\/api(\/v\d+)?$/, '');
+
+// ── TPA Stats Panel ───────────────────────────────────────────────────────────
+// Shown to transfer_officer (viewTpaStats right). Loads once on mount.
+function TpaStatsPanel() {
+  const [stats,   setStats]   = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    workflowApi.getTpaStats()
+      .then(r => setStats(r.data))
+      .catch(() => {/* silently ignore — panel is informational only */})
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4">
+          <div className="h-7 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mb-2" />
+          <div className="h-3 bg-gray-100 dark:bg-gray-800 rounded animate-pulse w-3/4" />
+        </div>
+      ))}
+    </div>
+  );
+
+  if (!stats) return null;
+
+  const statCards = [
+    { label: 'Currently In Transit', value: stats.in_transit_count ?? 0,   color: 'text-orange-600 dark:text-orange-400' },
+    { label: 'Transferred Today',    value: stats.transferred_today ?? 0,   color: 'text-brand-600 dark:text-brand-400' },
+    { label: 'Total Transferred',    value: stats.transferred_total ?? 0,   color: 'text-green-600 dark:text-green-400' },
+    { label: 'Active Drivers',       value: stats.active_drivers ?? 0,      color: 'text-purple-600 dark:text-purple-400' },
+  ];
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {statCards.map(s => (
+          <div key={s.label} className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 text-center">
+            <p className={`text-xl sm:text-2xl font-bold ${s.color}`}>{s.value}</p>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 leading-tight">{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Per-batch breakdown */}
+      {stats.by_batch?.length > 0 && (
+        <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-gray-100 dark:border-gray-800">
+            <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">
+              Active Batches — TPA Gate
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[360px]">
+              <thead className="bg-gray-50 dark:bg-gray-800/50">
+                <tr>
+                  {['Batch', 'Vessel', 'In Transit', 'Received'].map(h => (
+                    <th key={h} className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                {stats.by_batch.map((b: any) => (
+                  <tr key={b.batch_id} className="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+                    <td className="px-4 py-2.5 font-mono text-xs font-semibold text-gray-800 dark:text-white whitespace-nowrap">{b.batch_number}</td>
+                    <td className="px-4 py-2.5 text-xs text-gray-600 dark:text-gray-300 whitespace-nowrap">{b.vessel_name ?? '—'}</td>
+                    <td className="px-4 py-2.5 text-center">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300">
+                        {b.in_transit_count}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5 text-center">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-300">
+                        {b.received_count ?? 0}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 type Step = 'vehicle' | 'driver' | 'confirm' | 'done';
 
@@ -103,6 +191,7 @@ function CardField({ label, value, highlight = false }: { label: string; value: 
 }
 
 export default function TransferPage() {
+  const { user } = useAuth();
   const [step,    setStep]    = useState<Step>('vehicle');
   const [chassis, setChassis] = useState('');
   const [idCard,  setIdCard]  = useState('');
@@ -111,6 +200,11 @@ export default function TransferPage() {
   const [notes,   setNotes]   = useState('');
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState('');
+
+  // Show TPA stats for transfer_officer and admin+ roles
+  const canViewTpaStats = user && [
+    'transfer_officer', 'operator', 'supervisor', 'admin', 'system_admin', 'super_admin',
+  ].includes(user.role);
 
   const reset = () => {
     setStep('vehicle'); setChassis(''); setIdCard('');
@@ -165,6 +259,9 @@ export default function TransferPage() {
           Vehicle checkout from TPA gate to ICDV yard
         </p>
       </div>
+
+      {/* TPA Stats — visible to transfer_officer and admin+ */}
+      {canViewTpaStats && <TpaStatsPanel />}
 
       {vehicle && <WorkflowProgress status={vehicle.workflow_status} />}
 

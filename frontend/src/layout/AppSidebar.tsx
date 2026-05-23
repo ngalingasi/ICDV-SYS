@@ -65,6 +65,66 @@ const TENANT_NAV: NavItem[] = [
   },
 ];
 
+// discharge_officer — getVessels, getManifests, getVehicles, getDrivers, dischargeVehicles
+const DISCHARGE_OFFICER_NAV: NavItem[] = [
+  { name: "Dashboard",  icon: <Icon.Dashboard />, path: "/" },
+  { name: "Vessels",    icon: <Icon.Vessel />,    path: "/vessels" },
+  { name: "Manifests",  icon: <Icon.Manifest />,  path: "/manifests" },
+  { name: "Vehicles",   icon: <Icon.Vehicle />,   path: "/vehicles" },
+  { name: "Drivers",    icon: <Icon.Driver />,    path: "/drivers" },
+  {
+    name: "Operations", icon: <Icon.Operation />, subItems: [
+      { name: "1. Discharge",   path: "/operations/discharge" },
+      { name: "2. Batch",       path: "/operations/batch" },
+      { name: "Batches",        path: "/operations/batches" },
+      { name: "Chassis Search", path: "/operations/search" },
+    ],
+  },
+];
+
+// backoffice_officer — getVessels, getManifests, getVehicles, getDrivers, getOperations
+//                      updateOperations, updateBatchStatus, printBatches, printDeliverySheet
+const BACKOFFICE_OFFICER_NAV: NavItem[] = [
+  { name: "Dashboard",  icon: <Icon.Dashboard />, path: "/" },
+  { name: "Vessels",    icon: <Icon.Vessel />,    path: "/vessels" },
+  { name: "Manifests",  icon: <Icon.Manifest />,  path: "/manifests" },
+  { name: "Vehicles",   icon: <Icon.Vehicle />,   path: "/vehicles" },
+  { name: "Drivers",    icon: <Icon.Driver />,    path: "/drivers" },
+  {
+    name: "Operations", icon: <Icon.Operation />, subItems: [
+      { name: "Batches",        path: "/operations/batches" },
+      { name: "Chassis Search", path: "/operations/search" },
+    ],
+  },
+];
+
+// transfer_officer — getVehicles, getDrivers, transferVehicles, viewTpaStats
+const TRANSFER_OFFICER_NAV: NavItem[] = [
+  { name: "Dashboard", icon: <Icon.Dashboard />, path: "/" },
+  { name: "Vehicles",  icon: <Icon.Vehicle />,   path: "/vehicles" },
+  { name: "Drivers",   icon: <Icon.Driver />,    path: "/drivers" },
+  {
+    name: "Operations", icon: <Icon.Operation />, subItems: [
+      { name: "3. TPA Transfer", path: "/operations/transfer" },
+      { name: "Chassis Search",  path: "/operations/search" },
+    ],
+  },
+];
+
+// yard_officer — getVehicles, getManifests, getDrivers, receiveVehicles, printDeliverySheet
+const YARD_OFFICER_NAV: NavItem[] = [
+  { name: "Dashboard", icon: <Icon.Dashboard />, path: "/" },
+  { name: "Vehicles",  icon: <Icon.Vehicle />,   path: "/vehicles" },
+  { name: "Manifests", icon: <Icon.Manifest />,  path: "/manifests" },
+  { name: "Drivers",   icon: <Icon.Driver />,    path: "/drivers" },
+  {
+    name: "Operations", icon: <Icon.Operation />, subItems: [
+      { name: "4. Yard Receive", path: "/operations/receive" },
+      { name: "Chassis Search",  path: "/operations/search" },
+    ],
+  },
+];
+
 const TENANT_BOTTOM_NAV: NavItem[] = [
   { name: "Users",   icon: <Icon.Users />,   path: "/users" },
   { name: "Lookups", icon: <Icon.Lookups />, path: "/lookups" },
@@ -103,14 +163,44 @@ const SUPER_ADMIN_BOTTOM_NAV: NavItem[] = [
 
 export default function AppSidebar() {
   const { isOpen, isExpanded, isMobileOpen, toggleMobileSidebar } = useSidebar();
-  const { isSuperAdmin, isSystemAdmin, icdvName } = useAuth();
+  const { isSuperAdmin, isSystemAdmin, isDischargeOfficer, isBackofficeOfficer, isTransferOfficer, isYardOfficer, icdvName, user } = useAuth();
   const isCrossTenant = isSuperAdmin || (isSystemAdmin ?? false);
   const location = useLocation();
-  // On mobile drawer (isMobileOpen) always show full expanded sidebar
   const expanded = isOpen || isExpanded || isMobileOpen;
 
-  const NAV        = isCrossTenant ? SUPER_ADMIN_NAV        : TENANT_NAV;
-  const BOTTOM_NAV = isCrossTenant ? SUPER_ADMIN_BOTTOM_NAV : TENANT_BOTTOM_NAV;
+  // Pick nav based on role (most-specific first)
+  let NAV: NavItem[];
+  let BOTTOM_NAV: NavItem[];
+  if (isCrossTenant) {
+    NAV        = SUPER_ADMIN_NAV;
+    BOTTOM_NAV = SUPER_ADMIN_BOTTOM_NAV;
+  } else if (isDischargeOfficer) {
+    NAV        = DISCHARGE_OFFICER_NAV;
+    BOTTOM_NAV = [{ name: "Profile", icon: <Icon.Profile />, path: "/profile" }];
+  } else if (isBackofficeOfficer) {
+    NAV        = BACKOFFICE_OFFICER_NAV;
+    BOTTOM_NAV = [{ name: "Profile", icon: <Icon.Profile />, path: "/profile" }];
+  } else if (isTransferOfficer) {
+    NAV        = TRANSFER_OFFICER_NAV;
+    BOTTOM_NAV = [{ name: "Profile", icon: <Icon.Profile />, path: "/profile" }];
+  } else if (isYardOfficer) {
+    NAV        = YARD_OFFICER_NAV;
+    BOTTOM_NAV = [{ name: "Profile", icon: <Icon.Profile />, path: "/profile" }];
+  } else {
+    NAV        = TENANT_NAV;
+    BOTTOM_NAV = TENANT_BOTTOM_NAV;
+  }
+
+  const topLabel    = isCrossTenant ? "ICDV System" : (icdvName ?? "ICDV System");
+  const topSubLabel = isSuperAdmin        ? "Platform Admin"
+    : isSystemAdmin       ? "System Operations"
+    : isDischargeOfficer  ? "Discharge Officer"
+    : isBackofficeOfficer ? "Backoffice Officer"
+    : isTransferOfficer   ? "Transfer Officer"
+    : isYardOfficer       ? "Yard Officer"
+    : user?.role === 'admin'      ? "Administrator"
+    : user?.role === 'supervisor' ? "Supervisor"
+    : "Vehicle Import & Delivery";
 
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
@@ -176,9 +266,6 @@ export default function AppSidebar() {
       </li>
     );
   };
-
-  const topLabel    = isCrossTenant ? "ICDV System"    : (icdvName ?? "ICDV System");
-  const topSubLabel = isSuperAdmin ? "Platform Admin" : isSystemAdmin ? "System Operations" : "Vehicle Import & Delivery";
 
   const sidebarContent = (
     <div className="flex flex-col h-full">

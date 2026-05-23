@@ -1,14 +1,21 @@
 /**
- * workflow.model.js  — STATUS SYNC FIXED
+ * workflow.model.js
  *
- * Every operation now atomically updates:
+ * Every operation atomically updates:
  *   vehicles.workflow_status        — the 5-step state (single source of truth)
  *   vehicles.current_location       — physical location
  *   vehicles.operational_status     — kept in sync so old queries still work
  *   vehicles.release_status         — set to 'released' at transfer, 'collected' at receive
- *   manifests.*_count               — running totals per step (manifested/discharged/batched/in_transit/received)
+ *   manifests.*_count               — running totals per step
  *   manifests.status                — auto-advances: pending→active→completed
  *   vehicle_operations              — full audit log entry
+ *
+ * MIGRATION 008 ADDITIONS:
+ *   updateBatchStatus()             — backoffice: set document_status + gc_status per batch
+ *   getBatchPrintData()             — backoffice/yard: full chassis list for batch print
+ *   getTpaStats()                   — transfer officer: count vehicles at TPA gate
+ *   confirmTransfer()               — now gates on batch.operational_status = 'ready'
+ *                                     (bypassable by admin / super_admin / system_admin)
  *
  * Uses query(), transaction(), connQuery() — existing database helpers.
  */
@@ -20,7 +27,11 @@ const {
   WORKFLOW_STATUSES,
   WORKFLOW_STATUS_TRANSITIONS,
   WORKFLOW_TO_LOCATION,
+  BATCH_DOCUMENT_STATUSES,
+  BATCH_GC_STATUSES,
+  BATCH_OPERATIONAL_STATUSES,
 } = require('../config/statuses');
+const { canBypassBatchGate } = require('../config/roles');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // STATUS MAPPING — single source of truth
@@ -134,7 +145,6 @@ const applyVehicleStatus = (conn, vehicleId, newWorkflowStatus, operatorId) =>
  * Called inside every operation transaction after vehicle update.
  */
 const syncManifestStatus = async (conn, manifestId) => {
-  // Re-count all workflow states for this manifest
   await connQuery(conn,
     `UPDATE manifests m
      SET
@@ -148,9 +158,6 @@ const syncManifestStatus = async (conn, manifestId) => {
     [manifestId, manifestId, manifestId, manifestId, manifestId, manifestId]
   );
 
-  // Auto-advance manifest.status:
-  //   pending   → active     (first vehicle leaves manifested state)
-  //   active    → completed  (all vehicles received)
   await connQuery(conn,
     `UPDATE manifests m
      JOIN (
@@ -198,13 +205,8 @@ const discharge = async (vehicleId, notes, operatorId, icdvId) =>
 
     assertTransition(vehicle.workflow_status, WORKFLOW_STATUSES.DISCHARGED);
 
-    // 1. Update vehicle — all statuses atomically
     await applyVehicleStatus(conn, vehicleId, WORKFLOW_STATUSES.DISCHARGED, operatorId);
-
-    // 2. Sync manifest counts + status
     await syncManifestStatus(conn, vehicle.manifest_id);
-
-    // 3. Audit log
     await logOperation(conn, {
       icdvId, vehicleId, chassisNumber: vehicle.chassis_number,
       operationType: 'discharged',
@@ -232,14 +234,8 @@ const BATCH_MAX = 20;
 
 /**
  * generateBatchNumber(vesselId, icdvId, conn)
- *
  * Produces sequential batch numbers per vessel — date-independent.
  * Format: <VESSEL_CODE>-BATCH-<NN>
- * Example: MARIECLAIRE-BATCH-01, MARIECLAIRE-BATCH-02, …
- *
- * The sequence is derived from the highest existing batch number for this
- * vessel+icdv combination, so it remains monotonically increasing regardless
- * of when batches are created.
  */
 const generateBatchNumber = async (vesselId, icdvId, conn = null) => {
   const exec = conn ? connQuery.bind(null, conn) : query;
@@ -251,7 +247,6 @@ const generateBatchNumber = async (vesselId, icdvId, conn = null) => {
   const code = (vessel?.imo_number || vessel?.name || 'VES')
     .toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
 
-  // Count total batches ever created for this vessel+icdv to get the next seq
   const prefix = `${code}-BATCH-`;
   const [row] = await exec(
     `SELECT MAX(CAST(SUBSTRING_INDEX(batch_number, '-', -1) AS UNSIGNED)) AS last
@@ -292,9 +287,6 @@ const addToBatch = async (vehicleId, notes, operatorId, icdvId) =>
 
     const vesselId = vehicle.vessel_id;
 
-    // ── Find the single OPEN batch for this vessel (date-independent) ──────────
-    // There must only ever be one 'open' batch per vessel+icdv at a time.
-    // FOR UPDATE prevents two concurrent scans from both creating a new batch.
     const [openBatch] = await connQuery(conn,
       `SELECT batch_id, vehicle_count, batch_number FROM batches
        WHERE icdv_id=? AND vessel_id=? AND status='open'
@@ -304,13 +296,11 @@ const addToBatch = async (vehicleId, notes, operatorId, icdvId) =>
 
     let batchId, batchNumber;
     if (openBatch) {
-      // ── Existing open batch — assign vehicle to it ──────────────────────────
       batchId     = openBatch.batch_id;
       batchNumber = openBatch.batch_number;
       const newCount = openBatch.vehicle_count + 1;
 
       if (newCount >= BATCH_MAX) {
-        // This vehicle fills the batch → mark 'full' atomically
         await connQuery(conn,
           `UPDATE batches SET vehicle_count=?, status='full', updated_at=NOW() WHERE batch_id=?`,
           [newCount, batchId]
@@ -322,9 +312,6 @@ const addToBatch = async (vehicleId, notes, operatorId, icdvId) =>
         );
       }
     } else {
-      // ── No open batch — create the next sequential one ──────────────────────
-      // batch_date records the creation date for audit purposes only; it is NOT
-      // used to route vehicles or determine batch boundaries.
       const today = new Date().toISOString().slice(0, 10);
       batchNumber = await generateBatchNumber(vesselId, icdvId, conn);
       const r = await connQuery(conn,
@@ -336,7 +323,6 @@ const addToBatch = async (vehicleId, notes, operatorId, icdvId) =>
       batchId = r.insertId;
     }
 
-    // 1. Update vehicle — set batch_id + all statuses
     await connQuery(conn,
       `UPDATE vehicles
        SET workflow_status    = ?,
@@ -358,10 +344,7 @@ const addToBatch = async (vehicleId, notes, operatorId, icdvId) =>
       ]
     );
 
-    // 2. Sync manifest
     await syncManifestStatus(conn, vehicle.manifest_id);
-
-    // 3. Audit log
     await logOperation(conn, {
       icdvId, vehicleId, chassisNumber: vehicle.chassis_number,
       operationType: 'batched',
@@ -378,10 +361,14 @@ const getBatch = async (batchId, icdvId) => {
   const batchPrms  = icdvId ? [batchId, icdvId] : [batchId];
   const [batch] = await query(
     `SELECT b.*, vs.name AS vessel_name, vs.imo_number,
-            ic.name AS icdv_name, ic.code AS icdv_code
+            ic.name AS icdv_name, ic.code AS icdv_code,
+            u.full_name AS document_updated_by_name,
+            u2.full_name AS gc_updated_by_name
      FROM batches b
      LEFT JOIN vessels vs ON vs.vessel_id = b.vessel_id
      LEFT JOIN icdvs ic   ON ic.icdv_id   = b.icdv_id
+     LEFT JOIN users u    ON u.user_id    = b.document_updated_by
+     LEFT JOIN users u2   ON u2.user_id   = b.gc_updated_by
      ${batchWhere}`,
     batchPrms
   );
@@ -398,13 +385,16 @@ const getBatch = async (batchId, icdvId) => {
   return batch;
 };
 
-const getBatches = async ({ page, limit, vessel_id, status, search } = {}, icdvId = null) => {
+const getBatches = async ({ page, limit, vessel_id, status, document_status, gc_status, operational_status, search } = {}, icdvId = null) => {
   const { limit: l, offset, paginate } = buildPagination(page, limit);
   let where = '1=1'; const params = [];
-  if (icdvId !== null) { where += ' AND b.icdv_id=?'; params.push(icdvId); }
-  if (vessel_id)       { where += ' AND b.vessel_id=?'; params.push(vessel_id); }
-  if (status)          { where += ' AND b.status=?'; params.push(status); }
-  if (search)          { where += ' AND b.batch_number LIKE ?'; params.push(`%${search}%`); }
+  if (icdvId !== null)        { where += ' AND b.icdv_id=?';             params.push(icdvId); }
+  if (vessel_id)              { where += ' AND b.vessel_id=?';           params.push(vessel_id); }
+  if (status)                 { where += ' AND b.status=?';              params.push(status); }
+  if (document_status)        { where += ' AND b.document_status=?';     params.push(document_status); }
+  if (gc_status)              { where += ' AND b.gc_status=?';           params.push(gc_status); }
+  if (operational_status)     { where += ' AND b.operational_status=?';  params.push(operational_status); }
+  if (search)                 { where += ' AND b.batch_number LIKE ?';   params.push(`%${search}%`); }
 
   const [{ total }] = await query(`SELECT COUNT(*) AS total FROM batches b WHERE ${where}`, params);
   const rows = await query(
@@ -416,6 +406,207 @@ const getBatches = async ({ page, limit, vessel_id, status, search } = {}, icdvI
     [...params, l, offset]
   );
   return paginate(rows, total);
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 2b. BATCH STATUS UPDATE (migration 008)
+// Called by backoffice_officer to set document_status and/or gc_status.
+// operational_status is auto-computed: ready only when both doc=ready & gc=sent.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * updateBatchStatus(batchId, body, updatedById, icdvId)
+ *
+ * body can contain any combination of:
+ *   { document_status, document_remark, gc_status, gc_remark }
+ *
+ * operational_status is always recomputed after any change.
+ * Returns the updated batch.
+ */
+const updateBatchStatus = async (batchId, body, updatedById, icdvId) => {
+  const batchWhere = icdvId ? 'WHERE batch_id=? AND icdv_id=?' : 'WHERE batch_id=?';
+  const batchPrms  = icdvId ? [batchId, icdvId] : [batchId];
+
+  const [existing] = await query(
+    `SELECT batch_id, document_status, gc_status, operational_status FROM batches ${batchWhere}`,
+    batchPrms
+  );
+  if (!existing) throw new ApiError(httpStatus.NOT_FOUND, 'Batch not found');
+
+  const {
+    document_status = existing.document_status,
+    document_remark,
+    gc_status       = existing.gc_status,
+    gc_remark,
+  } = body;
+
+  // Validate values against allowed enums
+  if (!Object.values(BATCH_DOCUMENT_STATUSES).includes(document_status))
+    throw new ApiError(httpStatus.BAD_REQUEST,
+      `Invalid document_status. Allowed: ${Object.values(BATCH_DOCUMENT_STATUSES).join(', ')}`);
+
+  if (!Object.values(BATCH_GC_STATUSES).includes(gc_status))
+    throw new ApiError(httpStatus.BAD_REQUEST,
+      `Invalid gc_status. Allowed: ${Object.values(BATCH_GC_STATUSES).join(', ')}`);
+
+  // ── Business rule: GC cannot be marked SENT while documents are NOT READY ───
+  // This is enforced on the backend (not just the frontend) to prevent API abuse.
+  if (gc_status === BATCH_GC_STATUSES.SENT && document_status !== BATCH_DOCUMENT_STATUSES.READY) {
+    throw new ApiError(
+      httpStatus.UNPROCESSABLE_ENTITY,
+      'Document status must be "Ready" before GC can be marked as "Sent".'
+    );
+  }
+
+  // Auto-compute operational_status
+  const newOperationalStatus =
+    document_status === BATCH_DOCUMENT_STATUSES.READY &&
+    gc_status === BATCH_GC_STATUSES.SENT
+      ? BATCH_OPERATIONAL_STATUSES.READY
+      : BATCH_OPERATIONAL_STATUSES.NOT_READY;
+
+  // Track which fields are actually being changed — only write audit columns
+  // for the field that was explicitly included in the request body.
+  const docChanged = body.document_status !== undefined;
+  const gcChanged  = body.gc_status  !== undefined;
+
+  const fields  = [];
+  const params  = [];
+
+  // Document status — only stamp audit columns when this field is in the request
+  fields.push('document_status=?');
+  params.push(document_status);
+  if (docChanged) {
+    fields.push('document_updated_by=?', 'document_updated_at=NOW()');
+    params.push(updatedById);
+  }
+
+  if (document_remark !== undefined) {
+    fields.push('document_remark=?');
+    params.push(document_remark ?? null);
+  }
+
+  // GC status — only stamp audit columns when this field is in the request
+  fields.push('gc_status=?');
+  params.push(gc_status);
+  if (gcChanged) {
+    fields.push('gc_updated_by=?', 'gc_updated_at=NOW()');
+    params.push(updatedById);
+  }
+
+  if (gc_remark !== undefined) {
+    fields.push('gc_remark=?');
+    params.push(gc_remark ?? null);
+  }
+
+  fields.push('operational_status=?', 'updated_at=NOW()');
+  params.push(newOperationalStatus);
+
+  // WHERE clause params
+  params.push(batchId);
+  if (icdvId !== null) params.push(icdvId);
+
+  await query(
+    `UPDATE batches SET ${fields.join(',')} ${batchWhere}`,
+    params
+  );
+
+  return getBatch(batchId, icdvId);
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 2c. BATCH PRINT DATA (migration 008)
+// Returns batch header + full vehicle/chassis list for printable view.
+// This is DIFFERENT from delivery sheet (which shows driver assignments).
+// Batch print shows all vehicles in the batch with their details.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * getBatchPrintData(batchId, icdvId)
+ *
+ * Returns:
+ * {
+ *   batch:    { batch_id, batch_number, batch_date, status, vehicle_count,
+ *               document_status, document_remark, gc_status, gc_remark,
+ *               operational_status, vessel_name, icdv_name, icdv_code }
+ *   vehicles: [ { vehicle_id, chassis_number, brand, model, color, year,
+ *                 customer_name, destination, workflow_status,
+ *                 current_location, release_status, bill_of_lading_no } ]
+ *   printed_at: ISO timestamp
+ * }
+ */
+const getBatchPrintData = async (batchId, icdvId) => {
+  const batchWhere = icdvId ? 'WHERE b.batch_id=? AND b.icdv_id=?' : 'WHERE b.batch_id=?';
+  const batchPrms  = icdvId ? [batchId, icdvId] : [batchId];
+
+  const [batch] = await query(
+    `SELECT
+       b.batch_id,
+       b.batch_number,
+       b.batch_date,
+       b.status,
+       b.vehicle_count,
+       b.max_vehicles,
+       b.document_status,
+       b.document_remark,
+       b.gc_status,
+       b.gc_remark,
+       b.operational_status,
+       b.notes,
+       b.created_at,
+       b.updated_at,
+       vs.name        AS vessel_name,
+       vs.imo_number  AS vessel_imo,
+       ic.name        AS icdv_name,
+       ic.code        AS icdv_code,
+       u.full_name    AS created_by_name,
+       u2.full_name   AS document_updated_by_name,
+       b.document_updated_at,
+       u3.full_name   AS gc_updated_by_name,
+       b.gc_updated_at
+     FROM batches b
+     LEFT JOIN vessels vs ON vs.vessel_id = b.vessel_id
+     LEFT JOIN icdvs   ic ON ic.icdv_id   = b.icdv_id
+     LEFT JOIN users   u  ON u.user_id    = b.created_by
+     LEFT JOIN users   u2 ON u2.user_id   = b.document_updated_by
+     LEFT JOIN users   u3 ON u3.user_id   = b.gc_updated_by
+     ${batchWhere}`,
+    batchPrms
+  );
+  if (!batch) throw new ApiError(httpStatus.NOT_FOUND, 'Batch not found');
+
+  const vehWhere = icdvId ? 'WHERE v.batch_id=? AND v.icdv_id=?' : 'WHERE v.batch_id=?';
+  const vehPrms  = icdvId ? [batchId, icdvId] : [batchId];
+
+  const vehicles = await query(
+    `SELECT
+       v.vehicle_id,
+       v.chassis_number,
+       v.engine_number,
+       v.brand,
+       v.model,
+       v.color,
+       v.year,
+       v.customer_name,
+       v.destination,
+       v.delivery_location,
+       v.bill_of_lading_no,
+       v.workflow_status,
+       v.current_location,
+       v.release_status,
+       v.operational_status
+     FROM vehicles v
+     ${vehWhere}
+     ORDER BY v.chassis_number ASC`,
+    vehPrms
+  );
+
+  return {
+    batch,
+    vehicles,
+    vehicle_count: vehicles.length,
+    printed_at: new Date().toISOString(),
+  };
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -452,7 +643,19 @@ const lookupDriverByIdCard = async (idCard, icdvId) => {
   return driver;
 };
 
-const confirmTransfer = async (vehicleId, driverId, driverIdCard, notes, operatorId, icdvId) =>
+/**
+ * confirmTransfer — now checks batch.operational_status = 'ready' before
+ * allowing a transfer, unless the operator has admin/super_admin/system_admin role.
+ *
+ * @param {number} vehicleId
+ * @param {number} driverId
+ * @param {string} driverIdCard
+ * @param {string|null} notes
+ * @param {number} operatorId
+ * @param {number|null} icdvId
+ * @param {object} operatorUser — req.user, used to check canBypassBatchGate
+ */
+const confirmTransfer = async (vehicleId, driverId, driverIdCard, notes, operatorId, icdvId, operatorUser = null) =>
   transaction(async (conn) => {
     const [vehicle] = await connQuery(conn,
       `SELECT v.vehicle_id, v.icdv_id, v.chassis_number, v.workflow_status,
@@ -465,10 +668,30 @@ const confirmTransfer = async (vehicleId, driverId, driverIdCard, notes, operato
       throw new ApiError(httpStatus.FORBIDDEN, 'Vehicle does not belong to your ICDV');
     assertTransition(vehicle.workflow_status, WORKFLOW_STATUSES.IN_TRANSIT);
 
-    // Lock driver
+    // ── Batch operational readiness gate (migration 008) ──────────────────────
+    // Admin / super_admin / system_admin bypass this check.
+    // All other roles (including transfer_officer) must have batch ready.
+    if (vehicle.batch_id && !canBypassBatchGate(operatorUser)) {
+      const [batch] = await connQuery(conn,
+        'SELECT batch_id, batch_number, operational_status FROM batches WHERE batch_id=? FOR UPDATE',
+        [vehicle.batch_id]
+      );
+      if (batch && batch.operational_status !== BATCH_OPERATIONAL_STATUSES.READY) {
+        throw new ApiError(
+          httpStatus.CONFLICT,
+          `Batch ${batch.batch_number} is not operationally ready. ` +
+          `Document status and GC status must both be marked READY/SENT by the Backoffice Officer before transfer can proceed.`
+        );
+      }
+    }
+
+    // Lock driver — use the vehicle's resolved icdv_id for cross-tenant users
+    // (icdvId may be null for system_admin/super_admin before resolution).
+    // vehicle.icdv_id is always populated after the FOR UPDATE fetch above.
+    const effectiveIcdvForDriver = icdvId ?? vehicle.icdv_id;
     const [active] = await connQuery(conn,
       "SELECT assignment_id FROM driver_assignments WHERE driver_id=? AND status='active' AND icdv_id=? FOR UPDATE",
-      [driverId, icdvId]
+      [driverId, effectiveIcdvForDriver]
     );
     if (active) throw new ApiError(httpStatus.CONFLICT, 'Driver already has an active assignment');
 
@@ -477,7 +700,7 @@ const confirmTransfer = async (vehicleId, driverId, driverIdCard, notes, operato
       `INSERT INTO transfers
          (icdv_id, vehicle_id, batch_id, driver_id, driver_id_card, transferred_by, transfer_notes, status)
        VALUES (?,?,?,?,?,?,?,'active')`,
-      [icdvId, vehicleId, vehicle.batch_id, driverId, driverIdCard, operatorId, notes]
+      [effectiveIcdvForDriver, vehicleId, vehicle.batch_id, driverId, driverIdCard, operatorId, notes]
     );
     const transferId = tr.insertId;
 
@@ -485,18 +708,13 @@ const confirmTransfer = async (vehicleId, driverId, driverIdCard, notes, operato
     await connQuery(conn,
       `INSERT INTO driver_assignments (icdv_id, driver_id, vehicle_id, transfer_id, assigned_by, status)
        VALUES (?,?,?,?,?,'active')`,
-      [icdvId, driverId, vehicleId, transferId, operatorId]
+      [effectiveIcdvForDriver, driverId, vehicleId, transferId, operatorId]
     );
 
-    // 1. Update vehicle — all statuses atomically (release_status → 'released' here)
     await applyVehicleStatus(conn, vehicleId, WORKFLOW_STATUSES.IN_TRANSIT, operatorId);
-
-    // 2. Sync manifest
     await syncManifestStatus(conn, vehicle.manifest_id);
-
-    // 3. Audit log
     await logOperation(conn, {
-      icdvId, vehicleId, chassisNumber: vehicle.chassis_number,
+      icdvId: effectiveIcdvForDriver, vehicleId, chassisNumber: vehicle.chassis_number,
       operationType: 'transferred',
       fromStatus: vehicle.workflow_status, toStatus: WORKFLOW_STATUSES.IN_TRANSIT,
       fromLocation: vehicle.current_location, toLocation: WORKFLOW_TO_LOCATION.in_transit,
@@ -506,6 +724,84 @@ const confirmTransfer = async (vehicleId, driverId, driverIdCard, notes, operato
 
     return { transfer_id: transferId, vehicle_id: vehicleId, driver_id: driverId };
   });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 3b. TPA STATS (migration 008)
+// Transfer officer view: count of vehicles currently at TPA gate / in_transit
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * getTpaStats(icdvId)
+ *
+ * Returns counts for vehicles that have exited through TPA gate:
+ * - in_transit_count  : vehicles currently moving (in_transit / tpa_gate_to_yard)
+ * - transferred_today : vehicles transferred today
+ * - transferred_total : all vehicles ever transferred (workflow_status reached in_transit)
+ * - active_drivers    : drivers currently assigned (in transit)
+ * - by_batch          : breakdown per batch
+ */
+const getTpaStats = async (icdvId = null) => {
+  const scopeW = icdvId ? ' AND icdv_id=?' : '';
+  const scopeP = icdvId ? [icdvId] : [];
+
+  const [
+    [{ in_transit_count }],
+    [{ transferred_today }],
+    [{ transferred_total }],
+    [{ active_drivers }],
+    byBatch,
+  ] = await Promise.all([
+    // Currently in transit
+    query(
+      `SELECT COUNT(*) AS in_transit_count FROM vehicles WHERE workflow_status='in_transit'${scopeW}`,
+      scopeP
+    ),
+    // Transferred today
+    query(
+      `SELECT COUNT(*) AS transferred_today FROM transfers
+       WHERE DATE(transferred_at) = CURDATE() AND status != 'cancelled'${scopeW}`,
+      scopeP
+    ),
+    // All-time transfers (vehicles that reached in_transit or beyond)
+    query(
+      `SELECT COUNT(*) AS transferred_total FROM vehicles
+       WHERE workflow_status IN ('in_transit','received')${scopeW}`,
+      scopeP
+    ),
+    // Drivers currently active
+    query(
+      `SELECT COUNT(*) AS active_drivers FROM driver_assignments WHERE status='active'${icdvId ? ' AND icdv_id=?' : ''}`,
+      icdvId ? [icdvId] : []
+    ),
+    // Per-batch breakdown — batches that have at least 1 in_transit vehicle
+    query(
+      `SELECT
+         b.batch_id,
+         b.batch_number,
+         b.vehicle_count,
+         COUNT(v.vehicle_id)                                     AS in_transit_count,
+         SUM(v.workflow_status = 'received')                     AS received_count,
+         vs.name AS vessel_name
+       FROM batches b
+       LEFT JOIN vehicles v ON v.batch_id = b.batch_id
+       LEFT JOIN vessels vs ON vs.vessel_id = b.vessel_id
+       WHERE b.status IN ('open','full','closed','transferred')
+         ${icdvId ? 'AND b.icdv_id=?' : ''}
+       GROUP BY b.batch_id, b.batch_number, b.vehicle_count, vs.name
+       HAVING in_transit_count > 0
+       ORDER BY b.batch_id DESC`,
+      icdvId ? [icdvId] : []
+    ),
+  ]);
+
+  return {
+    in_transit_count,
+    transferred_today,
+    transferred_total,
+    active_drivers,
+    by_batch: byBatch,
+  };
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 4. RECEIVE
@@ -565,7 +861,6 @@ const confirmReceive = async (driverId, vehicleId, notes, operatorId, icdvId) =>
 
     const [driver] = await connQuery(conn, 'SELECT id_number FROM drivers WHERE driver_id=?', [driverId]);
 
-    // Receiving log
     const rl = await connQuery(conn,
       `INSERT INTO receiving_logs
          (icdv_id, vehicle_id, transfer_id, driver_id, driver_id_card, received_by, receive_notes)
@@ -573,7 +868,6 @@ const confirmReceive = async (driverId, vehicleId, notes, operatorId, icdvId) =>
       [icdvId, vehicleId, assignment.transfer_id, driverId, driver.id_number, operatorId, notes]
     );
 
-    // Close assignment + transfer
     await connQuery(conn,
       "UPDATE driver_assignments SET status='closed', closed_at=NOW() WHERE assignment_id=?",
       [assignment.assignment_id]
@@ -585,8 +879,6 @@ const confirmReceive = async (driverId, vehicleId, notes, operatorId, icdvId) =>
       );
     }
 
-    // 1. Update vehicle — all statuses atomically
-    //    release_status → 'collected', operational_status → 'delivered'
     await connQuery(conn,
       `UPDATE vehicles
        SET workflow_status    = ?,
@@ -599,10 +891,7 @@ const confirmReceive = async (driverId, vehicleId, notes, operatorId, icdvId) =>
       [WORKFLOW_STATUSES.RECEIVED, WORKFLOW_TO_LOCATION.received, operatorId, vehicleId]
     );
 
-    // 2. Sync manifest
     await syncManifestStatus(conn, vehicle.manifest_id);
-
-    // 3. Audit log
     await logOperation(conn, {
       icdvId, vehicleId, chassisNumber: vehicle.chassis_number,
       operationType: 'received',
@@ -634,6 +923,7 @@ const searchChassis = async (chassis, icdvId) => {
        vs.name AS vessel_name, vs.vessel_id, vs.imo_number,
        ic.name AS icdv_name, ic.code AS icdv_code,
        b.batch_number, b.batch_date, b.status AS batch_status,
+       b.document_status, b.gc_status, b.operational_status AS batch_operational_status,
        t.transfer_id, t.transferred_at, t.status AS transfer_status,
        dr.full_name AS driver_name, dr.phone AS driver_phone,
        dr.id_number AS driver_id_card,
@@ -680,12 +970,21 @@ const getVehicleHistory = async (vehicleId, icdvId) => {
 };
 
 module.exports = {
+  // Discharge
   lookupForDischarge, discharge,
+  // Batch
   lookupForBatch, addToBatch, getBatch, getBatches,
+  // Batch status (migration 008)
+  updateBatchStatus, getBatchPrintData,
+  // Transfer
   lookupForTransfer, lookupDriverByIdCard, confirmTransfer,
+  // TPA stats (migration 008)
+  getTpaStats,
+  // Receive
   lookupForReceive, confirmReceive,
+  // Search & history
   searchChassis, getVehicleHistory,
+  // Utilities
   findByChassisLast4, generateBatchNumber,
-  // Expose sync helper for manifest CSV import use
   syncManifestStatus,
 };

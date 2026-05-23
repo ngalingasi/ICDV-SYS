@@ -21,10 +21,15 @@ function Avatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' }) {
 }
 
 const ROLE_STYLES: Record<string, string> = {
-  super_admin: 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400',
-  admin:       'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400',
-  supervisor:  'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400',
-  operator:    'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
+  super_admin:        'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400',
+  system_admin:       'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-400',
+  admin:              'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400',
+  supervisor:         'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400',
+  operator:           'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
+  discharge_officer:  'bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-400',
+  backoffice_officer: 'bg-teal-100 text-teal-700 dark:bg-teal-500/20 dark:text-teal-400',
+  transfer_officer:   'bg-cyan-100 text-cyan-700 dark:bg-cyan-500/20 dark:text-cyan-400',
+  yard_officer:       'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400',
 };
 
 const SKILL_CATEGORIES = ['Technical','Managerial','Field','Finance','IT','Legal'];
@@ -102,8 +107,26 @@ function UserForm({ user, allSkills, isSuperAdmin: superAdmin, onSaved, onClose 
 
   // Roles available based on who is creating
   const availableRoles = superAdmin
-    ? [['operator','Operator'],['supervisor','Supervisor'],['admin','Admin'],['super_admin','Super Admin']]
-    : [['operator','Operator'],['supervisor','Supervisor'],['admin','Admin']];
+    ? [
+        ['operator',           'Operator'],
+        ['supervisor',         'Supervisor'],
+        ['admin',              'Admin'],
+        ['system_admin',       'System Admin'],
+        ['super_admin',        'Super Admin'],
+        ['discharge_officer',  'Discharge Officer'],
+        ['backoffice_officer', 'Backoffice Officer'],
+        ['transfer_officer',   'Transfer Officer'],
+        ['yard_officer',       'Yard Officer'],
+      ]
+    : [
+        ['operator',           'Operator'],
+        ['supervisor',         'Supervisor'],
+        ['admin',              'Admin'],
+        ['discharge_officer',  'Discharge Officer'],
+        ['backoffice_officer', 'Backoffice Officer'],
+        ['transfer_officer',   'Transfer Officer'],
+        ['yard_officer',       'Yard Officer'],
+      ];
 
   return (
     <form onSubmit={save} className="space-y-4">
@@ -239,6 +262,11 @@ export default function UsersPage() {
           <option value="operator">Operator</option>
           <option value="supervisor">Supervisor</option>
           <option value="admin">Admin</option>
+          <option value="discharge_officer">Discharge Officer</option>
+          <option value="backoffice_officer">Backoffice Officer</option>
+          <option value="transfer_officer">Transfer Officer</option>
+          <option value="yard_officer">Yard Officer</option>
+          {isSuperAdmin && <option value="system_admin">System Admin</option>}
           {isSuperAdmin && <option value="super_admin">Super Admin</option>}
         </select>
       </div>

@@ -91,6 +91,40 @@ const WORKFLOW_TO_LOCATION = {
   received:   VEHICLE_LOCATIONS.ICDV_YARD,
 };
 
+// ── BATCH STATUS (lifecycle of the batch container) ───────────────────────────
+const BATCH_STATUSES = {
+  OPEN:        'open',        // accepting vehicles (< 20)
+  FULL:        'full',        // reached 20 vehicles, no longer accepting
+  CLOSED:      'closed',      // manually or system finalised
+  TRANSFERRED: 'transferred', // all vehicles have been transferred
+};
+const BATCH_STATUS_LIST = Object.values(BATCH_STATUSES);
+
+// ── BATCH DOCUMENT STATUS (migration 008) ─────────────────────────────────────
+// Set by backoffice_officer to indicate import documents are ready
+const BATCH_DOCUMENT_STATUSES = {
+  NOT_READY: 'not_ready',
+  READY:     'ready',
+};
+const BATCH_DOCUMENT_STATUS_LIST = Object.values(BATCH_DOCUMENT_STATUSES);
+
+// ── BATCH GC STATUS (migration 008) ───────────────────────────────────────────
+// Set by backoffice_officer to indicate batch has been sent to General Cargo
+const BATCH_GC_STATUSES = {
+  NOT_SENT: 'not_sent',
+  SENT:     'sent',
+};
+const BATCH_GC_STATUS_LIST = Object.values(BATCH_GC_STATUSES);
+
+// ── BATCH OPERATIONAL STATUS (migration 008) ──────────────────────────────────
+// Auto-computed: ready = document_status READY + gc_status SENT
+// Gating condition for confirmTransfer
+const BATCH_OPERATIONAL_STATUSES = {
+  NOT_READY: 'not_ready',
+  READY:     'ready',
+};
+const BATCH_OPERATIONAL_STATUS_LIST = Object.values(BATCH_OPERATIONAL_STATUSES);
+
 // ── Existing status transitions ────────────────────────────────────────────────
 const VESSEL_STATUS_TRANSITIONS = {
   expected:   ['arrived', 'departed'],
@@ -125,4 +159,10 @@ module.exports = {
   // Workflow
   WORKFLOW_STATUSES, WORKFLOW_STATUS_LIST, WORKFLOW_STATUS_TRANSITIONS,
   VEHICLE_LOCATIONS, VEHICLE_LOCATION_LIST, WORKFLOW_TO_LOCATION,
+  // Batch lifecycle
+  BATCH_STATUSES, BATCH_STATUS_LIST,
+  // Batch operational readiness (migration 008)
+  BATCH_DOCUMENT_STATUSES, BATCH_DOCUMENT_STATUS_LIST,
+  BATCH_GC_STATUSES, BATCH_GC_STATUS_LIST,
+  BATCH_OPERATIONAL_STATUSES, BATCH_OPERATIONAL_STATUS_LIST,
 };

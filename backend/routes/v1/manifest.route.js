@@ -41,6 +41,7 @@ router.post('/:manifestId/preview-csv',    auth('manageManifests'), tenant(), cs
 router.post('/:manifestId/import-vehicles',auth('manageManifests'), tenant(), csvUpload.single('csv'), ctrl.importVehicles);
 
 // ── Delivery Sheet ────────────────────────────────────────────────────────────
-router.get('/:manifestId/delivery-sheet',  auth('getManifests'),    tenant(), dsCtrl.getManifestDeliverySheet);
+// Restricted to printDeliverySheet right (migration 008)
+router.get('/:manifestId/delivery-sheet', auth('printDeliverySheet'), tenant(), dsCtrl.getManifestDeliverySheet);
 
 module.exports = router;

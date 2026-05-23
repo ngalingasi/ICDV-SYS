@@ -6,6 +6,20 @@ const auth     = require('../../middlewares/auth');
 const tenant   = require('../../middlewares/tenant');
 const userController = require('../../controllers/user.controller');
 
+// All valid role values — kept in sync with config/roles.js and migration 008
+const VALID_ROLES = [
+  // Existing roles
+  'operator',
+  'supervisor',
+  'admin',
+  'super_admin',
+  // New operational roles (migration 008)
+  'discharge_officer',
+  'backoffice_officer',
+  'transfer_officer',
+  'yard_officer',
+];
+
 const createUserSchema = {
   body: Joi.object().keys({
     full_name: Joi.string().required(),
@@ -13,7 +27,7 @@ const createUserSchema = {
     email:     Joi.string().email().optional().allow('', null),
     mobile:    Joi.string().optional().allow('', null),
     gender:    Joi.string().valid('male', 'female').optional(),
-    role:      Joi.string().valid('operator', 'supervisor', 'admin', 'super_admin').optional(),
+    role:      Joi.string().valid(...VALID_ROLES).optional(),
     status:    Joi.string().valid('active', 'inactive').optional(),
     password:  Joi.string().min(8).optional(),
     icdv_id:   Joi.number().integer().optional().allow(null),
@@ -27,7 +41,7 @@ const updateUserSchema = {
     email:                Joi.string().email().optional().allow('', null),
     mobile:               Joi.string().optional().allow('', null),
     gender:               Joi.string().valid('male', 'female').optional(),
-    role:                 Joi.string().valid('operator', 'supervisor', 'admin', 'super_admin').optional(),
+    role:                 Joi.string().valid(...VALID_ROLES).optional(),
     status:               Joi.string().valid('active', 'inactive').optional(),
     must_change_password: Joi.number().valid(0, 1).optional(),
   }).min(1),
