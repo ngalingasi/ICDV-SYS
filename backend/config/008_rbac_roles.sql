@@ -32,25 +32,25 @@ ALTER TABLE users
 
 -- ── 2. Add document_status to batches ────────────────────────────────────────
 ALTER TABLE batches
-  ADD COLUMN  document_status
+  ADD COLUMN IF NOT EXISTS document_status
     ENUM('not_ready', 'ready')
     NOT NULL DEFAULT 'not_ready'
     AFTER notes;
 
 ALTER TABLE batches
-  ADD COLUMN  document_remark
+  ADD COLUMN IF NOT EXISTS document_remark
     TEXT NULL
     AFTER document_status;
 
 -- ── 3. Add gc_status to batches ───────────────────────────────────────────────
 ALTER TABLE batches
-  ADD COLUMN  gc_status
+  ADD COLUMN IF NOT EXISTS gc_status
     ENUM('not_sent', 'sent')
     NOT NULL DEFAULT 'not_sent'
     AFTER document_remark;
 
 ALTER TABLE batches
-  ADD COLUMN  gc_remark
+  ADD COLUMN IF NOT EXISTS gc_remark
     TEXT NULL
     AFTER gc_status;
 
@@ -58,34 +58,34 @@ ALTER TABLE batches
 --   Auto-computed: ready only when document_status=ready AND gc_status=sent
 --   Updated by the application layer on every document/gc status change.
 ALTER TABLE batches
-  ADD COLUMN  operational_status
+  ADD COLUMN IF NOT EXISTS operational_status
     ENUM('not_ready', 'ready')
     NOT NULL DEFAULT 'not_ready'
     AFTER gc_remark;
 
 -- ── 5. Add indexes on new batch status columns ────────────────────────────────
-CREATE INDEX  idx_batch_doc_status ON batches(document_status);
-CREATE INDEX  idx_batch_gc_status  ON batches(gc_status);
-CREATE INDEX  idx_batch_op_status  ON batches(operational_status);
+CREATE INDEX IF NOT EXISTS idx_batch_doc_status ON batches(document_status);
+CREATE INDEX IF NOT EXISTS idx_batch_gc_status  ON batches(gc_status);
+CREATE INDEX IF NOT EXISTS idx_batch_op_status  ON batches(operational_status);
 
 -- ── 6. Add document_updated_by + gc_updated_by for audit trail ────────────────
 ALTER TABLE batches
-  ADD COLUMN  document_updated_by
+  ADD COLUMN IF NOT EXISTS document_updated_by
     INT UNSIGNED NULL
     AFTER operational_status;
 
 ALTER TABLE batches
-  ADD COLUMN  document_updated_at
+  ADD COLUMN IF NOT EXISTS document_updated_at
     DATETIME NULL
     AFTER document_updated_by;
 
 ALTER TABLE batches
-  ADD COLUMN  gc_updated_by
+  ADD COLUMN IF NOT EXISTS gc_updated_by
     INT UNSIGNED NULL
     AFTER document_updated_at;
 
 ALTER TABLE batches
-  ADD COLUMN  gc_updated_at
+  ADD COLUMN IF NOT EXISTS gc_updated_at
     DATETIME NULL
     AFTER gc_updated_by;
 

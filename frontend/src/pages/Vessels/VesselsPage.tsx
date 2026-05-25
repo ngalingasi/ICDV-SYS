@@ -5,16 +5,23 @@ import type { Vessel } from '../../types';
 import StatusBadge from '../../components/tpfcs/StatusBadge';
 import Modal from '../../components/tpfcs/Modal';
 import { toast } from '../../components/tpfcs/Toast';
+import { useAuth } from '../../store/authStore';
 
 export default function VesselsPage() {
-  const [vessels, setVessels]         = useState<Vessel[]>([]);
-  const [total, setTotal]             = useState(0);
-  const [loading, setLoading]         = useState(true);
-  const [search, setSearch]           = useState('');
+  const [vessels, setVessels]           = useState<Vessel[]>([]);
+  const [total, setTotal]               = useState(0);
+  const [loading, setLoading]           = useState(true);
+  const [search, setSearch]             = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [page, setPage]               = useState(1);
+  const [page, setPage]                 = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<Vessel | null>(null);
   const limit = 15;
+
+  const { user } = useAuth();
+  // manageVessels right: supervisor, admin, system_admin, super_admin, backoffice_officer
+  const canManageVessels = user && [
+    'supervisor', 'admin', 'system_admin', 'super_admin', 'backoffice_officer',
+  ].includes(user.role);
 
   const load = () => {
     setLoading(true);
@@ -65,10 +72,12 @@ export default function VesselsPage() {
               <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
             )}
           </select>
-          <Link to="/vessels/new"
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-sm font-medium transition-colors">
-            + Add Vessel
-          </Link>
+          {canManageVessels && (
+            <Link to="/vessels/new"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-sm font-medium transition-colors">
+              + Add Vessel
+            </Link>
+          )}
         </div>
       </div>
 

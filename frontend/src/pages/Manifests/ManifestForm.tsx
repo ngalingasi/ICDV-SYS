@@ -5,6 +5,7 @@ import type { Vessel } from '../../types';
 import { toast } from '../../components/tpfcs/Toast';
 import BackButton from '../../components/tpfcs/BackButton';
 import { useAuth } from '../../store/authStore';
+import { FormDateInput } from '../../components/tpfcs/FormField';
 
 interface CsvRow { _rowNum: number; bill_of_lading_no?: string; chassis_no?: string; destination?: string; delivery_location?: string; [k: string]: any; }
 interface PreviewResult { total: number; rows: CsvRow[]; in_file_duplicates: string[]; }
@@ -16,10 +17,7 @@ export default function ManifestForm() {
   const navigate = useNavigate();
   const isEdit = Boolean(id);
 
-  const { isSuperAdmin } = useAuth();
-  // system_admin role check via user object
-  const { user } = useAuth() as any;
-  const isSystemAdmin  = user?.role === 'system_admin';
+  const { isSuperAdmin, isSystemAdmin, user } = useAuth();
   const isCrossTenant  = isSuperAdmin || isSystemAdmin;
 
   const [form, setForm] = useState({
@@ -289,12 +287,16 @@ export default function ManifestForm() {
             </select>
           </div>
 
-          {/* Arrival date */}
+          {/* Arrival date — flatpickr datepicker */}
           <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-              Arrival Date <span className="text-red-500">*</span>
-            </label>
-            <input type="date" value={form.arrival_date} onChange={e => set('arrival_date', e.target.value)} required className={cls} />
+            <FormDateInput
+              label="Arrival Date"
+              id="manifest-arrival-date"
+              required
+              value={form.arrival_date}
+              onChange={v => set('arrival_date', v)}
+              placeholder="Select arrival date"
+            />
           </div>
 
           {/* Status (edit only) */}
@@ -334,7 +336,8 @@ export default function ManifestForm() {
             <h2 className="text-sm font-semibold text-gray-800 dark:text-white">Import Vehicles from CSV / Excel</h2>
             <p className="text-xs text-gray-500 mt-0.5">
               Accepts <strong className="text-gray-600 dark:text-gray-300">.csv</strong>, <strong className="text-gray-600 dark:text-gray-300">.xlsx</strong>, <strong className="text-gray-600 dark:text-gray-300">.xls</strong>.
-              Required column: <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded text-xs">chassis_no</code> or <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded text-xs">chassis_number</code>
+              Required: <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded text-xs">Unit ID (RoRo)</code> or <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded text-xs">chassis_no</code>.
+              Optional: <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded text-xs">Bill of Lading</code>, <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded text-xs">Driver Licence#</code>, <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded text-xs">Driver Name</code>, <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded text-xs">Driver Contact</code>, <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded text-xs">Vessel Visit</code>, <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded text-xs">Marks and Numbers (Bulk/Break Bulk)</code>, <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded text-xs">Place of Destination</code>, <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded text-xs">Place of Delivery</code>, <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded text-xs">Self Driven (Y/N) for RoRo</code>, <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded text-xs">Truck #</code>, <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded text-xs">Transport Company Name</code>, <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded text-xs">Declaration #</code>, <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded text-xs">Trip #</code>, <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded text-xs">Terminal Gate #</code>. Driver fields are not linked to ICDV drivers and may be left blank.
             </p>
           </div>
           <button onClick={() => fileRef.current?.click()}

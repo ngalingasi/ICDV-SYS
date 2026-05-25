@@ -223,8 +223,29 @@ export default function ManifestDetail() {
             {/* Format info */}
             <div className="rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 px-3 py-2.5 text-xs text-blue-700 dark:text-blue-400 space-y-1">
               <p className="font-semibold">Accepted: Excel (.xlsx, .xls) or CSV (.csv)</p>
-              <p>Required column: <code className="bg-blue-100 dark:bg-blue-500/20 px-1 rounded">chassis_no</code> or <code className="bg-blue-100 dark:bg-blue-500/20 px-1 rounded">chassis_number</code></p>
-              <p>Optional: <code className="bg-blue-100 dark:bg-blue-500/20 px-1 rounded">bill_of_lading_no</code>, <code className="bg-blue-100 dark:bg-blue-500/20 px-1 rounded">destination</code>, <code className="bg-blue-100 dark:bg-blue-500/20 px-1 rounded">delivery_location</code></p>
+              <p><span className="font-medium">Required:</span> <code className="bg-blue-100 dark:bg-blue-500/20 px-1 rounded">Unit ID (RoRo)</code> or <code className="bg-blue-100 dark:bg-blue-500/20 px-1 rounded">chassis_no</code></p>
+              <p><span className="font-medium">Optional columns (all nullable):</span></p>
+              <p className="pl-2 leading-relaxed">
+                <code className="bg-blue-100 dark:bg-blue-500/20 px-1 rounded mr-1">Bill of Lading</code>
+                <code className="bg-blue-100 dark:bg-blue-500/20 px-1 rounded mr-1">Vessel Visit</code>
+                <code className="bg-blue-100 dark:bg-blue-500/20 px-1 rounded mr-1">Marks and Numbers (Bulk/Break Bulk)</code>
+                <code className="bg-blue-100 dark:bg-blue-500/20 px-1 rounded mr-1">Driver Licence#</code>
+                <code className="bg-blue-100 dark:bg-blue-500/20 px-1 rounded mr-1">Driver Name</code>
+                <code className="bg-blue-100 dark:bg-blue-500/20 px-1 rounded mr-1">Driver Contact</code>
+                <code className="bg-blue-100 dark:bg-blue-500/20 px-1 rounded mr-1">Place of Destination</code>
+                <code className="bg-blue-100 dark:bg-blue-500/20 px-1 rounded mr-1">Place of Delivery</code>
+                <code className="bg-blue-100 dark:bg-blue-500/20 px-1 rounded mr-1">Quantity</code>
+                <code className="bg-blue-100 dark:bg-blue-500/20 px-1 rounded mr-1">Weight</code>
+                <code className="bg-blue-100 dark:bg-blue-500/20 px-1 rounded mr-1">Volume</code>
+                <code className="bg-blue-100 dark:bg-blue-500/20 px-1 rounded mr-1">Reference #</code>
+                <code className="bg-blue-100 dark:bg-blue-500/20 px-1 rounded mr-1">Self Driven (Y/N) for RoRo</code>
+                <code className="bg-blue-100 dark:bg-blue-500/20 px-1 rounded mr-1">Truck #</code>
+                <code className="bg-blue-100 dark:bg-blue-500/20 px-1 rounded mr-1">Transport Company Name</code>
+                <code className="bg-blue-100 dark:bg-blue-500/20 px-1 rounded mr-1">Declaration #</code>
+                <code className="bg-blue-100 dark:bg-blue-500/20 px-1 rounded mr-1">Trip #</code>
+                <code className="bg-blue-100 dark:bg-blue-500/20 px-1 rounded">Terminal Gate #</code>
+              </p>
+              <p className="text-blue-500 dark:text-blue-500 italic">Driver fields are stored from the manifest as-is. They are not linked to ICDV drivers and may be left blank.</p>
             </div>
 
             {/* Drop zone */}

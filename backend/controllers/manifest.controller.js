@@ -2,14 +2,89 @@
 const XLSX = (() => { try { return require('xlsx'); } catch { return null; } })();
 
 const HEADER_MAP = {
-  // B/L variants
+  // B/L — Bill of Lading
   'm_b_l_no':'bill_of_lading_no','mbl_no':'bill_of_lading_no','bl_no':'bill_of_lading_no',
   'b_l_no':'bill_of_lading_no','bill_of_lading':'bill_of_lading_no','bill_of_lading_no':'bill_of_lading_no',
   'm_bl_no':'bill_of_lading_no','mbl':'bill_of_lading_no',
-  // Chassis variants
+  // CSV header: "Bill of Lading*"
+  'bill_of_lading':'bill_of_lading_no',
+
+  // Chassis / Unit ID
   'chassis_no':'chassis_no','chassis_number':'chassis_no','chassis':'chassis_no','vin':'chassis_no',
+  // CSV header: "Unit ID (RoRo)*"
+  'unit_id_roro':'chassis_no','unit_id':'chassis_no',
+
+  // Vessel visit
+  // CSV header: "Vessel Visit"
+  'vessel_visit':'vessel_visit',
+
+  // Marks and numbers (bulk/break bulk)
+  // CSV header: "Marks and Numbers (Bulk/Break Bulk)"
+  'marks_and_numbers_bulkbreak_bulk':'marks_and_numbers',
+  'marks_and_numbers':'marks_and_numbers',
+  'marks_numbers':'marks_and_numbers',
+
+  // Driver Licence — manifest-level, NOT linked to drivers table
+  // CSV header: "Driver Licence#*"
+  'driver_licence':'manifest_driver_license',
+  'driver_license':'manifest_driver_license',
+  'driver_licence_no':'manifest_driver_license',
+  'driver_license_no':'manifest_driver_license',
+
+  // Driver Name — manifest-level
+  // CSV header: "Driver Name*"
+  'driver_name':'manifest_driver_name',
+
+  // Driver Contact — manifest-level
+  // CSV header: "Driver Contact"
+  'driver_contact':'manifest_driver_contact',
+
+  // Quantity
+  'quantity':'quantity','qty':'quantity',
+
+  // Weight
+  'weight_kg':'weight_kg','weight':'weight_kg',
+
+  // Volume
+  'volume_cbm':'volume_cbm','volume':'volume_cbm',
+
+  // Reference number
+  // CSV header: "Reference #*"  → normalises to "reference_"
+  'reference':'reference_no','reference_no':'reference_no','ref_no':'reference_no',
+  'reference_':'reference_no',
+
+  // Self driven
+  // CSV header: "Self Driven (Y/N) for RoRo*"
+  'self_driven_yn_for_roro':'self_driven','self_driven_yn':'self_driven',
+  'self_driven':'self_driven','self_driven_y_n_for_roro':'self_driven',
+
+  // Truck number
+  // CSV header: "Truck #"  → normalises to "truck_"
+  'truck':'truck_no','truck_no':'truck_no',
+  'truck_':'truck_no',
+
+  // Transport company
+  // CSV header: "Transport Company Name"
+  'transport_company_name':'transport_company','transport_company':'transport_company',
+
+  // Declaration number
+  // CSV header: "Declaration #*"  → normalises to "declaration_"
+  'declaration':'declaration_no','declaration_no':'declaration_no',
+  'declaration_':'declaration_no',
+
+  // Trip number
+  // CSV header: "Trip #*"  → normalises to "trip_"
+  'trip':'trip_no','trip_no':'trip_no',
+  'trip_':'trip_no',
+
+  // Terminal gate number
+  // CSV header: "Terminal Gate #*"  → normalises to "terminal_gate_"
+  'terminal_gate':'terminal_gate_no','terminal_gate_no':'terminal_gate_no',
+  'terminal_gate_':'terminal_gate_no',
+
   // Destination variants
   'place_of_destination':'destination','destination':'destination','dest':'destination',
+
   // Delivery variants
   'place_of_delivery':'delivery_location','delivery_location':'delivery_location',
   'delivery':'delivery_location','delivery_address':'delivery_location',

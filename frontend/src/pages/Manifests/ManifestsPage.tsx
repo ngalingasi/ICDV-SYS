@@ -19,8 +19,13 @@ export default function ManifestsPage() {
   const [icdvs,        setIcdvs]        = useState<any[]>([]);
   const limit = 15;
 
-  const { isSuperAdmin, isSystemAdmin } = useAuth();
+  const { isSuperAdmin, isSystemAdmin, user } = useAuth();
   const isCrossTenant = isSuperAdmin || isSystemAdmin;
+
+  // manageManifests right: backoffice_officer, operator, supervisor, admin, system_admin, super_admin
+  const canManageManifests = user && [
+    'backoffice_officer', 'operator', 'supervisor', 'admin', 'system_admin', 'super_admin',
+  ].includes(user.role);
 
   const load = () => {
     setLoading(true);
@@ -83,7 +88,9 @@ export default function ManifestsPage() {
               ))}
             </select>
           )}
-          <Link to="/manifests/new" className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-sm font-medium">+ Add Manifest</Link>
+          {canManageManifests && (
+            <Link to="/manifests/new" className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-sm font-medium">+ Add Manifest</Link>
+          )}
         </div>
       </div>
 
@@ -121,8 +128,8 @@ export default function ManifestsPage() {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <Link to={`/manifests/${m.manifest_id}`} className="text-xs text-brand-600 hover:underline">View</Link>
-                      <Link to={`/manifests/${m.manifest_id}/edit`} className="text-xs text-gray-500 hover:underline">Edit</Link>
-                      <button onClick={() => setDeleteTarget(m)} className="text-xs text-red-500 hover:underline">Delete</button>
+                      {canManageManifests && <Link to={`/manifests/${m.manifest_id}/edit`} className="text-xs text-gray-500 hover:underline">Edit</Link>}
+                      {canManageManifests && <button onClick={() => setDeleteTarget(m)} className="text-xs text-red-500 hover:underline">Delete</button>}
                     </div>
                   </td>
                 </tr>

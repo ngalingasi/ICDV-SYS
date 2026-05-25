@@ -15,39 +15,39 @@
 --   expected, arrived, processing, completed, departed
 --   (existing values active/inactive/decommissioned preserved)
 --
--- Run ONCE. Safe to re-run ( / column checks).
+-- Run ONCE. Safe to re-run (IF NOT EXISTS / column checks).
 -- ============================================================
 
 SET FOREIGN_KEY_CHECKS = 0;
 
 -- ── 1. Add flag ───────────────────────────────────────────────────────────────
 ALTER TABLE vessels
-  ADD COLUMN  flag VARCHAR(100) NULL
+  ADD COLUMN IF NOT EXISTS flag VARCHAR(100) NULL
   AFTER country_of_origin;
 
 -- ── 2. Add shipping_line ──────────────────────────────────────────────────────
 ALTER TABLE vessels
-  ADD COLUMN  shipping_line VARCHAR(200) NULL
+  ADD COLUMN IF NOT EXISTS shipping_line VARCHAR(200) NULL
   AFTER flag;
 
 -- ── 3. Add arrival_date ───────────────────────────────────────────────────────
 ALTER TABLE vessels
-  ADD COLUMN  arrival_date DATE NULL
+  ADD COLUMN IF NOT EXISTS arrival_date DATE NULL
   AFTER shipping_line;
 
 -- ── 4. Add departure_date ─────────────────────────────────────────────────────
 ALTER TABLE vessels
-  ADD COLUMN  departure_date DATE NULL
+  ADD COLUMN IF NOT EXISTS departure_date DATE NULL
   AFTER arrival_date;
 
 -- ── 5. Add berth_number ───────────────────────────────────────────────────────
 ALTER TABLE vessels
-  ADD COLUMN  berth_number VARCHAR(50) NULL
+  ADD COLUMN IF NOT EXISTS berth_number VARCHAR(50) NULL
   AFTER departure_date;
 
 -- ── 6. Add port_of_origin ─────────────────────────────────────────────────────
 ALTER TABLE vessels
-  ADD COLUMN  port_of_origin VARCHAR(200) NULL
+  ADD COLUMN IF NOT EXISTS port_of_origin VARCHAR(200) NULL
   AFTER berth_number;
 
 -- ── 7. Extend status ENUM ─────────────────────────────────────────────────────

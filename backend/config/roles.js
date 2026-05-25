@@ -94,6 +94,7 @@ const allRoles = {
     'getOperations',      'manageOperations',  'updateOperations',
     'getDeliveries',
     'getLookups',
+    'getIcdvs',           // read-only: needed to populate ICDV selector on cross-tenant forms
     // New rights — system_admin retains full workflow access
     'dischargeVehicles',
     'transferVehicles',
@@ -146,6 +147,10 @@ const allRoles = {
     'getDrivers',
     'getDeliveries',
     'getOperations',
+    // Vessel management — backoffice can create and manage vessels
+    'manageVessels',
+    // Manifest management — backoffice can create manifests and import vehicles
+    'manageManifests',
     // Operational updates
     'updateOperations',
     // Batch document + GC status management

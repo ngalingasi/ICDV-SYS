@@ -47,7 +47,7 @@ const sendSmsBrandBox = async (message, phoneNumbers, settings, maxRetries = 3) 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         const response = await axios.post(
-          'https://smsbulkapi.brandbox.co.tz/api/sms/v1/text/single',
+          'https://smsbulkapi.vbox.co.tz/api/sms/v1/text/single',
           {
             from: settings.sender_name,
             to:   phone,
