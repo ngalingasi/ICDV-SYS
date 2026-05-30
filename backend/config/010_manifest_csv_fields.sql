@@ -11,50 +11,50 @@
 
 -- Vessel visit reference from the CSV header
 ALTER TABLE vehicles
-  ADD COLUMN IF NOT EXISTS vessel_visit        VARCHAR(100) NULL AFTER bill_of_lading_no;
+  ADD COLUMN  vessel_visit        VARCHAR(100) NULL AFTER bill_of_lading_no;
 
 -- Marks and numbers (bulk/break bulk identifier)
 ALTER TABLE vehicles
-  ADD COLUMN IF NOT EXISTS marks_and_numbers   VARCHAR(200) NULL AFTER vessel_visit;
+  ADD COLUMN  marks_and_numbers   VARCHAR(200) NULL AFTER vessel_visit;
 
 -- Manifest driver details — stored verbatim, NOT linked to drivers table
 -- Driver can be null (self-driven vehicles etc.)
 ALTER TABLE vehicles
-  ADD COLUMN IF NOT EXISTS manifest_driver_license  VARCHAR(100) NULL AFTER marks_and_numbers;
+  ADD COLUMN  manifest_driver_license  VARCHAR(100) NULL AFTER marks_and_numbers;
 
 ALTER TABLE vehicles
-  ADD COLUMN IF NOT EXISTS manifest_driver_name     VARCHAR(200) NULL AFTER manifest_driver_license;
+  ADD COLUMN  manifest_driver_name     VARCHAR(200) NULL AFTER manifest_driver_license;
 
 ALTER TABLE vehicles
-  ADD COLUMN IF NOT EXISTS manifest_driver_contact  VARCHAR(100) NULL AFTER manifest_driver_name;
+  ADD COLUMN  manifest_driver_contact  VARCHAR(100) NULL AFTER manifest_driver_name;
 
 -- Cargo / logistics fields
 ALTER TABLE vehicles
-  ADD COLUMN IF NOT EXISTS quantity            SMALLINT     NULL AFTER manifest_driver_contact;
+  ADD COLUMN  quantity            SMALLINT     NULL AFTER manifest_driver_contact;
 
 ALTER TABLE vehicles
-  ADD COLUMN IF NOT EXISTS weight_kg           DECIMAL(10,3) NULL AFTER quantity;
+  ADD COLUMN  weight_kg           DECIMAL(10,3) NULL AFTER quantity;
 
 ALTER TABLE vehicles
-  ADD COLUMN IF NOT EXISTS volume_cbm          DECIMAL(10,3) NULL AFTER weight_kg;
+  ADD COLUMN  volume_cbm          DECIMAL(10,3) NULL AFTER weight_kg;
 
 ALTER TABLE vehicles
-  ADD COLUMN IF NOT EXISTS reference_no        VARCHAR(100) NULL AFTER volume_cbm;
+  ADD COLUMN  reference_no        VARCHAR(100) NULL AFTER volume_cbm;
 
 ALTER TABLE vehicles
-  ADD COLUMN IF NOT EXISTS self_driven         VARCHAR(10)  NULL AFTER reference_no;
+  ADD COLUMN  self_driven         VARCHAR(10)  NULL AFTER reference_no;
 
 ALTER TABLE vehicles
-  ADD COLUMN IF NOT EXISTS truck_no            VARCHAR(100) NULL AFTER self_driven;
+  ADD COLUMN  truck_no            VARCHAR(100) NULL AFTER self_driven;
 
 ALTER TABLE vehicles
-  ADD COLUMN IF NOT EXISTS transport_company   VARCHAR(200) NULL AFTER truck_no;
+  ADD COLUMN  transport_company   VARCHAR(200) NULL AFTER truck_no;
 
 ALTER TABLE vehicles
-  ADD COLUMN IF NOT EXISTS declaration_no      VARCHAR(100) NULL AFTER transport_company;
+  ADD COLUMN  declaration_no      VARCHAR(100) NULL AFTER transport_company;
 
 ALTER TABLE vehicles
-  ADD COLUMN IF NOT EXISTS trip_no             VARCHAR(50)  NULL AFTER declaration_no;
+  ADD COLUMN  trip_no             VARCHAR(50)  NULL AFTER declaration_no;
 
 ALTER TABLE vehicles
-  ADD COLUMN IF NOT EXISTS terminal_gate_no    VARCHAR(50)  NULL AFTER trip_no;
+  ADD COLUMN  terminal_gate_no    VARCHAR(50)  NULL AFTER trip_no;
