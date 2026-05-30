@@ -15,18 +15,18 @@ const PRINT_CSS = `
     .driver-print-hidden {
       display: block !important;
       visibility: visible;
-      position: fixed;
+      position: absolute;
       top: 0; left: 0;
-      width: 100%; height: auto;
+      width: 100%;
       background: white;
       z-index: 99999;
     }
     .driver-print-hidden * { visibility: visible; }
     @page { size: A4 portrait; margin: 15mm 12mm; }
     table  { border-collapse: collapse; width: 100%; page-break-inside: auto; }
-    thead  { display: table-header-group; }
-    tfoot  { display: table-footer-group; }
     tr     { page-break-inside: avoid; }
+    .driver-data-table thead { display: table-header-group; }
+    tfoot  { display: table-footer-group; }
   }
 `;
 
@@ -93,7 +93,7 @@ export default function DriversPage() {
     setSelected(prev => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
-      selectedRef.current = next;   // keep ref in sync
+      selectedRef.current = next;
       return next;
     });
 
@@ -120,11 +120,14 @@ export default function DriversPage() {
     }
   };
 
-  const clearSelection = () => { const empty = new Set<number>(); selectedRef.current = empty; setSelected(empty); };
+  const clearSelection = () => {
+    const empty = new Set<number>();
+    selectedRef.current = empty;
+    setSelected(empty);
+  };
 
   // ── Print — only checked drivers ─────────────────────────────────────────
   const handlePrint = async () => {
-    // Read from ref — always reflects the LATEST selection
     const currentSelected = new Set(selectedRef.current);
     if (currentSelected.size === 0) {
       toast.error('Select at least one driver to print.');
@@ -132,24 +135,18 @@ export default function DriversPage() {
     }
     setPrinting(true);
     try {
-      // Fetch ALL drivers with NO search filter so selected IDs from any
-      // previous search term are always included. Then filter by selected IDs.
       const r = await driversApi.list({ page: 1, limit: 9999 });
       const all: Driver[] = r.data.results ?? [];
 
-      // Keep only selected drivers, preserving order:
-      // 1. Currently visible page drivers first (in their displayed order)
-      // 2. Then any selected from other pages / previous searches, alphabetically
-      const onPage  = drivers.filter(d => currentSelected.has(d.driver_id));
+      const onPage    = drivers.filter(d => currentSelected.has(d.driver_id));
       const onPageIds = new Set(onPage.map(d => d.driver_id));
-      const others  = all
+      const others    = all
         .filter(d => currentSelected.has(d.driver_id) && !onPageIds.has(d.driver_id))
         .sort((a, b) => a.full_name.localeCompare(b.full_name));
 
       const toPrint = [...onPage, ...others];
 
       if (toPrint.length !== currentSelected.size) {
-        // Some selected IDs weren't found in the full list (deleted drivers etc.)
         toast.error(`${currentSelected.size - toPrint.length} selected driver(s) could not be found.`);
       }
 
@@ -176,9 +173,9 @@ export default function DriversPage() {
     } finally { setDeleting(false); }
   };
 
-  const totalPages  = Math.ceil(total / limit);
-  const orgName     = icdvName ?? 'ICDV Management';
-  const selCount    = selected.size;
+  const totalPages = Math.ceil(total / limit);
+  const orgName    = icdvName ?? 'ICDV Management';
+  const selCount   = selected.size;
 
   return (
     <div className="p-6 space-y-5">
@@ -192,7 +189,7 @@ export default function DriversPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Print button — shows selection count when any checked */}
+          {/* Print button */}
           <button
             onClick={handlePrint}
             disabled={printing || selCount === 0}
@@ -229,7 +226,7 @@ export default function DriversPage() {
         </div>
       </div>
 
-      {/* ── Selection action bar — appears when any driver is checked ──────── */}
+      {/* ── Selection action bar ────────────────────────────────────────────── */}
       {selCount > 0 && (
         <div className="flex items-center justify-between px-4 py-2.5 rounded-lg bg-brand-50 dark:bg-brand-500/10 border border-brand-200 dark:border-brand-500/30 text-sm">
           <span className="font-medium text-brand-700 dark:text-brand-300">
@@ -258,7 +255,6 @@ export default function DriversPage() {
         <table className="w-full text-sm">
           <thead className="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 uppercase">
             <tr>
-              {/* Select-all checkbox */}
               <th className="px-4 py-3 w-10">
                 <input
                   type="checkbox"
@@ -298,7 +294,6 @@ export default function DriversPage() {
                   key={d.driver_id}
                   className={`hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors ${isChecked ? 'bg-brand-50 dark:bg-brand-500/10' : ''}`}
                 >
-                  {/* Row checkbox */}
                   <td className="px-4 py-3">
                     <input
                       type="checkbox"
@@ -371,11 +366,13 @@ export default function DriversPage() {
 
       {/* ── Hidden printable section ───────────────────────────────────────────
           Only rendered when print is triggered. Hidden on screen via CSS class.
+          position: absolute (not fixed) so the org header only appears once —
+          on page 1 — and does not overlay content on subsequent pages.
       ─────────────────────────────────────────────────────────────────────── */}
       <div className="driver-print-hidden">
         <div style={{ fontFamily: 'Arial, sans-serif', fontSize: '10pt', color: '#000' }}>
 
-          {/* Header */}
+          {/* Org header — appears on first page only */}
           <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '16px' }}>
             <tbody>
               <tr>
@@ -411,8 +408,8 @@ export default function DriversPage() {
 
           <div style={{ borderTop: '2px solid #111', marginBottom: '12px' }} />
 
-          {/* Driver table */}
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9pt' }}>
+          {/* Driver data table — thead repeats column headers on every page via CSS */}
+          <table className="driver-data-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9pt' }}>
             <thead>
               <tr style={{ background: '#1e3a5f', color: '#fff' }}>
                 <th style={th}>No.</th>
