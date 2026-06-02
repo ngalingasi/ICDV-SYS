@@ -345,3 +345,22 @@ export const financialApi = {
   update:          (id: number, data: any) => client.patch(`/financial/${id}`, data),
   delete:          (id: number)   => client.delete(`/financial/${id}`),
 };
+
+// ── Fuel ──────────────────────────────────────────────────────────────────────
+export const fuelApi = {
+  // Manifest fuel orders
+  listOrders:    (manifestId: number, params?: any) => client.get(`/manifests/${manifestId}/fuel/orders`, { params }),
+  getOrder:      (manifestId: number, orderId: number) => client.get(`/manifests/${manifestId}/fuel/orders/${orderId}`),
+  createOrder:   (manifestId: number, data: { fuel_type: 'diesel'|'petrol'; ordered_litres: number; notes?: string }) =>
+                   client.post(`/manifests/${manifestId}/fuel/orders`, data),
+  approveOrder:  (manifestId: number, orderId: number, review_notes?: string) =>
+                   client.patch(`/manifests/${manifestId}/fuel/orders/${orderId}/approve`, { review_notes }),
+  rejectOrder:   (manifestId: number, orderId: number, review_notes?: string) =>
+                   client.patch(`/manifests/${manifestId}/fuel/orders/${orderId}/reject`, { review_notes }),
+  // Dashboard
+  dashboard:     (manifestId: number) => client.get(`/manifests/${manifestId}/fuel/dashboard`),
+  // Dispense operations (vehicle-centric)
+  lookup:        (chassis_number: string) => client.get('/fuel/lookup', { params: { chassis_number } }),
+  dispense:      (data: { vehicle_id: number; fuel_type: 'diesel'|'petrol'; litres_dispensed: number; notes?: string }) =>
+                   client.post('/fuel/dispense', data),
+};

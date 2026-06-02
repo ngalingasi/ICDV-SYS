@@ -6,6 +6,7 @@ import StatusBadge from '../../components/tpfcs/StatusBadge';
 import Modal from '../../components/tpfcs/Modal';
 import { toast } from '../../components/tpfcs/Toast';
 import BackButton from '../../components/tpfcs/BackButton';
+import ManifestFuelTab from './ManifestFuelTab';
 
 const STEPS = [
   { key: 'manifested_count', label: 'Manifested', bar: 'bg-slate-400' },
@@ -28,6 +29,7 @@ export default function ManifestDetail() {
   const [file,       setFile]      = useState<File | null>(null);
   const [dragOver,   setDragOver]  = useState(false);
   const [importing,  setImporting] = useState(false);
+  const [activeTab,  setActiveTab] = useState<'vehicles' | 'fuel'>('vehicles');
 
   const load = () => {
     setLoading(true);
@@ -184,10 +186,27 @@ export default function ManifestDetail() {
         </div>
       </div>
 
-      {/* Vehicles table */}
+      {/* Tab navigation */}
+      <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700">
+        {(['vehicles', 'fuel'] as const).map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2.5 text-sm font-medium capitalize transition-colors border-b-2 -mb-px
+              ${activeTab === tab
+                ? 'border-brand-500 text-brand-600 dark:text-brand-400'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
+          >
+            {tab === 'vehicles' ? `Vehicles (${vehicles.length})` : 'Fuel'}
+          </button>
+        ))}
+      </div>
+
+      {/* Vehicles tab */}
+      {activeTab === 'vehicles' && (
       <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Vehicles ({vehicles.length})</h2>
+        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Vehicles ({vehicles.length})</h2>
           <Link to={`/vehicles?manifest_id=${id}`} className="text-xs text-brand-500 hover:text-brand-600">View all →</Link>
         </div>
         <div className="overflow-x-auto">
@@ -226,6 +245,14 @@ export default function ManifestDetail() {
           </table>
         </div>
       </div>
+      )}
+
+      {/* Fuel tab */}
+      {activeTab === 'fuel' && (
+        <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5">
+          <ManifestFuelTab manifestId={Number(id)} />
+        </div>
+      )}
 
       {/* Import modal — Excel / CSV file upload */}
       {showImport && (

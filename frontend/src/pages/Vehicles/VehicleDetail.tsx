@@ -178,6 +178,13 @@ export default function VehicleDetail() {
                       {h.notes && (
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 italic">{h.notes}</p>
                       )}
+                      {(h.driver_name || h.driver_license || h.driver_id_card) && (
+                        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-500 dark:text-gray-400">
+                          {h.driver_name    && <span>Driver: <span className="font-medium text-gray-700 dark:text-gray-300">{h.driver_name}</span></span>}
+                          {h.driver_license && <span>License: <span className="font-medium text-gray-700 dark:text-gray-300">{h.driver_license}</span></span>}
+                          {h.driver_id_card && <span>ID Card: <span className="font-medium text-gray-700 dark:text-gray-300">{h.driver_id_card}</span></span>}
+                        </div>
+                      )}
                       <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
                         {h.operator_name ?? h.assigned_user_name ?? 'System'} &middot; {fmtDate(h.performed_at ?? h.created_at)}
                       </p>

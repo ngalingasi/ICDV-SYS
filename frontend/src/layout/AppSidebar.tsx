@@ -57,8 +57,9 @@ const TENANT_NAV: NavItem[] = [
     name: "Operations", icon: <Icon.Operation />, subItems: [
       { name: "1. Discharge",    path: "/operations/discharge" },
       { name: "2. Batch",        path: "/operations/batch" },
-      { name: "3. TPA Transfer", path: "/operations/transfer" },
-      { name: "4. Yard Receive", path: "/operations/receive" },
+      { name: "3. Fuel",          path: "/operations/fuel" },
+      { name: "4. TPA Transfer", path: "/operations/transfer" },
+      { name: "5. Yard Receive", path: "/operations/receive" },
       { name: "Batches",         path: "/operations/batches" },
       { name: "Chassis Search",  path: "/operations/search" },
     ],
@@ -147,8 +148,9 @@ const SUPER_ADMIN_NAV: NavItem[] = [
     name: "Operations", icon: <Icon.Operation />, subItems: [
       { name: "1. Discharge",    path: "/operations/discharge" },
       { name: "2. Batch",        path: "/operations/batch" },
-      { name: "3. TPA Transfer", path: "/operations/transfer" },
-      { name: "4. Yard Receive", path: "/operations/receive" },
+      { name: "3. Fuel",          path: "/operations/fuel" },
+      { name: "4. TPA Transfer", path: "/operations/transfer" },
+      { name: "5. Yard Receive", path: "/operations/receive" },
       { name: "Batches",         path: "/operations/batches" },
       { name: "Chassis Search",  path: "/operations/search" },
     ],
@@ -161,9 +163,20 @@ const SUPER_ADMIN_BOTTOM_NAV: NavItem[] = [
   { name: "Profile", icon: <Icon.Profile />, path: "/profile" },
 ];
 
+
+// fuel_officer — can create orders + dispense fuel
+const fuelOfficerNav = [
+  { name: "Manifests",  icon: <Icon.Manifest />,  path: "/manifests" },
+  {
+    name: "Operations", icon: <Icon.Operation />, subItems: [
+      { name: "Fuel Dispense", path: "/operations/fuel" },
+    ],
+  },
+];
+
 export default function AppSidebar() {
   const { isOpen, isExpanded, isMobileOpen, toggleMobileSidebar } = useSidebar();
-  const { isSuperAdmin, isSystemAdmin, isDischargeOfficer, isBackofficeOfficer, isTransferOfficer, isYardOfficer, icdvName, user } = useAuth();
+  const { isSuperAdmin, isSystemAdmin, isDischargeOfficer, isBackofficeOfficer, isTransferOfficer, isYardOfficer, isFuelOfficer, icdvName, user } = useAuth();
   const isCrossTenant = isSuperAdmin || (isSystemAdmin ?? false);
   const location = useLocation();
   const expanded = isOpen || isExpanded || isMobileOpen;
@@ -186,6 +199,9 @@ export default function AppSidebar() {
   } else if (isYardOfficer) {
     NAV        = YARD_OFFICER_NAV;
     BOTTOM_NAV = [{ name: "Profile", icon: <Icon.Profile />, path: "/profile" }];
+  } else if (isFuelOfficer) {
+    NAV        = fuelOfficerNav;
+    BOTTOM_NAV = [{ name: "Profile", icon: <Icon.Profile />, path: "/profile" }];
   } else {
     NAV        = TENANT_NAV;
     BOTTOM_NAV = TENANT_BOTTOM_NAV;
@@ -198,6 +214,7 @@ export default function AppSidebar() {
     : isBackofficeOfficer ? "Backoffice Officer"
     : isTransferOfficer   ? "Transfer Officer"
     : isYardOfficer       ? "Yard Officer"
+    : isFuelOfficer       ? "Fuel Officer"
     : user?.role === 'admin'      ? "Administrator"
     : user?.role === 'supervisor' ? "Supervisor"
     : "Vehicle Import & Delivery";

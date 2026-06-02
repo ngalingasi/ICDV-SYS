@@ -91,6 +91,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         isBackofficeOfficer:  user?.role === 'backoffice_officer',
         isTransferOfficer:    user?.role === 'transfer_officer',
         isYardOfficer:        user?.role === 'yard_officer',
+        isFuelOfficer:        user?.role === 'fuel_officer',
         icdvId:               user?.icdv_id   ?? null,
         icdvName:             user?.icdv_name ?? null,
         login,

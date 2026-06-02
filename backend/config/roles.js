@@ -46,6 +46,7 @@ const allRoles = {
     'printDeliverySheet',
     'updateBatchStatus',
     'viewTpaStats',
+    'viewFuel',
   ],
 
   supervisor: [
@@ -64,6 +65,10 @@ const allRoles = {
     'printDeliverySheet',
     'updateBatchStatus',
     'viewTpaStats',
+    'viewFuel',
+    'approveFuelOrders',
+    'dispenseFuel',
+    'createFuelOrders',
   ],
 
   admin: [
@@ -83,6 +88,10 @@ const allRoles = {
     'printDeliverySheet',
     'updateBatchStatus',
     'viewTpaStats',
+    'viewFuel',
+    'approveFuelOrders',
+    'dispenseFuel',
+    'createFuelOrders',
   ],
 
   // system_admin: full workflow + cross-ICDV read — NO platform management
@@ -103,6 +112,10 @@ const allRoles = {
     'printDeliverySheet',
     'updateBatchStatus',
     'viewTpaStats',
+    'viewFuel',
+    'approveFuelOrders',
+    'dispenseFuel',
+    'createFuelOrders',
   ],
 
   super_admin: [
@@ -123,6 +136,10 @@ const allRoles = {
     'printDeliverySheet',
     'updateBatchStatus',
     'viewTpaStats',
+    'viewFuel',
+    'approveFuelOrders',
+    'dispenseFuel',
+    'createFuelOrders',
   ],
 
   // ── New operational roles ────────────────────────────────────────────────────
@@ -182,6 +199,18 @@ const allRoles = {
     // Print: delivery sheet for received vehicles
     'printDeliverySheet',
     // Cannot: discharge, batch, transfer, print batch chassis list, update doc/gc
+  ],
+
+  // ── Fuel officer (migration 011) ─────────────────────────────────────────────
+  fuel_officer: [
+    // Read access needed to look up vehicles and manifests
+    'getVehicles',
+    'getManifests',
+    // Fuel workflow
+    'createFuelOrders',  // create pending fuel orders
+    'dispenseFuel',      // dispense fuel to a vehicle (after order is approved)
+    'viewFuel',          // view fuel orders, stock, dashboard
+    // Cannot: approve/reject orders, discharge, batch, transfer, receive
   ],
 };
 

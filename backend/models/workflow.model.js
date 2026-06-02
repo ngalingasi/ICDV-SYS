@@ -990,15 +990,28 @@ const getVehicleHistory = async (vehicleId, icdvId) => {
   const [vehicle] = await query(
     'SELECT vehicle_id, icdv_id, chassis_number FROM vehicles WHERE vehicle_id=?', [vehicleId]
   );
-  if (!vehicle || vehicle.icdv_id !== icdvId)
+  if (!vehicle) throw new ApiError(httpStatus.NOT_FOUND, 'Vehicle not found');
+  // icdvId is null for super_admin/system_admin — allow through; scoped users must match
+  if (icdvId !== null && vehicle.icdv_id !== icdvId)
     throw new ApiError(httpStatus.NOT_FOUND, 'Vehicle not found');
-  return query(
-    `SELECT vo.*, u.full_name AS operator_name
+
+  // Operations log — joined with driver info from transfers where available
+  const ops = await query(
+    `SELECT
+       vo.*,
+       u.full_name        AS operator_name,
+       d.full_name        AS driver_name,
+       d.license_number   AS driver_license,
+       t.driver_id_card
      FROM vehicle_operations vo
-     LEFT JOIN users u ON u.user_id = vo.performed_by
-     WHERE vo.vehicle_id=? ORDER BY vo.performed_at DESC`,
+     LEFT JOIN users     u ON u.user_id      = vo.performed_by
+     LEFT JOIN transfers t ON t.transfer_id  = vo.transfer_id
+     LEFT JOIN drivers   d ON d.driver_id    = t.driver_id
+     WHERE vo.vehicle_id=?
+     ORDER BY vo.performed_at DESC`,
     [vehicleId]
   );
+  return ops;
 };
 
 module.exports = {

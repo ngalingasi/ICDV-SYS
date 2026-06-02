@@ -4,6 +4,7 @@ const auth     = require('../../middlewares/auth');
 const tenant   = require('../../middlewares/tenant');
 const ctrl     = require('../../controllers/manifest.controller');
 const dsCtrl   = require('../../controllers/deliverySheet.controller');
+const { manifestFuelRouter } = require('./fuel.route');
 
 const csvUpload = multer({
   storage: multer.memoryStorage(),
@@ -44,5 +45,8 @@ router.post('/:manifestId/import-vehicles',auth('manageManifests'), tenant(), cs
 // Restricted to printDeliverySheet right (migration 008)
 router.get('/:manifestId/delivery-sheet',          auth('printDeliverySheet'), tenant(), dsCtrl.getManifestDeliverySheet);
 router.get('/:manifestId/delivery-sheet/combined', auth('printDeliverySheet'), tenant(), dsCtrl.getCombinedDeliverySheet);
+
+// ── Fuel ──────────────────────────────────────────────────────────────────────
+router.use('/:manifestId/fuel', manifestFuelRouter);
 
 module.exports = router;

@@ -308,7 +308,7 @@ export default function TransferPage() {
       )}
 
       {step === 'driver' && (
-        <Section title="Step 2 — Scan Driver ID Card (Optional)">
+        <Section title="Step 2 — Scan Driver ID Card">
           <div className="flex gap-2">
             <input type="text" value={idCard} onChange={e => setIdCard(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleDriverSearch()}
@@ -322,7 +322,8 @@ export default function TransferPage() {
             </button>
           </div>
           {error && <ErrorAlert message={error} />}
-          <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
+          {/* Skip button hidden — kept for future use when optional driver is re-enabled */}
+          <div className="hidden">
             <button
               onClick={handleSkipDriver}
               className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 underline underline-offset-2 transition-colors"
