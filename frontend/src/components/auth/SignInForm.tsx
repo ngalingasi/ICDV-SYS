@@ -163,7 +163,7 @@ export default function SignInForm() {
             </div>
             <div>
               <Label>Username or Email <span className="text-red-500">*</span></Label>
-              <Input placeholder="admin or admin@tpfcs.go.tz" value={loginField} onChange={(e) => setLoginField(e.target.value)} />
+              <Input placeholder="Username or email" value={loginField} onChange={(e) => setLoginField(e.target.value)} />
             </div>
             <div>
               <Label>Password <span className="text-red-500">*</span></Label>
