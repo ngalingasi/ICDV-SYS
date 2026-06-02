@@ -38,13 +38,14 @@ export const vesselsApi = {
 export const manifestsApi = {
   list:           (params?: any)                      => client.get<PaginatedResponse<Manifest>>('/manifests', { params }),
   get:            (id: number)                        => client.get<Manifest>(`/manifests/${id}`),
-  getNextNumber:  ()                                  => client.get<{ manifest_number: string }>('/manifests/next-number'),
+  getNextNumber:  (icdvId?: number)                   => client.get<{ manifest_number: string }>('/manifests/next-number', icdvId ? { params: { icdv_id: icdvId } } : undefined),
   create:         (data: Partial<Manifest>)           => client.post<Manifest>('/manifests', data),
   update:         (id: number, data: Partial<Manifest>) => client.patch<Manifest>(`/manifests/${id}`, data),
   delete:         (id: number)                        => client.delete(`/manifests/${id}`),
   previewCSV:     (id: number, formData: FormData)    => client.post(`/manifests/${id}/preview-csv`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
   importVehicles: (id: number, formData: FormData)    => client.post(`/manifests/${id}/import-vehicles`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
-  deliverySheet:  (id: number)                        => client.get(`/manifests/${id}/delivery-sheet`),
+  deliverySheet:         (id: number) => client.get(`/manifests/${id}/delivery-sheet`),
+  combinedDeliverySheet: (id: number) => client.get(`/manifests/${id}/delivery-sheet/combined`),
 };
 
 // ── Vehicles ──────────────────────────────────────────────────────────────────
@@ -130,7 +131,7 @@ export const workflowApi = {
     client.get('/workflow/transfer/lookup', { params: { chassis } }),
   driverLookup:    (id_card: string) =>
     client.get('/workflow/transfer/driver-lookup', { params: { id_card } }),
-  transferConfirm: (data: { vehicle_id: number; driver_id: number; driver_id_card: string; notes?: string }) =>
+  transferConfirm: (data: { vehicle_id: number; driver_id?: number; driver_id_card?: string; notes?: string }) =>
     client.post('/workflow/transfer/confirm', data),
 
   // 4. Receive (Yard)

@@ -210,8 +210,127 @@ const getDeliverySheetsByVessel = async (vesselId, icdvId = null) => {
   return Promise.all(batches.map(b => getDeliverySheetData(b.batch_id, icdvId)));
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. COMBINED MANIFEST delivery sheet — all batches merged into one view
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * getCombinedDeliverySheet(manifestId, icdvId)
+ *
+ * Merges all batch driver rows for a manifest into a single flat list.
+ * Each unique driver appears once, with ALL their chassis numbers across
+ * all batches concatenated.
+ *
+ * Shape:
+ * {
+ *   manifest: { manifest_id, manifest_number, arrival_date, status,
+ *               vessel_name, icdv_name, icdv_code,
+ *               total_vehicles, total_batches }
+ *   drivers:       DriverRow[]  ← merged across batches
+ *   total_vehicles: number      ← sum of all chassis across all drivers
+ *   chassis_list:   string      ← all chassis comma-separated
+ * }
+ */
+const getCombinedDeliverySheet = async (manifestId, icdvId = null) => {
+  // ── 1. Manifest header ─────────────────────────────────────────────────────
+  const mWhere  = icdvId ? 'WHERE m.manifest_id=? AND m.icdv_id=?' : 'WHERE m.manifest_id=?';
+  const mParams = icdvId ? [manifestId, icdvId] : [manifestId];
+
+  const [manifest] = await query(
+    `SELECT
+       m.manifest_id, m.manifest_number, m.arrival_date, m.status,
+       (m.manifested_count + m.discharged_count + m.batched_count
+        + m.in_transit_count + m.received_count) AS total_vehicles,
+       vs.name AS vessel_name,
+       ic.name AS icdv_name,
+       ic.code AS icdv_code
+     FROM manifests m
+     LEFT JOIN vessels vs ON vs.vessel_id = m.vessel_id
+     LEFT JOIN icdvs   ic ON ic.icdv_id   = m.icdv_id
+     ${mWhere}`,
+    mParams
+  );
+  if (!manifest) throw new ApiError(httpStatus.NOT_FOUND, 'Manifest not found');
+
+  // ── 2. All batches for this manifest ───────────────────────────────────────
+  const bWhere  = icdvId ? 'WHERE b.manifest_id=? AND b.icdv_id=?' : 'WHERE b.manifest_id=?';
+  const bParams = icdvId ? [manifestId, icdvId] : [manifestId];
+
+  const batchRows = await query(
+    `SELECT b.batch_id FROM batches b ${bWhere} ORDER BY b.batch_id ASC`,
+    bParams
+  );
+
+  const totalBatches = batchRows.length;
+
+  if (!totalBatches) {
+    return {
+      manifest: { ...manifest, total_batches: 0 },
+      drivers: [],
+      total_vehicles: 0,
+      chassis_list: '',
+    };
+  }
+
+  // ── 3. Merge driver rows across all batches ────────────────────────────────
+  // Re-query across all batches at once for efficiency
+  const batchIds = batchRows.map(b => b.batch_id);
+  const placeholders = batchIds.map(() => '?').join(',');
+  const scopeClause  = icdvId ? ' AND t.icdv_id=?' : '';
+  const scopeParams  = icdvId ? [...batchIds, icdvId] : batchIds;
+
+  const rows = await query(
+    `SELECT
+       d.driver_id,
+       d.id_number,
+       d.license_number,
+       d.full_name      AS driver_name,
+       d.phone          AS driver_phone,
+       v.chassis_number,
+       t.transferred_at
+     FROM transfers t
+     JOIN drivers  d ON d.driver_id  = t.driver_id
+     JOIN vehicles v ON v.vehicle_id = t.vehicle_id
+     WHERE t.batch_id IN (${placeholders})
+       AND t.status != 'cancelled'${scopeClause}
+     ORDER BY d.id_number ASC, t.transferred_at ASC`,
+    scopeParams
+  );
+
+  // Merge by driver_id
+  const driverMap = new Map();
+  for (const row of rows) {
+    if (!driverMap.has(row.driver_id)) {
+      driverMap.set(row.driver_id, {
+        driver_id:       row.driver_id,
+        id_number:       row.id_number,
+        license_number:  row.license_number,
+        full_name:       row.driver_name,
+        phone:           row.driver_phone,
+        chassis_numbers: [],
+      });
+    }
+    driverMap.get(row.driver_id).chassis_numbers.push(row.chassis_number);
+  }
+
+  const drivers = Array.from(driverMap.values());
+
+  // Build flat comma-separated chassis list across all drivers
+  const allChassis = drivers.flatMap(d => d.chassis_numbers);
+  const totalVehicles = allChassis.length;
+  const chassisList = allChassis.join(', ');
+
+  return {
+    manifest: { ...manifest, total_batches: totalBatches },
+    drivers,
+    total_vehicles: totalVehicles,
+    chassis_list: chassisList,
+  };
+};
+
 module.exports = {
   getDeliverySheetData,         // single batch
-  getManifestDeliverySheet,     // full manifest (primary)
+  getManifestDeliverySheet,     // full manifest per-batch (existing)
+  getCombinedDeliverySheet,     // full manifest combined (new)
   getDeliverySheetsByVessel,    // vessel-level (legacy)
 };

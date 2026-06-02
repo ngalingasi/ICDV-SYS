@@ -16,6 +16,7 @@ export default function VehiclesPage() {
   const [opFilter, setOp]             = useState(sp.get('operational_status') ?? '');
   const [page, setPage]               = useState(1);
   const [icdvFilter, setIcdvFilter]     = useState('');
+  const [workflowFilter, setWorkflow]   = useState(sp.get('workflow_status') ?? '');
   const [icdvs,      setIcdvs]          = useState<any[]>([]);
   const limit = 20;
 
@@ -28,13 +29,14 @@ export default function VehiclesPage() {
       page, limit,
       release_status: releaseFilter || undefined,
       operational_status: opFilter || undefined,
+      workflow_status: workflowFilter || undefined,
       search: search || undefined,
       icdv_id: icdvFilter || undefined,
     }).then(r => { setVehicles(r.data.results); setTotal(r.data.totalResults); })
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, [page, releaseFilter, opFilter, icdvFilter]);  // eslint-disable-line
+  useEffect(() => { load(); }, [page, releaseFilter, opFilter, workflowFilter, icdvFilter]);  // eslint-disable-line
   useEffect(() => {
     const t = setTimeout(load, 350);
     return () => clearTimeout(t);
@@ -70,6 +72,12 @@ export default function VehiclesPage() {
             className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500">
             <option value="">All Op. Status</option>
             {['pending','in_operation','ready','delivered','cancelled'].map(s =>
+              <option key={s} value={s}>{s.replace(/_/g,' ')}</option>)}
+          </select>
+          <select value={workflowFilter} onChange={e => setWorkflow(e.target.value)}
+            className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand-500">
+            <option value="">All Workflow</option>
+            {['manifested','discharged','batched','in_transit','received'].map(s =>
               <option key={s} value={s}>{s.replace(/_/g,' ')}</option>)}
           </select>
           {isCrossTenant && icdvs.length > 0 && (

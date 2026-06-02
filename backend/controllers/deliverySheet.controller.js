@@ -40,8 +40,18 @@ const getManifestDeliverySheet = catchAsync(async (req, res) => {
   res.json(data);
 });
 
+// ── Manifest combined (new) — all batches merged into single view ─────────────
+const getCombinedDeliverySheet = catchAsync(async (req, res) => {
+  const data = await deliverySheetModel.getCombinedDeliverySheet(
+    Number(req.params.manifestId),
+    req.icdvId
+  );
+  res.json(data);
+});
+
 module.exports = {
   getBatchDeliverySheet,
   getVesselDeliverySheet,
   getManifestDeliverySheet,
+  getCombinedDeliverySheet,
 };

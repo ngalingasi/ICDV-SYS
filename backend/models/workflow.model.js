@@ -685,15 +685,16 @@ const confirmTransfer = async (vehicleId, driverId, driverIdCard, notes, operato
       }
     }
 
-    // Lock driver — use the vehicle's resolved icdv_id for cross-tenant users
-    // (icdvId may be null for system_admin/super_admin before resolution).
+    // Lock driver — only if a driver is assigned (driver is optional)
     // vehicle.icdv_id is always populated after the FOR UPDATE fetch above.
     const effectiveIcdvForDriver = icdvId ?? vehicle.icdv_id;
-    const [active] = await connQuery(conn,
-      "SELECT assignment_id FROM driver_assignments WHERE driver_id=? AND status='active' AND icdv_id=? FOR UPDATE",
-      [driverId, effectiveIcdvForDriver]
-    );
-    if (active) throw new ApiError(httpStatus.CONFLICT, 'Driver already has an active assignment');
+    if (driverId !== null) {
+      const [active] = await connQuery(conn,
+        "SELECT assignment_id FROM driver_assignments WHERE driver_id=? AND status='active' AND icdv_id=? FOR UPDATE",
+        [driverId, effectiveIcdvForDriver]
+      );
+      if (active) throw new ApiError(httpStatus.CONFLICT, 'Driver already has an active assignment');
+    }
 
     // Create transfer record
     const tr = await connQuery(conn,
@@ -704,12 +705,14 @@ const confirmTransfer = async (vehicleId, driverId, driverIdCard, notes, operato
     );
     const transferId = tr.insertId;
 
-    // Driver assignment
-    await connQuery(conn,
-      `INSERT INTO driver_assignments (icdv_id, driver_id, vehicle_id, transfer_id, assigned_by, status)
-       VALUES (?,?,?,?,?,'active')`,
-      [effectiveIcdvForDriver, driverId, vehicleId, transferId, operatorId]
-    );
+    // Driver assignment — only created when a driver is assigned
+    if (driverId !== null) {
+      await connQuery(conn,
+        `INSERT INTO driver_assignments (icdv_id, driver_id, vehicle_id, transfer_id, assigned_by, status)
+         VALUES (?,?,?,?,?,'active')`,
+        [effectiveIcdvForDriver, driverId, vehicleId, transferId, operatorId]
+      );
+    }
 
     await applyVehicleStatus(conn, vehicleId, WORKFLOW_STATUSES.IN_TRANSIT, operatorId);
     await syncManifestStatus(conn, vehicle.manifest_id);
@@ -852,30 +855,59 @@ const confirmReceive = async (driverId, vehicleId, notes, operatorId, icdvId) =>
       throw new ApiError(httpStatus.FORBIDDEN, 'Vehicle does not belong to your ICDV');
     assertTransition(vehicle.workflow_status, WORKFLOW_STATUSES.RECEIVED);
 
-    const [assignment] = await connQuery(conn,
-      "SELECT * FROM driver_assignments WHERE driver_id=? AND vehicle_id=? AND status='active' AND icdv_id=? FOR UPDATE",
-      [driverId, vehicleId, icdvId]
-    );
-    if (!assignment)
-      throw new ApiError(httpStatus.NOT_FOUND, 'No active driver assignment found');
+    // Resolve the effective icdv_id for all queries below
+    const effectiveIcdvId = icdvId ?? vehicle.icdv_id;
 
-    const [driver] = await connQuery(conn, 'SELECT id_number FROM drivers WHERE driver_id=?', [driverId]);
+    // Find assignment — when a driver is provided use the driver+vehicle scope;
+    // when no driver was assigned (optional driver), match on vehicle alone.
+    let assignment;
+    if (driverId !== null) {
+      [assignment] = await connQuery(conn,
+        "SELECT * FROM driver_assignments WHERE driver_id=? AND vehicle_id=? AND status='active' AND icdv_id=? FOR UPDATE",
+        [driverId, vehicleId, effectiveIcdvId]
+      );
+      if (!assignment)
+        throw new ApiError(httpStatus.NOT_FOUND, 'No active driver assignment found');
+    } else {
+      // No driver — look for the active transfer for this vehicle directly
+      [assignment] = await connQuery(conn,
+        "SELECT * FROM driver_assignments WHERE vehicle_id=? AND status='active' AND icdv_id=? FOR UPDATE",
+        [vehicleId, effectiveIcdvId]
+      );
+      // No assignment is acceptable when vehicle was transferred without a driver
+    }
+
+    const driverIdCard = driverId
+      ? (await connQuery(conn, 'SELECT id_number FROM drivers WHERE driver_id=?', [driverId]))[0]?.id_number ?? null
+      : null;
+
+    // Look up the transfer record — either from the assignment or directly
+    let transferId = assignment?.transfer_id ?? null;
+    if (!transferId) {
+      const [tr] = await connQuery(conn,
+        "SELECT transfer_id FROM transfers WHERE vehicle_id=? AND status='active' ORDER BY transfer_id DESC LIMIT 1",
+        [vehicleId]
+      );
+      transferId = tr?.transfer_id ?? null;
+    }
 
     const rl = await connQuery(conn,
       `INSERT INTO receiving_logs
          (icdv_id, vehicle_id, transfer_id, driver_id, driver_id_card, received_by, receive_notes)
        VALUES (?,?,?,?,?,?,?)`,
-      [icdvId, vehicleId, assignment.transfer_id, driverId, driver.id_number, operatorId, notes]
+      [effectiveIcdvId, vehicleId, transferId, driverId, driverIdCard, operatorId, notes]
     );
 
-    await connQuery(conn,
-      "UPDATE driver_assignments SET status='closed', closed_at=NOW() WHERE assignment_id=?",
-      [assignment.assignment_id]
-    );
-    if (assignment.transfer_id) {
+    if (assignment) {
+      await connQuery(conn,
+        "UPDATE driver_assignments SET status='closed', closed_at=NOW() WHERE assignment_id=?",
+        [assignment.assignment_id]
+      );
+    }
+    if (transferId) {
       await connQuery(conn,
         "UPDATE transfers SET status='completed', completed_at=NOW() WHERE transfer_id=?",
-        [assignment.transfer_id]
+        [transferId]
       );
     }
 
@@ -893,11 +925,11 @@ const confirmReceive = async (driverId, vehicleId, notes, operatorId, icdvId) =>
 
     await syncManifestStatus(conn, vehicle.manifest_id);
     await logOperation(conn, {
-      icdvId, vehicleId, chassisNumber: vehicle.chassis_number,
+      icdvId: effectiveIcdvId, vehicleId, chassisNumber: vehicle.chassis_number,
       operationType: 'received',
       fromStatus: vehicle.workflow_status, toStatus: WORKFLOW_STATUSES.RECEIVED,
       fromLocation: vehicle.current_location, toLocation: WORKFLOW_TO_LOCATION.received,
-      batchId: vehicle.batch_id, transferId: assignment.transfer_id,
+      batchId: vehicle.batch_id, transferId,
       notes, performedBy: operatorId,
     });
 

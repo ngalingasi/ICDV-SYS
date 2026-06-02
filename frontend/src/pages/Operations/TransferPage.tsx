@@ -233,15 +233,26 @@ export default function TransferPage() {
     } finally { setLoading(false); }
   };
 
+  // Driver is optional — allow proceeding without one
+  const handleSkipDriver = () => {
+    setDriver(null);
+    setIdCard('');
+    setStep('confirm');
+  };
+
   const handleConfirm = async () => {
-    if (!vehicle || !driver) return;
+    if (!vehicle) return;
     setLoading(true); setError('');
     try {
       await workflowApi.transferConfirm({
-        vehicle_id: vehicle.vehicle_id, driver_id: driver.driver_id,
-        driver_id_card: idCard.trim(), notes,
+        vehicle_id: vehicle.vehicle_id,
+        ...(driver ? { driver_id: driver.driver_id, driver_id_card: idCard.trim() } : {}),
+        notes,
       });
-      toast.success(`Vehicle ${vehicle.chassis_number} transferred with driver ${driver.full_name}`);
+      const msg = driver
+        ? `Vehicle ${vehicle.chassis_number} transferred with driver ${driver.full_name}`
+        : `Vehicle ${vehicle.chassis_number} transferred (no driver assigned)`;
+      toast.success(msg);
       setStep('done');
     } catch (e: any) {
       setError(e?.response?.data?.message ?? 'Transfer confirmation failed');
@@ -297,7 +308,7 @@ export default function TransferPage() {
       )}
 
       {step === 'driver' && (
-        <Section title="Step 2 — Scan Driver ID Card">
+        <Section title="Step 2 — Scan Driver ID Card (Optional)">
           <div className="flex gap-2">
             <input type="text" value={idCard} onChange={e => setIdCard(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleDriverSearch()}
@@ -311,20 +322,34 @@ export default function TransferPage() {
             </button>
           </div>
           {error && <ErrorAlert message={error} />}
+          <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
+            <button
+              onClick={handleSkipDriver}
+              className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 underline underline-offset-2 transition-colors"
+            >
+              Skip — proceed without assigning a driver
+            </button>
+          </div>
         </Section>
       )}
 
-      {step === 'confirm' && driver && (
+      {step === 'confirm' && (
         <>
-          <Section title="Driver Confirmed">
-            <DriverIdCard driver={driver} />
-          </Section>
+          {driver && (
+            <Section title="Driver Confirmed">
+              <DriverIdCard driver={driver} />
+            </Section>
+          )}
           <Section title="Step 3 — Transfer Summary &amp; Confirm">
             <div className="rounded-lg bg-orange-50 dark:bg-orange-500/10 border border-orange-200 dark:border-orange-500/20 px-3 py-3 text-sm text-orange-700 dark:text-orange-400">
               <p className="font-semibold text-xs sm:text-sm">Transfer Summary</p>
               <p className="mt-1 text-xs sm:text-sm leading-relaxed">
-                Vehicle <strong className="font-mono break-all">{vehicle.chassis_number}</strong> will be
-                assigned to driver <strong>{driver.full_name}</strong> — status changes to IN_TRANSIT.
+                Vehicle <strong className="font-mono break-all">{vehicle?.chassis_number}</strong> will be{' '}
+                {driver
+                  ? <>assigned to driver <strong>{driver.full_name}</strong> — </>
+                  : <span className="italic">transferred without an assigned driver — </span>
+                }
+                status changes to IN_TRANSIT.
               </p>
             </div>
             <NotesInput value={notes} onChange={setNotes} />
@@ -344,7 +369,9 @@ export default function TransferPage() {
 
       {step === 'done' && (
         <SuccessBanner
-          message={`Vehicle ${vehicle?.chassis_number} transferred. Now in transit with ${driver?.full_name}.`}
+          message={driver
+            ? `Vehicle ${vehicle?.chassis_number} transferred. Now in transit with ${driver.full_name}.`
+            : `Vehicle ${vehicle?.chassis_number} transferred. Now in transit (no driver assigned).`}
           onReset={reset}
         />
       )}

@@ -85,11 +85,32 @@ export default function ManifestForm() {
         }
       }).finally(() => setLoading(false));
     } else {
-      manifestsApi.getNextNumber().then(r => {
-        setForm(f => ({ ...f, manifest_number: r.data.manifest_number }));
-      }).finally(() => setNumLoading(false));
+      // For cross-tenant users, only fetch when ICDV is selected so the
+      // preview number is scoped to the same tenant that create() will use.
+      // For regular ICDV users, fetch immediately (their icdv_id is fixed).
+      if (!isCrossTenant) {
+        manifestsApi.getNextNumber().then(r => {
+          setForm(f => ({ ...f, manifest_number: r.data.manifest_number }));
+        }).finally(() => setNumLoading(false));
+      } else {
+        setNumLoading(false); // will re-fetch once ICDV is chosen
+      }
     }
   }, [id]); // eslint-disable-line
+
+  // Re-fetch the next number whenever a cross-tenant user selects an ICDV
+  useEffect(() => {
+    if (!isCrossTenant || isEdit) return;
+    if (!selectedIcdvId) {
+      // Clear the number display until ICDV is picked
+      setForm(f => ({ ...f, manifest_number: '' }));
+      return;
+    }
+    setNumLoading(true);
+    manifestsApi.getNextNumber(Number(selectedIcdvId)).then(r => {
+      setForm(f => ({ ...f, manifest_number: r.data.manifest_number }));
+    }).finally(() => setNumLoading(false));
+  }, [selectedIcdvId, isCrossTenant, isEdit]); // eslint-disable-line
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -257,7 +278,8 @@ export default function ManifestForm() {
               <span className="ml-1.5 text-xs text-brand-500 font-normal">(auto-generated)</span>
             </label>
             <input
-              value={numLoading ? 'Generating…' : form.manifest_number}
+              value={numLoading ? 'Generating…' : (isCrossTenant && !selectedIcdvId && !isEdit) ? '' : form.manifest_number}
+              placeholder={isCrossTenant && !selectedIcdvId && !isEdit ? 'Select an ICDV first…' : ''}
               readOnly
               className={`${cls} bg-gray-50 dark:bg-gray-800 cursor-not-allowed text-gray-500`}
             />

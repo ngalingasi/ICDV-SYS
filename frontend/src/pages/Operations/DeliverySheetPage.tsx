@@ -59,6 +59,22 @@ interface ManifestData {
   batches: BatchSection[];
 }
 
+interface CombinedData {
+  manifest: {
+    manifest_id:     number;
+    manifest_number: string;
+    arrival_date:    string;
+    status:          string;
+    vessel_name:     string;
+    icdv_name:       string;
+    total_vehicles:  number;
+    total_batches:   number;
+  };
+  drivers:        DriverRow[];
+  total_vehicles: number;
+  chassis_list:   string;
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const fmtDate = (d?: string) =>
@@ -297,6 +313,133 @@ ${batchPages}
 </html>`;
 }
 
+function buildCombinedPrintHTML(
+  data: CombinedData,
+  meta: { printed_by: string; print_date: string },
+): string {
+  const { manifest, drivers, total_vehicles, chassis_list } = data;
+
+  const rows = drivers.length === 0
+    ? `<tr><td colspan="7" style="text-align:center;padding:16px;color:#888;">No transfer records yet.</td></tr>`
+    : drivers.map((d, i) => `
+        <tr style="background:${i % 2 === 0 ? '#fff' : '#f9f9f9'}">
+          <td style="text-align:center">${i + 1}</td>
+          <td>${d.id_number || '—'}</td>
+          <td>${d.license_number || '—'}</td>
+          <td><strong>${d.full_name}</strong></td>
+          <td>${d.phone || '—'}</td>
+          <td style="font-size:8pt">${d.chassis_numbers.join(', ') || '—'}</td>
+          <td style="text-align:center"><strong>${d.chassis_numbers.length}</strong></td>
+        </tr>`).join('');
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Combined Delivery Sheet — ${manifest.manifest_number}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 9.5pt; color: #000; background: #fff; }
+  .header-table { width:100%; border-collapse:collapse; border-bottom:2px solid #000; padding-bottom:6px; margin-bottom:6px; }
+  .header-table td { padding:4px 6px; vertical-align:middle; }
+  .info-table { width:100%; border-collapse:collapse; border:1px solid #ccc; margin-bottom:6px; background:#f5f5f5; }
+  .info-table td { padding:5px 10px; border-right:1px solid #ccc; font-size:9pt; vertical-align:top; }
+  .info-table td:last-child { border-right:none; }
+  .lbl { font-size:7pt; text-transform:uppercase; color:#666; letter-spacing:0.5px; display:block; }
+  .chassis-box { border:1px solid #ccc; background:#fafafa; padding:8px 10px; margin-bottom:10px; font-size:8pt; line-height:1.6; }
+  .chassis-box .lbl { margin-bottom:4px; }
+  .driver-table { width:100%; border-collapse:collapse; border:1px solid #999; margin-bottom:10px; table-layout:fixed; }
+  .driver-table thead tr { background:#333; color:#fff; }
+  .driver-table th { padding:6px 7px; text-align:left; font-size:7.5pt; text-transform:uppercase; letter-spacing:0.5px; border-right:1px solid #555; font-weight:700; }
+  .driver-table th:last-child { border-right:none; }
+  .driver-table td { padding:5px 7px; font-size:8.5pt; border-bottom:1px solid #ddd; border-right:1px solid #ddd; vertical-align:top; word-wrap:break-word; overflow-wrap:break-word; }
+  .driver-table td:last-child { border-right:none; }
+  .driver-table tbody tr:last-child td { border-bottom:none; }
+  .driver-table tfoot tr { background:#e8e8e8; font-weight:700; border-top:2px solid #333; }
+  .driver-table tfoot td { padding:6px 7px; font-size:8.5pt; border-right:1px solid #ccc; }
+  .driver-table tfoot td:last-child { border-right:none; }
+  @media print { .chassis-box { display:none !important; } }
+  .sig-table { width:100%; border-collapse:collapse; border:1px solid #ccc; margin-bottom:6px; }
+  .sig-table td { width:33.33%; padding:8px 14px 6px; border-right:1px solid #ccc; vertical-align:top; }
+  .sig-table td:last-child { border-right:none; }
+  .sig-line { border-bottom:1px solid #000; height:30px; margin-bottom:4px; }
+  .sig-lbl { font-size:8pt; font-weight:700; text-transform:uppercase; }
+  .sig-role { font-size:7.5pt; color:#666; margin-top:1px; }
+  .footer { display:flex; justify-content:space-between; font-size:7.5pt; color:#666; border-top:1px solid #ccc; padding-top:4px; }
+  @page { size: A4 landscape; margin: 10mm 12mm; }
+</style>
+</head>
+<body>
+  <table class="header-table">
+    <tr>
+      <td style="width:33%"><strong>${manifest.icdv_name}</strong><br><span style="font-size:8pt;color:#555">Combined Delivery Sheet</span></td>
+      <td style="width:34%;text-align:center">
+        <div style="font-size:14pt;font-weight:900;letter-spacing:1px">COMBINED DELIVERY SHEET</div>
+        <div style="font-size:8pt;color:#555">All batches merged — ${manifest.total_batches} batch${manifest.total_batches !== 1 ? 'es' : ''}</div>
+      </td>
+      <td style="width:33%;text-align:right;font-size:8pt;color:#555">
+        Manifest: <strong>${manifest.manifest_number}</strong><br>
+        Printed: ${meta.print_date}<br>
+        By: ${meta.printed_by}
+      </td>
+    </tr>
+  </table>
+
+  <table class="info-table">
+    <tr>
+      <td><span class="lbl">Manifest</span><br><strong>${manifest.manifest_number}</strong></td>
+      <td><span class="lbl">Vessel</span><br>${manifest.vessel_name}</td>
+      <td><span class="lbl">ICDV</span><br>${manifest.icdv_name}</td>
+      <td><span class="lbl">Arrival</span><br>${fmtDate(manifest.arrival_date)}</td>
+      <td><span class="lbl">Total batches</span><br><strong>${manifest.total_batches}</strong></td>
+      <td><span class="lbl">Total vehicles</span><br><strong>${total_vehicles}</strong></td>
+      <td><span class="lbl">Total drivers</span><br><strong>${drivers.length}</strong></td>
+    </tr>
+  </table>
+
+  <div class="chassis-box">
+    <span class="lbl">All chassis numbers (${total_vehicles} vehicles)</span>
+    ${chassis_list || '—'}
+  </div>
+
+  <table class="driver-table">
+    <thead>
+      <tr>
+        <th style="width:30px">No.</th>
+        <th style="width:95px">Driver ID</th>
+        <th style="width:95px">License No.</th>
+        <th style="width:150px">Driver Name</th>
+        <th style="width:95px">Mobile</th>
+        <th>Chassis Numbers</th>
+        <th style="width:44px">Total</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+    <tfoot>
+      <tr>
+        <td colspan="6" style="text-align:right;padding-right:10px;font-size:8pt;text-transform:uppercase;letter-spacing:0.5px">Grand Total</td>
+        <td style="text-align:center;font-size:10pt">${total_vehicles}</td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <table class="sig-table">
+    <tr>
+      <td><div class="sig-line"></div><div class="sig-lbl">Prepared By</div><div class="sig-role">Logistics Officer</div></td>
+      <td><div class="sig-line"></div><div class="sig-lbl">Checked By</div><div class="sig-role">Supervisor</div></td>
+      <td><div class="sig-line"></div><div class="sig-lbl">Received By</div><div class="sig-role">Authorised Personnel</div></td>
+    </tr>
+  </table>
+
+  <div class="footer">
+    <span>${manifest.icdv_name} — ${manifest.manifest_number}</span>
+    <span>Combined — ${total_vehicles} vehicles across ${manifest.total_batches} batches</span>
+    <span>CONFIDENTIAL</span>
+  </div>
+</body>
+</html>`;
+}
+
 function printViaIframe(html: string) {
   // Remove any previous iframe
   const old = document.getElementById('ds-print-frame');
@@ -444,6 +587,7 @@ export default function DeliverySheetPage() {
 
   const [batchData,    setBatchData]    = useState<SingleBatchData | null>(null);
   const [manifestData, setManifestData] = useState<ManifestData | null>(null);
+  const [combinedData, setCombinedData] = useState<CombinedData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState('');
 
@@ -453,13 +597,18 @@ export default function DeliverySheetPage() {
   });
 
   const isManifestMode = Boolean(manifestId);
+  const isCombinedMode = isManifestMode && sp.get('combined') === '1';
 
   useEffect(() => {
     (async () => {
       try {
         if (manifestId) {
-          const r = await manifestsApi.deliverySheet(Number(manifestId));
+          const [r, rc] = await Promise.all([
+            manifestsApi.deliverySheet(Number(manifestId)),
+            manifestsApi.combinedDeliverySheet(Number(manifestId)),
+          ]);
           setManifestData(r.data as ManifestData);
+          setCombinedData(rc.data as CombinedData);
         } else if (batchId) {
           const r = await workflowApi.getBatchDeliverySheet(Number(batchId));
           setBatchData(r.data as SingleBatchData);
@@ -499,15 +648,27 @@ export default function DeliverySheetPage() {
     printViaIframe(buildPrintHTML(batches, meta));
   };
 
+  const handlePrintCombined = () => {
+    if (!combinedData) return;
+    const html = buildCombinedPrintHTML(combinedData, { printed_by: printedBy, print_date: printDate });
+    printViaIframe(html);
+  };
+
   // Auto-print
   const didPrint = useRef(false);
   const hasData  = Boolean(batchData || manifestData);
   useEffect(() => {
-    if (!loading && !error && hasData && sp.get('print') === '1' && !didPrint.current) {
+    if (loading || error || !hasData || didPrint.current) return;
+    const printParam = sp.get('print');
+    const combined   = sp.get('combined');
+    if (printParam === '1') {
       didPrint.current = true;
       setTimeout(handlePrint, 500);
+    } else if (combined === '1' && combinedData) {
+      didPrint.current = true;
+      setTimeout(handlePrintCombined, 500);
     }
-  }, [loading, error, hasData]); // eslint-disable-line
+  }, [loading, error, hasData, combinedData]); // eslint-disable-line
 
   const toolbarSub = isManifestMode && manifestData
     ? `${manifestData.manifest.icdv_name}  ·  ${manifestData.manifest.vessel_name}  ·  ${manifestData.manifest.manifest_number}  ·  ${manifestData.manifest.total_batches} batch${manifestData.manifest.total_batches !== 1 ? 'es' : ''}`
@@ -535,16 +696,27 @@ export default function DeliverySheetPage() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#0f172a', color: '#fff', padding: '11px 20px', borderRadius: 8, marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <span style={{ fontWeight: 700, fontSize: 14 }}>
-            {isManifestMode ? 'Manifest Delivery Sheet' : 'Batch Delivery Sheet'}
+            {isCombinedMode ? 'Combined Delivery Sheet' : isManifestMode ? 'Manifest Delivery Sheet' : 'Batch Delivery Sheet'}
           </span>
           {toolbarSub && <span style={{ fontSize: 11, opacity: .65 }}>{toolbarSub}</span>}
         </div>
-        <button
-          onClick={handlePrint}
-          style={{ background: '#fff', color: '#0f172a', border: 'none', padding: '9px 20px', borderRadius: 6, fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}
-        >
-          🖨 Print / Save PDF
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            onClick={isCombinedMode ? handlePrintCombined : handlePrint}
+            style={{ background: '#fff', color: '#0f172a', border: 'none', padding: '9px 20px', borderRadius: 6, fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}
+          >
+            🖨 Print / Save PDF
+          </button>
+          {isManifestMode && combinedData && !isCombinedMode && (
+            <button
+              onClick={handlePrintCombined}
+              style={{ background: '#1e40af', color: '#fff', border: 'none', padding: '9px 20px', borderRadius: 6, fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}
+              title={`${combinedData.total_vehicles} vehicles across all batches`}
+            >
+              🖨 Print Combined ({combinedData.total_vehicles} vehicles)
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Screen content */}

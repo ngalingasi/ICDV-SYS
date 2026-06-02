@@ -42,6 +42,7 @@ router.post('/:manifestId/import-vehicles',auth('manageManifests'), tenant(), cs
 
 // ── Delivery Sheet ────────────────────────────────────────────────────────────
 // Restricted to printDeliverySheet right (migration 008)
-router.get('/:manifestId/delivery-sheet', auth('printDeliverySheet'), tenant(), dsCtrl.getManifestDeliverySheet);
+router.get('/:manifestId/delivery-sheet',          auth('printDeliverySheet'), tenant(), dsCtrl.getManifestDeliverySheet);
+router.get('/:manifestId/delivery-sheet/combined', auth('printDeliverySheet'), tenant(), dsCtrl.getCombinedDeliverySheet);
 
 module.exports = router;

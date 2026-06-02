@@ -156,12 +156,14 @@ const driverLookup = catchAsync(async (req, res) => {
  */
 const transferConfirm = catchAsync(async (req, res) => {
   const { vehicle_id, driver_id, driver_id_card, notes } = req.body;
-  if (!vehicle_id)     return res.status(400).json({ message: 'vehicle_id is required' });
-  if (!driver_id)      return res.status(400).json({ message: 'driver_id is required' });
-  if (!driver_id_card) return res.status(400).json({ message: 'driver_id_card is required' });
+  if (!vehicle_id) return res.status(400).json({ message: 'vehicle_id is required' });
+  // driver_id and driver_id_card are now optional — a vehicle can be transferred
+  // without assigning a specific ICDV driver (e.g. external/unregistered driver)
   const effectiveIcdvId = await resolveEffectiveIcdvId(req.icdvId, Number(vehicle_id));
   const result = await wf.confirmTransfer(
-    Number(vehicle_id), Number(driver_id), driver_id_card.trim(),
+    Number(vehicle_id),
+    driver_id ? Number(driver_id) : null,
+    driver_id_card ? driver_id_card.trim() : null,
     notes || null, req.user.user_id, effectiveIcdvId,
     req.user  // passed for batch gate bypass check
   );
@@ -194,11 +196,11 @@ const receiveLookup = catchAsync(async (req, res) => {
 
 const receiveConfirm = catchAsync(async (req, res) => {
   const { driver_id, vehicle_id, notes } = req.body;
-  if (!driver_id)  return res.status(400).json({ message: 'driver_id is required' });
+  // vehicle_id is always required; driver_id is optional (may be null if no driver was assigned)
   if (!vehicle_id) return res.status(400).json({ message: 'vehicle_id is required' });
   const effectiveIcdvId = await resolveEffectiveIcdvId(req.icdvId, Number(vehicle_id));
   const result = await wf.confirmReceive(
-    Number(driver_id), Number(vehicle_id), notes || null, req.user.user_id, effectiveIcdvId
+    driver_id ? Number(driver_id) : null, Number(vehicle_id), notes || null, req.user.user_id, effectiveIcdvId
   );
   res.json(result);
 });

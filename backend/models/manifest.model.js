@@ -125,7 +125,13 @@ const deleteManifest = async (id, icdvId = null) => {
  * so every imported vehicle starts the workflow correctly.
  */
 const importVehicles = async (manifestId, rows, creatorId, icdvId = null) => {
-  await getManifestById(manifestId, icdvId);
+  // Always fetch the manifest first — this validates ownership (throws 404/403 on mismatch)
+  // and gives us the authoritative icdv_id regardless of what the caller passed.
+  const manifest = await getManifestById(manifestId, icdvId);
+  // Use the manifest's own icdv_id as the ground truth for every INSERT below.
+  // This eliminates the `icdvId || 1` fallback that pinned vehicles to ICDV #1
+  // when req.icdvId was null (e.g. super_admin without an explicit icdv_id param).
+  const effectiveIcdvId = manifest.icdv_id;
 
   return transaction(async (conn) => {
     const results = { total: rows.length, imported: 0, failed: 0, duplicates: [], errors: [] };
@@ -138,10 +144,10 @@ const importVehicles = async (manifestId, rows, creatorId, icdvId = null) => {
         continue;
       }
 
-      const whereScope = icdvId ? ' AND icdv_id=?' : '';
-      const scopeP     = icdvId ? [chassis, icdvId] : [chassis];
+      // Scope duplicate check to this ICDV using the manifest's authoritative icdv_id
       const [existing] = await conn.query(
-        `SELECT vehicle_id FROM vehicles WHERE chassis_number=?${whereScope}`, scopeP
+        `SELECT vehicle_id FROM vehicles WHERE chassis_number=? AND icdv_id=?`,
+        [chassis, effectiveIcdvId]
       );
 
       if (existing.length > 0) {
@@ -166,7 +172,7 @@ const importVehicles = async (manifestId, rows, creatorId, icdvId = null) => {
               created_by)
            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'unreleased','pending', 'manifested','vessel', ?)`,
           [
-            icdvId || 1,
+            effectiveIcdvId,
             manifestId,
             chassis,
             (row.bill_of_lading_no          || '').trim() || null,
