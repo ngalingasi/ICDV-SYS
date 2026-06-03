@@ -364,3 +364,9 @@ export const fuelApi = {
   dispense:      (data: { vehicle_id: number; fuel_type: 'diesel'|'petrol'; litres_dispensed: number; notes?: string }) =>
                    client.post('/fuel/dispense', data),
 };
+
+// ── Transfer Rate ─────────────────────────────────────────────────────────────
+export const transferRateApi = {
+  get:    ()              => client.get('/lookups/transfer-rate'),
+  update: (rate: number)  => client.patch('/lookups/transfer-rate', { rate }),
+};

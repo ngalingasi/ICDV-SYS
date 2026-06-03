@@ -101,92 +101,107 @@ type Step = 'vehicle' | 'driver' | 'confirm' | 'done';
 
 function DriverIdCard({ driver }: { driver: any }) {
   const photoUrl = driver.photo ? `${API_BASE}${driver.photo}` : null;
+  const [zoomed, setZoomed] = useState(false);
+
   return (
-    <div className="relative w-full max-w-xs sm:max-w-sm mx-auto select-none">
-      <div className="relative rounded-2xl overflow-hidden shadow-xl"
-        style={{ background: 'linear-gradient(135deg, #1e3a5f 0%, #2563a8 60%, #1d4ed8 100%)' }}>
-        <div className="absolute top-0 left-0 right-0 h-1.5"
-          style={{ background: 'linear-gradient(90deg, #f59e0b, #fbbf24, #f59e0b)' }} />
-        <div className="absolute inset-0 opacity-[0.04]"
-          style={{ backgroundImage: 'repeating-linear-gradient(45deg,#fff 0,#fff 1px,transparent 0,transparent 50%)', backgroundSize: '12px 12px' }} />
-        <div className="absolute -top-8 -right-8 w-40 h-40 rounded-full opacity-10"
-          style={{ background: 'radial-gradient(circle,#fff,transparent)' }} />
-        <div className="absolute -bottom-10 -left-10 w-48 h-48 rounded-full opacity-10"
-          style={{ background: 'radial-gradient(circle,#93c5fd,transparent)' }} />
-        <div className="relative p-4 sm:p-5">
-          <div className="flex items-center justify-between mb-3 sm:mb-4">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-blue-200">ICDV Port Authority</p>
-              <p className="text-[11px] text-blue-300 mt-0.5">Driver Identification Card</p>
-            </div>
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-white/10 border border-white/20 flex items-center justify-center flex-shrink-0">
-              <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
-            </div>
-          </div>
-          <div className="flex gap-3 sm:gap-4">
-            <div className="flex-shrink-0">
-              <div className="w-[64px] h-[80px] sm:w-[76px] sm:h-[92px] rounded-xl overflow-hidden border-2 border-white/30 bg-blue-900/60 shadow-lg">
-                {photoUrl ? (
-                  <img src={photoUrl} alt={driver.full_name} className="w-full h-full object-cover"
-                    onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <svg className="w-8 h-8 sm:w-10 sm:h-10 text-blue-300/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                  </div>
-                )}
+    <>
+      {/* Clean driver info card */}
+      <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
+        <div className="flex gap-4 p-4">
+          {/* Profile photo — clickable to zoom */}
+          <button
+            type="button"
+            onClick={() => photoUrl && setZoomed(true)}
+            className={`flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden border-2 bg-gray-100 dark:bg-gray-800
+              ${photoUrl ? 'border-brand-200 dark:border-brand-500/30 cursor-zoom-in hover:border-brand-400 transition-colors' : 'border-gray-200 dark:border-gray-700 cursor-default'}`}
+            title={photoUrl ? 'Click to zoom' : undefined}
+          >
+            {photoUrl ? (
+              <img src={photoUrl} alt={driver.full_name} className="w-full h-full object-cover"
+                onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <svg className="w-9 h-9 text-gray-300 dark:text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
               </div>
-            </div>
-            <div className="flex-1 min-w-0 flex flex-col justify-between gap-1 sm:gap-1.5">
+            )}
+          </button>
+
+          {/* Driver details */}
+          <div className="flex-1 min-w-0 space-y-2">
+            <div className="flex items-start justify-between gap-2">
               <div>
-                <p className="text-white font-bold text-sm leading-tight truncate">{driver.full_name}</p>
-                <p className="text-blue-300 text-[11px] font-medium mt-0.5">
-                  {driver.status === 'active' ? 'Authorised Driver' : driver.status?.toUpperCase()}
-                </p>
+                <p className="font-bold text-sm text-gray-900 dark:text-white leading-tight">{driver.full_name}</p>
+                <span className={`inline-flex items-center gap-1 mt-0.5 text-xs font-medium px-2 py-0.5 rounded-full
+                  ${driver.status === 'active'
+                    ? 'bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-400'
+                    : 'bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400'}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${driver.status === 'active' ? 'bg-green-500' : 'bg-red-500'}`} />
+                  {driver.status === 'active' ? 'Active' : driver.status}
+                </span>
               </div>
-              <CardField label="ID Card No." value={driver.id_number ?? '—'} highlight />
-              <CardField label="License No." value={driver.license_number} />
-              {driver.phone && <CardField label="Mobile" value={driver.phone} />}
             </div>
-          </div>
-          <div className="mt-3 sm:mt-4 pt-3 border-t border-white/10 flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <span className={`w-2 h-2 rounded-full flex-shrink-0 animate-pulse ${driver.status === 'active' ? 'bg-green-400' : 'bg-red-400'}`} />
-              <span className={`text-[11px] font-semibold uppercase tracking-wide ${driver.status === 'active' ? 'text-green-300' : 'text-red-300'}`}>
-                {driver.status === 'active' ? 'Active — Cleared for duty' : driver.status}
-              </span>
-            </div>
-            <div className="w-9 h-6 rounded border border-yellow-300/40"
-              style={{ background: 'linear-gradient(135deg,rgba(251,191,36,.18),rgba(251,191,36,.06))' }}>
-              <div className="w-full h-full grid grid-cols-3 gap-px p-[3px] opacity-50">
-                {Array.from({ length: 9 }).map((_, i) => <div key={i} className="bg-yellow-300/60 rounded-[1px]" />)}
+
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">ID Card No.</p>
+                <p className="text-xs font-mono font-bold text-gray-800 dark:text-white">{driver.id_number ?? '—'}</p>
               </div>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">License No.</p>
+                <p className="text-xs font-mono font-bold text-gray-800 dark:text-white">{driver.license_number ?? '—'}</p>
+              </div>
+              {driver.phone && (
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Mobile</p>
+                  <p className="text-xs font-mono text-gray-700 dark:text-gray-300">{driver.phone}</p>
+                </div>
+              )}
+              {driver.email && (
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Email</p>
+                  <p className="text-xs text-gray-700 dark:text-gray-300 truncate">{driver.email}</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
-        <div className="px-4 sm:px-5 py-2 bg-black/25 border-t border-white/10">
-          <p className="text-[9px] text-blue-300/60 tracking-[0.14em] uppercase text-center font-mono">
-            ICDV Vehicle Import &amp; Delivery Management System
-          </p>
+
+        {/* Verified bar */}
+        <div className="px-4 py-2 bg-green-50 dark:bg-green-500/5 border-t border-green-100 dark:border-green-500/10 flex items-center gap-2">
+          <svg className="w-3.5 h-3.5 text-green-600 dark:text-green-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <p className="text-xs font-semibold text-green-700 dark:text-green-400">Driver verified — cleared for transfer</p>
         </div>
       </div>
-      <div className="absolute -inset-1 rounded-2xl blur-lg -z-10 opacity-25"
-        style={{ background: 'linear-gradient(135deg,#1e3a5f,#2563a8)' }} />
-    </div>
-  );
-}
 
-function CardField({ label, value, highlight = false }: { label: string; value: string; highlight?: boolean }) {
-  return (
-    <div>
-      <p className="text-[9px] uppercase tracking-[0.12em] text-blue-300/60 font-medium leading-none mb-0.5">{label}</p>
-      <p className={`text-[12px] font-mono leading-tight truncate ${highlight ? 'text-yellow-300 font-bold tracking-wider' : 'text-white/90 font-medium'}`}>
-        {value}
-      </p>
-    </div>
+      {/* Photo lightbox */}
+      {zoomed && photoUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+          onClick={() => setZoomed(false)}
+        >
+          <div className="relative max-w-sm w-full mx-4" onClick={e => e.stopPropagation()}>
+            <img src={photoUrl} alt={driver.full_name}
+              className="w-full rounded-2xl shadow-2xl object-contain max-h-[80vh]" />
+            <div className="mt-3 text-center">
+              <p className="text-white font-semibold text-sm">{driver.full_name}</p>
+              <p className="text-white/60 text-xs mt-0.5">{driver.id_number}</p>
+            </div>
+            <button
+              onClick={() => setZoomed(false)}
+              className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white text-gray-800 flex items-center justify-center shadow-lg hover:bg-gray-100 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

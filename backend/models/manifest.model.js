@@ -2,6 +2,7 @@ const httpStatus = require('http-status');
 const { query, transaction, connQuery } = require('../config/database');
 const ApiError = require('../utils/ApiError');
 const { buildPagination } = require('../utils/paginate');
+const { getTransferRate } = require('./lookup.model');
 
 const generateManifestNumber = async (icdvId = null) => {
   const year   = new Date().getFullYear();
@@ -20,10 +21,13 @@ const createManifest = async (body, creatorId, icdvId) => {
   if (!icdvId) throw new ApiError(httpStatus.BAD_REQUEST, 'icdv_id is required');
   const { vessel_id, arrival_date, notes = null, status = 'pending' } = body;
   const manifest_number = await generateManifestNumber(icdvId);
+  // Seed transfer_rate: use body override if provided, otherwise pull global default
+  const globalRate = await getTransferRate();
+  const transfer_rate = body.transfer_rate !== undefined ? parseFloat(body.transfer_rate) : globalRate;
   const r = await query(
-    `INSERT INTO manifests (icdv_id, manifest_number, vessel_id, arrival_date, notes, status, created_by)
-     VALUES (?,?,?,?,?,?,?)`,
-    [icdvId, manifest_number, vessel_id, arrival_date, notes, status, creatorId]
+    `INSERT INTO manifests (icdv_id, manifest_number, vessel_id, arrival_date, notes, status, transfer_rate, created_by)
+     VALUES (?,?,?,?,?,?,?,?)`,
+    [icdvId, manifest_number, vessel_id, arrival_date, notes, status, transfer_rate, creatorId]
   );
   return getManifestById(r.insertId, icdvId);
 };
@@ -101,7 +105,7 @@ const getManifestById = async (id, icdvId = null) => {
 const updateManifest = async (id, body, updaterId, icdvId = null) => {
   await getManifestById(id, icdvId);
   const fields = []; const params = [];
-  const allowed = ['vessel_id', 'arrival_date', 'notes', 'status'];
+  const allowed = ['vessel_id', 'arrival_date', 'notes', 'status', 'transfer_rate'];
   for (const key of allowed) {
     if (body[key] !== undefined) { fields.push(`${key}=?`); params.push(body[key]); }
   }

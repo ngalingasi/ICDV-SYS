@@ -32,8 +32,23 @@ const getImplementer = catchAsync(async (req, res) => res.send(await lookupModel
 const updateImplementer = catchAsync(async (req, res) => res.send(await lookupModel.updateImplementer(req.params.implementerId, req.body)));
 const deleteImplementer = catchAsync(async (req, res) => { await lookupModel.deleteImplementer(req.params.implementerId); res.status(httpStatus.NO_CONTENT).send(); });
 
+// ── Transfer Rate (global system setting) ─────────────────────────────────────
+const getTransferRate = catchAsync(async (req, res) => {
+  const row = await lookupModel.getSetting('transfer_rate');
+  res.json({ setting_key: 'transfer_rate', setting_value: row?.setting_value ?? '0', rate: parseFloat(row?.setting_value ?? '0') });
+});
+
+const updateTransferRate = catchAsync(async (req, res) => {
+  const { rate } = req.body;
+  if (rate === undefined || isNaN(parseFloat(rate)) || parseFloat(rate) < 0)
+    return res.status(400).json({ message: 'rate must be a non-negative number' });
+  const row = await lookupModel.upsertSetting('transfer_rate', parseFloat(rate), req.user.user_id);
+  res.json({ setting_key: 'transfer_rate', setting_value: row.setting_value, rate: parseFloat(row.setting_value) });
+});
+
 module.exports = {
   createSector, getSectors, getSector, updateSector, deleteSector,
   createRegion, getRegions, getRegion, updateRegion, deleteRegion,
   createImplementer, getImplementers, getImplementer, updateImplementer, deleteImplementer,
+  getTransferRate, updateTransferRate,
 };

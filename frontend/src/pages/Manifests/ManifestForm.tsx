@@ -22,7 +22,7 @@ export default function ManifestForm() {
 
   const [form, setForm] = useState({
     manifest_number: '', vessel_id: sp.get('vessel_id') ?? '',
-    arrival_date: '', notes: '', status: 'pending',
+    arrival_date: '', notes: '', status: 'pending', transfer_rate: '',
   });
 
   // ICDV selector state — only used for cross-tenant users
@@ -77,6 +77,7 @@ export default function ManifestForm() {
           arrival_date:    m.arrival_date?.slice(0, 10) ?? '',
           notes:           m.notes ?? '',
           status:          m.status,
+          transfer_rate:   m.transfer_rate !== undefined ? String(m.transfer_rate) : '',
         });
         setManifestId(m.manifest_id);
         // For edit, pre-select the ICDV from manifest
@@ -130,6 +131,8 @@ export default function ManifestForm() {
         vessel_id:    Number(form.vessel_id),
         arrival_date: form.arrival_date,
         notes:        form.notes || null,
+        // Include transfer_rate if set; empty string means use global default (omit for create)
+        ...(form.transfer_rate !== '' ? { transfer_rate: parseFloat(form.transfer_rate) } : {}),
         // Include icdv_id for super/system admin so tenant middleware sets req.icdvId
         ...(isCrossTenant && selectedIcdvId ? { icdv_id: Number(selectedIcdvId) } : {}),
         ...(isEdit ? { status: form.status as import('../../types').ManifestStatus } : {}),
@@ -337,6 +340,23 @@ export default function ManifestForm() {
           <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Notes</label>
           <textarea value={form.notes} onChange={e => set('notes', e.target.value)} rows={2}
             className={`${cls} resize-none`} placeholder="Optional notes…" />
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+            Transfer Rate <span className="font-normal text-gray-400">(per vehicle — leave blank to use global default)</span>
+          </label>
+          <input
+            type="text"
+            inputMode="decimal"
+            value={form.transfer_rate}
+            onChange={e => {
+              const v = e.target.value;
+              if (v === '' || /^\d*\.?\d*$/.test(v)) set('transfer_rate', v);
+            }}
+            className={cls}
+            placeholder="e.g. 15000"
+          />
         </div>
 
         <div className="flex justify-end gap-3 pt-1">

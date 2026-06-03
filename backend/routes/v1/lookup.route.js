@@ -30,4 +30,9 @@ router.route('/implementers/:implementerId')
   .patch(auth('manageImplementers'), lookupController.updateImplementer)
   .delete(auth('manageImplementers'), lookupController.deleteImplementer);
 
+// Transfer Rate (global setting — admin/super_admin only to edit)
+router.route('/transfer-rate')
+  .get(auth(), lookupController.getTransferRate)
+  .patch(auth('manageLookups'), lookupController.updateTransferRate);
+
 module.exports = router;

@@ -99,8 +99,13 @@ function NewOrderForm({ manifestId, onCreated }: { manifestId: number; onCreated
               Litres requested
             </label>
             <input
-              type="number" step="0.1" min="1"
-              value={litres} onChange={e => setLitres(e.target.value)}
+              type="text"
+              inputMode="decimal"
+              value={litres}
+              onChange={e => {
+                const v = e.target.value;
+                if (v === '' || /^\d*\.?\d*$/.test(v)) setLitres(v);
+              }}
               onKeyDown={e => e.key === 'Enter' && submit()}
               placeholder="e.g. 500"
               autoFocus

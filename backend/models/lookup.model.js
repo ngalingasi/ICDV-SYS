@@ -93,3 +93,35 @@ module.exports = {
   createRegion, getRegions, getRegionById, updateRegion, deleteRegion,
   createImplementer, getImplementers, getImplementerById, updateImplementer, deleteImplementer,
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SYSTEM SETTINGS (global key-value store)
+// Used for: global transfer_rate default
+// ─────────────────────────────────────────────────────────────────────────────
+
+const getSetting = async (key) => {
+  const [row] = await query('SELECT * FROM system_settings WHERE setting_key=?', [key]);
+  return row ?? null;
+};
+
+const upsertSetting = async (key, value, updatedBy) => {
+  await query(
+    `INSERT INTO system_settings (setting_key, setting_value, updated_by, updated_at)
+     VALUES (?, ?, ?, NOW())
+     ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value), updated_by=VALUES(updated_by), updated_at=NOW()`,
+    [key, String(value), updatedBy]
+  );
+  return getSetting(key);
+};
+
+const getTransferRate = async () => {
+  const row = await getSetting('transfer_rate');
+  return parseFloat(row?.setting_value ?? '0');
+};
+
+module.exports = {
+  ...module.exports,
+  getSetting,
+  upsertSetting,
+  getTransferRate,
+};

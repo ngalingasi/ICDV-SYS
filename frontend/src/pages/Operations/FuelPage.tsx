@@ -173,11 +173,14 @@ export default function FuelPage() {
                 )}
               </p>
               <input
-                type="number"
-                step="0.1"
-                min="0.1"
+                type="text"
+                inputMode="decimal"
                 value={litres}
-                onChange={e => setLitres(e.target.value)}
+                onChange={e => {
+                  // Allow digits, one decimal point, and empty string only
+                  const v = e.target.value;
+                  if (v === '' || /^\d*\.?\d*$/.test(v)) setLitres(v);
+                }}
                 onKeyDown={e => e.key === 'Enter' && handleFuelNext()}
                 placeholder="e.g. 40.0"
                 className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-500"

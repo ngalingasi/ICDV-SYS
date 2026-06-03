@@ -29,6 +29,14 @@ interface DriverRow {
   chassis_numbers: string[];
 }
 
+function fmtRate(rate: number | undefined | null): string {
+  if (!rate) return '—';
+  return 'TZS ' + rate.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+function calcAmount(count: number, rate: number | undefined | null): number {
+  return count * (rate ?? 0);
+}
+
 interface BatchSection {
   batch_id:      number;
   batch_number:  string;
@@ -55,6 +63,7 @@ interface ManifestData {
     icdv_name:       string;
     total_vehicles:  number;
     total_batches:   number;
+    transfer_rate?:  number;
   };
   batches: BatchSection[];
 }
@@ -69,6 +78,7 @@ interface CombinedData {
     icdv_name:       string;
     total_vehicles:  number;
     total_batches:   number;
+    transfer_rate?:  number;
   };
   drivers:        DriverRow[];
   total_vehicles: number;
@@ -84,12 +94,14 @@ const fmtDate = (d?: string) =>
 
 function buildPrintHTML(
   batches: Array<BatchSection & { vessel_name?: string; icdv_name?: string }>,
-  meta: { icdv_name: string; vessel_name: string; manifest_number: string; printed_by: string; print_date: string; },
+  meta: { icdv_name: string; vessel_name: string; manifest_number: string; printed_by: string; print_date: string; transfer_rate?: number },
 ): string {
   const batchPages = batches.map((batch, idx) => {
     const rows = batch.drivers.length === 0
-      ? `<tr><td colspan="7" style="text-align:center;padding:16px;color:#888;">No transfer records for this batch.</td></tr>`
-      : batch.drivers.map((d, i) => `
+      ? `<tr><td colspan="9" style="text-align:center;padding:16px;color:#888;">No transfer records for this batch.</td></tr>`
+      : batch.drivers.map((d, i) => {
+          const amt = d.chassis_numbers.length * (meta.transfer_rate ?? 0);
+          return `
           <tr style="background:${i % 2 === 0 ? '#fff' : '#f9f9f9'}">
             <td style="text-align:center">${i + 1}</td>
             <td>${d.id_number || '—'}</td>
@@ -98,7 +110,10 @@ function buildPrintHTML(
             <td>${d.phone || '—'}</td>
             <td style="font-size:8pt">${d.chassis_numbers.join(' · ') || '—'}</td>
             <td style="text-align:center"><strong>${d.chassis_numbers.length}</strong></td>
-          </tr>`).join('');
+            <td style="text-align:right;font-size:8pt">TZS ${(meta.transfer_rate ?? 0).toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:0})}</td>
+            <td style="text-align:right;font-weight:700">TZS ${amt.toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:0})}</td>
+          </tr>`;
+        }).join('');
 
     return `
       <div class="page">
@@ -145,9 +160,19 @@ function buildPrintHTML(
               <th style="width:95px">Mobile</th>
               <th>Chassis Numbers</th>
               <th style="width:44px">Total</th>
+              <th style="width:75px;text-align:right">Rate</th>
+              <th style="width:90px;text-align:right">Amt to Pay</th>
             </tr>
           </thead>
           <tbody>${rows}</tbody>
+          <tfoot>
+            <tr>
+              <td colspan="6" style="text-align:right;padding-right:10px;font-size:8pt;text-transform:uppercase;letter-spacing:0.5px">Batch Total</td>
+              <td style="text-align:center;font-weight:700">${batch.drivers.reduce((s,d)=>s+d.chassis_numbers.length,0)}</td>
+              <td></td>
+              <td style="text-align:right;font-weight:700">TZS ${batch.drivers.reduce((s,d)=>s+(d.chassis_numbers.length*(meta.transfer_rate??0)),0).toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:0})}</td>
+            </tr>
+          </tfoot>
         </table>
 
         <!-- Signature -->
@@ -319,9 +344,12 @@ function buildCombinedPrintHTML(
 ): string {
   const { manifest, drivers, total_vehicles, chassis_list } = data;
 
+  const rate = parseFloat(String(data.manifest?.transfer_rate ?? 0));
   const rows = drivers.length === 0
-    ? `<tr><td colspan="7" style="text-align:center;padding:16px;color:#888;">No transfer records yet.</td></tr>`
-    : drivers.map((d, i) => `
+    ? `<tr><td colspan="9" style="text-align:center;padding:16px;color:#888;">No transfer records yet.</td></tr>`
+    : drivers.map((d, i) => {
+        const amt = d.chassis_numbers.length * rate;
+        return `
         <tr style="background:${i % 2 === 0 ? '#fff' : '#f9f9f9'}">
           <td style="text-align:center">${i + 1}</td>
           <td>${d.id_number || '—'}</td>
@@ -330,7 +358,12 @@ function buildCombinedPrintHTML(
           <td>${d.phone || '—'}</td>
           <td style="font-size:8pt">${d.chassis_numbers.join(', ') || '—'}</td>
           <td style="text-align:center"><strong>${d.chassis_numbers.length}</strong></td>
-        </tr>`).join('');
+          <td style="text-align:right;font-size:8pt">TZS ${rate.toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:0})}</td>
+          <td style="text-align:right;font-weight:700">TZS ${amt.toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:0})}</td>
+        </tr>`;
+      }).join('');
+  const totalAmountToPay = drivers.reduce((s, d) => s + d.chassis_numbers.length * rate, 0)
+    .toLocaleString(undefined, {minimumFractionDigits:0, maximumFractionDigits:0});
 
   return `<!DOCTYPE html>
 <html>
@@ -393,6 +426,7 @@ function buildCombinedPrintHTML(
       <td><span class="lbl">Arrival</span><br>${fmtDate(manifest.arrival_date)}</td>
       <td><span class="lbl">Total batches</span><br><strong>${manifest.total_batches}</strong></td>
       <td><span class="lbl">Total vehicles</span><br><strong>${total_vehicles}</strong></td>
+      <td><span class="lbl">Transfer rate</span><br><strong>TZS ${rate.toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:0})}</strong></td>
       <td><span class="lbl">Total drivers</span><br><strong>${drivers.length}</strong></td>
     </tr>
   </table>
@@ -412,6 +446,8 @@ function buildCombinedPrintHTML(
         <th style="width:95px">Mobile</th>
         <th>Chassis Numbers</th>
         <th style="width:44px">Total</th>
+        <th style="width:80px;text-align:right">Rate</th>
+        <th style="width:90px;text-align:right">Amt to Pay</th>
       </tr>
     </thead>
     <tbody>${rows}</tbody>
@@ -419,6 +455,8 @@ function buildCombinedPrintHTML(
       <tr>
         <td colspan="6" style="text-align:right;padding-right:10px;font-size:8pt;text-transform:uppercase;letter-spacing:0.5px">Grand Total</td>
         <td style="text-align:center;font-size:10pt">${total_vehicles}</td>
+        <td></td>
+        <td style="text-align:right;font-size:10pt;font-weight:700">TZS ${totalAmountToPay}</td>
       </tr>
     </tfoot>
   </table>
@@ -466,9 +504,9 @@ function printViaIframe(html: string) {
 
 // ─── Screen preview: plain table per batch ────────────────────────────────────
 
-function ScreenBatchTable({ batch, index, total, icdvName, vesselName }: {
+function ScreenBatchTable({ batch, index, total, icdvName, vesselName, transferRate }: {
   batch: BatchSection; index: number; total: number;
-  icdvName: string; vesselName: string;
+  icdvName: string; vesselName: string; transferRate: number;
 }) {
   return (
     <div style={{ marginBottom: 32, border: '1px solid #e2e8f0', borderRadius: 8, overflow: 'hidden' }}>
@@ -497,24 +535,44 @@ function ScreenBatchTable({ batch, index, total, icdvName, vesselName }: {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #e2e8f0' }}>
-                {['No.', 'Driver ID', 'License No.', 'Driver Name', 'Mobile', 'Chassis Numbers', 'Total'].map(h => (
-                  <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#64748b', letterSpacing: 0.5, whiteSpace: 'nowrap' }}>{h}</th>
+                {['No.', 'Driver ID', 'License No.', 'Driver Name', 'Mobile', 'Chassis Numbers', 'Total', 'Rate', 'Amt to Pay'].map(h => (
+                  <th key={h} style={{ padding: '8px 12px', textAlign: h === 'Rate' || h === 'Amt to Pay' ? 'right' : 'left', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#64748b', letterSpacing: 0.5, whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {batch.drivers.map((d, i) => (
-                <tr key={d.driver_id} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc', borderBottom: '1px solid #f1f5f9' }}>
-                  <td style={{ padding: '7px 12px', color: '#94a3b8', textAlign: 'center', width: 40 }}>{i + 1}</td>
-                  <td style={{ padding: '7px 12px', fontFamily: 'monospace', fontSize: 12, fontWeight: 700 }}>{d.id_number || '—'}</td>
-                  <td style={{ padding: '7px 12px', fontFamily: 'monospace', fontSize: 12, fontWeight: 700 }}>{d.license_number || '—'}</td>
-                  <td style={{ padding: '7px 12px', fontWeight: 600 }}>{d.full_name}</td>
-                  <td style={{ padding: '7px 12px', fontFamily: 'monospace', fontSize: 12 }}>{d.phone || '—'}</td>
-                  <td style={{ padding: '7px 12px', fontFamily: 'monospace', fontSize: 11, color: '#334155' }}>{d.chassis_numbers.join('  ·  ') || '—'}</td>
-                  <td style={{ padding: '7px 12px', textAlign: 'center', fontWeight: 700, color: '#0f172a' }}>{d.chassis_numbers.length}</td>
-                </tr>
-              ))}
+              {batch.drivers.map((d, i) => {
+                const bRate = parseFloat(String((batch as any).transfer_rate ?? transferRate ?? 0));
+                const amt   = d.chassis_numbers.length * bRate;
+                return (
+                  <tr key={d.driver_id} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc', borderBottom: '1px solid #f1f5f9' }}>
+                    <td style={{ padding: '7px 12px', color: '#94a3b8', textAlign: 'center', width: 40 }}>{i + 1}</td>
+                    <td style={{ padding: '7px 12px', fontFamily: 'monospace', fontSize: 12, fontWeight: 700 }}>{d.id_number || '—'}</td>
+                    <td style={{ padding: '7px 12px', fontFamily: 'monospace', fontSize: 12, fontWeight: 700 }}>{d.license_number || '—'}</td>
+                    <td style={{ padding: '7px 12px', fontWeight: 600 }}>{d.full_name}</td>
+                    <td style={{ padding: '7px 12px', fontFamily: 'monospace', fontSize: 12 }}>{d.phone || '—'}</td>
+                    <td style={{ padding: '7px 12px', fontFamily: 'monospace', fontSize: 11, color: '#334155' }}>{d.chassis_numbers.join('  ·  ') || '—'}</td>
+                    <td style={{ padding: '7px 12px', textAlign: 'center', fontWeight: 700, color: '#0f172a' }}>{d.chassis_numbers.length}</td>
+                    <td style={{ padding: '7px 12px', textAlign: 'right', fontSize: 12, color: '#64748b' }}>{fmtRate(bRate)}</td>
+                    <td style={{ padding: '7px 12px', textAlign: 'right', fontWeight: 700, color: '#0f172a' }}>{calcAmount(d.chassis_numbers.length, bRate).toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:0})}</td>
+                  </tr>
+                );
+              })}
             </tbody>
+            {batch.drivers.length > 0 && (() => {
+              const bRate = parseFloat(String((batch as any).transfer_rate ?? transferRate ?? 0));
+              const totalAmt = batch.drivers.reduce((s, d) => s + d.chassis_numbers.length * bRate, 0);
+              return (
+                <tfoot>
+                  <tr style={{ background: '#f1f5f9', borderTop: '2px solid #e2e8f0', fontWeight: 700 }}>
+                    <td colSpan={6} style={{ padding: '7px 12px', textAlign: 'right', fontSize: 11, textTransform: 'uppercase', color: '#64748b', letterSpacing: 0.5 }}>Batch Total</td>
+                    <td style={{ padding: '7px 12px', textAlign: 'center', color: '#0f172a' }}>{batch.drivers.reduce((s,d)=>s+d.chassis_numbers.length,0)}</td>
+                    <td></td>
+                    <td style={{ padding: '7px 12px', textAlign: 'right', color: '#0f172a' }}>{totalAmt.toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:0})}</td>
+                  </tr>
+                </tfoot>
+              );
+            })()}
           </table>
         </div>
       )}
@@ -532,6 +590,7 @@ function BatchModeScreen({ data }: { data: SingleBatchData }) {
       index={0} total={1}
       icdvName={batch.icdv_name || 'ICDV'}
       vesselName={batch.vessel_name || '—'}
+      transferRate={parseFloat(String((batch as any).transfer_rate ?? 0))}
     />
   );
 }
@@ -572,6 +631,7 @@ function ManifestModeScreen({ data }: { data: ManifestData }) {
             total={batches.length}
             icdvName={manifest.icdv_name || 'ICDV'}
             vesselName={manifest.vessel_name || '—'}
+            transferRate={parseFloat(String((batch as any).transfer_rate ?? manifest.transfer_rate ?? 0))}
           />
         ))
       )}
@@ -622,7 +682,7 @@ export default function DeliverySheetPage() {
   // Build print batches list from whichever mode
   const handlePrint = () => {
     let batches: Array<BatchSection & { vessel_name?: string; icdv_name?: string }> = [];
-    let meta = { icdv_name: 'ICDV', vessel_name: '—', manifest_number: '—', printed_by: printedBy, print_date: printDate };
+    let meta = { icdv_name: 'ICDV', vessel_name: '—', manifest_number: '—', printed_by: printedBy, print_date: printDate, transfer_rate: 0 };
 
     if (manifestData) {
       batches = manifestData.batches;
@@ -632,6 +692,7 @@ export default function DeliverySheetPage() {
         manifest_number: manifestData.manifest.manifest_number,
         printed_by:      printedBy,
         print_date:      printDate,
+        transfer_rate:   parseFloat(String(manifestData.manifest.transfer_rate ?? 0)),
       };
     } else if (batchData) {
       batches = [{ ...batchData.batch, drivers: batchData.drivers, max_vehicles: batchData.max_vehicles }];
@@ -641,6 +702,7 @@ export default function DeliverySheetPage() {
         manifest_number: batchData.batch.batch_number,
         printed_by:      printedBy,
         print_date:      printDate,
+        transfer_rate:   parseFloat(String((batchData.batch as any).transfer_rate ?? 0)),
       };
     }
 

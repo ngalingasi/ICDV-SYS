@@ -13,6 +13,17 @@
 const { query } = require('../config/database');
 const ApiError   = require('../utils/ApiError');
 const httpStatus = require('http-status');
+const { getTransferRate } = require('./lookup.model');
+
+/**
+ * Resolve the effective transfer rate for a manifest.
+ * Uses the manifest's own rate if > 0, otherwise falls back to the global default.
+ */
+const resolveTransferRate = async (manifestRate) => {
+  const r = parseFloat(String(manifestRate ?? 0));
+  if (r > 0) return r;
+  return getTransferRate(); // pulls from system_settings
+};
 
 // ─── Shared helper ────────────────────────────────────────────────────────────
 
@@ -88,18 +99,21 @@ const getDeliverySheetData = async (batchId, icdvId = null) => {
   const [batch] = await query(
     `SELECT b.batch_id, b.batch_number, b.batch_date, b.status,
             b.vehicle_count, b.max_vehicles,
-            vs.name AS vessel_name,
-            ic.name AS icdv_name,
-            ic.code AS icdv_code
+            vs.name  AS vessel_name,
+            ic.name  AS icdv_name,
+            ic.code  AS icdv_code,
+            m.transfer_rate
      FROM batches b
-     LEFT JOIN vessels vs ON vs.vessel_id = b.vessel_id
-     LEFT JOIN icdvs   ic ON ic.icdv_id   = b.icdv_id
+     LEFT JOIN vessels   vs ON vs.vessel_id   = b.vessel_id
+     LEFT JOIN icdvs     ic ON ic.icdv_id     = b.icdv_id
+     LEFT JOIN manifests m  ON m.manifest_id  = b.manifest_id
      ${bWhere}`,
     bParams
   );
   if (!batch) throw new ApiError(httpStatus.NOT_FOUND, 'Batch not found');
 
   const { drivers, max_vehicles } = await buildDriverRows(batchId, icdvId);
+  batch.transfer_rate = await resolveTransferRate(batch.transfer_rate);
   return { batch, drivers, max_vehicles };
 };
 
@@ -136,6 +150,7 @@ const getManifestDeliverySheet = async (manifestId, icdvId = null) => {
   const [manifest] = await query(
     `SELECT
        m.manifest_id, m.manifest_number, m.arrival_date, m.status,
+       m.transfer_rate,
        (m.manifested_count + m.discharged_count + m.batched_count
         + m.in_transit_count + m.received_count) AS total_vehicles,
        vs.name AS vessel_name,
@@ -188,7 +203,7 @@ const getManifestDeliverySheet = async (manifestId, icdvId = null) => {
   );
 
   return {
-    manifest: { ...manifest, total_batches: batchRows.length },
+    manifest: { ...manifest, total_batches: batchRows.length, transfer_rate: await resolveTransferRate(manifest.transfer_rate) },
     batches:  batchSections,
   };
 };
@@ -239,6 +254,7 @@ const getCombinedDeliverySheet = async (manifestId, icdvId = null) => {
   const [manifest] = await query(
     `SELECT
        m.manifest_id, m.manifest_number, m.arrival_date, m.status,
+       m.transfer_rate,
        (m.manifested_count + m.discharged_count + m.batched_count
         + m.in_transit_count + m.received_count) AS total_vehicles,
        vs.name AS vessel_name,
@@ -321,7 +337,7 @@ const getCombinedDeliverySheet = async (manifestId, icdvId = null) => {
   const chassisList = allChassis.join(', ');
 
   return {
-    manifest: { ...manifest, total_batches: totalBatches },
+    manifest: { ...manifest, total_batches: totalBatches, transfer_rate: await resolveTransferRate(manifest.transfer_rate) },
     drivers,
     total_vehicles: totalVehicles,
     chassis_list: chassisList,

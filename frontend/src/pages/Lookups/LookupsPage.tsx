@@ -1,13 +1,12 @@
 import { useEffect, useState, useCallback } from 'react';
-import { lookupsApi } from '../../api';
-import type { Sector, Region, Implementer } from '../../types';
+import { lookupsApi, transferRateApi } from '../../api';
+import type { Region } from '../../types';
 import Modal from '../../components/tpfcs/Modal';
-import { FormInput, FormTextArea } from '../../components/tpfcs/FormField';
+import { FormInput } from '../../components/tpfcs/FormField';
 import { toast } from '../../components/tpfcs/Toast';
+import { useAuth } from '../../store/authStore';
 
-type LookupTab = 'sectors' | 'regions' | 'implementers';
-
-// ── Defined OUTSIDE all panels to prevent remount on keystroke → focus loss ──
+type LookupTab = 'regions' | 'transfer_rate';
 
 function DeleteConfirm({ name, onConfirm, onCancel, loading }: {
   name: string; onConfirm: () => void; onCancel: () => void; loading: boolean;
@@ -22,46 +21,6 @@ function DeleteConfirm({ name, onConfirm, onCancel, loading }: {
         <button onClick={onConfirm} disabled={loading} className="px-4 py-2 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50">{loading ? 'Deleting...' : 'Delete'}</button>
       </div>
     </div>
-  );
-}
-
-function SectorForm({ form, setForm, sectors, selected, saving, error, onSubmit, onClose }: {
-  form: { name: string; parent_sector_id: string };
-  setForm: (f: any) => void;
-  sectors: Sector[];
-  selected: Sector | null;
-  saving: boolean;
-  error: string;
-  onSubmit: (e: React.FormEvent) => void;
-  onClose: () => void;
-}) {
-  return (
-    <form onSubmit={onSubmit} className="space-y-4">
-      {error && <p className="text-sm text-red-500 bg-red-50 dark:bg-red-500/10 p-3 rounded-lg">{error}</p>}
-      <FormInput
-        label="Sector Name" required
-        value={form.name}
-        onChange={e => setForm((f: any) => ({ ...f, name: e.target.value }))}
-        placeholder="e.g. Water and Sanitation"
-      />
-      <div>
-        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Parent Sector (optional)</label>
-        <select
-          value={form.parent_sector_id}
-          onChange={e => setForm((f: any) => ({ ...f, parent_sector_id: e.target.value }))}
-          className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2.5 text-sm text-gray-800 dark:text-white focus:outline-none focus:border-brand-400"
-        >
-          <option value="">None (Root sector)</option>
-          {sectors.filter(s => !selected || s.sector_id !== selected.sector_id).map(s => (
-            <option key={s.sector_id} value={s.sector_id}>{s.name}</option>
-          ))}
-        </select>
-      </div>
-      <div className="flex justify-end gap-3 pt-2">
-        <button type="button" onClick={onClose} className="px-4 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg text-gray-600 dark:text-gray-400">Cancel</button>
-        <button type="submit" disabled={saving} className="px-4 py-2 text-sm bg-brand-500 text-white rounded-lg hover:bg-brand-600 disabled:opacity-50">{saving ? 'Saving...' : 'Save'}</button>
-      </div>
-    </form>
   );
 }
 
@@ -87,136 +46,7 @@ function RegionForm({ name, setName, saving, error, onSubmit, onClose }: {
   );
 }
 
-function ImplementerForm({ form, setForm, saving, error, onSubmit, onClose }: {
-  form: { name: string; description: string };
-  setForm: (f: any) => void;
-  saving: boolean; error: string;
-  onSubmit: (e: React.FormEvent) => void; onClose: () => void;
-}) {
-  return (
-    <form onSubmit={onSubmit} className="space-y-4">
-      {error && <p className="text-sm text-red-500 bg-red-50 dark:bg-red-500/10 p-3 rounded-lg">{error}</p>}
-      <FormInput
-        label="Name" required
-        value={form.name}
-        onChange={e => setForm((f: any) => ({ ...f, name: e.target.value }))}
-        placeholder="e.g. Ministry of Water"
-      />
-      <FormTextArea
-        label="Description"
-        value={form.description}
-        onChange={e => setForm((f: any) => ({ ...f, description: e.target.value }))}
-        placeholder="Describe the implementer's role..."
-      />
-      <div className="flex justify-end gap-3 pt-2">
-        <button type="button" onClick={onClose} className="px-4 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg text-gray-600 dark:text-gray-400">Cancel</button>
-        <button type="submit" disabled={saving} className="px-4 py-2 text-sm bg-brand-500 text-white rounded-lg hover:bg-brand-600 disabled:opacity-50">{saving ? 'Saving...' : 'Save'}</button>
-      </div>
-    </form>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-
-function SectorsPanel() {
-  const [sectors,  setSectors]  = useState<Sector[]>([]);
-  const [loading,  setLoading]  = useState(true);
-  const [modal,    setModal]    = useState<'create' | 'edit' | 'delete' | null>(null);
-  const [selected, setSelected] = useState<Sector | null>(null);
-  const [form,     setForm]     = useState({ name: '', parent_sector_id: '' });
-  const [saving,   setSaving]   = useState(false);
-  const [error,    setError]    = useState('');
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try { const r = await lookupsApi.sectors(); setSectors(r.data); }
-    finally { setLoading(false); }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
-
-  const openCreate = () => { setForm({ name: '', parent_sector_id: '' }); setError(''); setModal('create'); };
-  const openEdit   = (s: Sector) => { setSelected(s); setForm({ name: s.name, parent_sector_id: s.parent_sector_id?.toString() ?? '' }); setError(''); setModal('edit'); };
-  const openDelete = (s: Sector) => { setSelected(s); setError(''); setModal('delete'); };
-  const closeModal = () => setModal(null);
-
-  const save = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.name.trim()) { setError('Name is required'); return; }
-    setSaving(true); setError('');
-    try {
-      const payload = { name: form.name, parent_sector_id: form.parent_sector_id ? Number(form.parent_sector_id) : null };
-      if (modal === 'edit' && selected) await lookupsApi.updateSector(selected.sector_id, payload);
-      else await lookupsApi.createSector(payload);
-      await load(); setModal(null);
-      toast.success(modal === 'edit' ? 'Sector updated' : 'Sector created');
-    } catch (err: any) { const m = err?.response?.data?.message ?? 'Failed to save'; setError(m); toast.error('Failed', m); }
-    finally { setSaving(false); }
-  };
-
-  const deleteSector = async () => {
-    if (!selected) return;
-    setSaving(true);
-    try { await lookupsApi.deleteSector(selected.sector_id); await load(); setModal(null); }
-    catch (err: any) { setError(err?.response?.data?.message ?? 'Failed to delete'); }
-    finally { setSaving(false); }
-  };
-
-  return (
-    <div>
-      <div className="flex justify-end mb-4">
-        <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 text-sm bg-brand-500 text-white rounded-lg hover:bg-brand-600">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-          Add Sector
-        </button>
-      </div>
-
-      {loading ? (
-        <div className="space-y-2">{Array.from({length:4}).map((_,i)=><div key={i} className="h-12 bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse" />)}</div>
-      ) : sectors.length === 0 ? (
-        <div className="text-center py-12 text-gray-400">No sectors yet</div>
-      ) : (
-        <div className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
-                <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-400">Name</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-400">Parent Sector</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-600 dark:text-gray-400">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-              {sectors.map(s => (
-                <tr key={s.sector_id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                  <td className="px-4 py-3 font-medium text-gray-800 dark:text-white">{s.name}</td>
-                  <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
-                    {s.parent_sector_id ? sectors.find(p => p.sector_id === s.parent_sector_id)?.name ?? '—' : <span className="text-xs text-gray-400">Root</span>}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex justify-end gap-2">
-                      <button onClick={() => openEdit(s)} className="px-3 py-1 text-xs text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-500/10 rounded-lg">Edit</button>
-                      <button onClick={() => openDelete(s)} className="px-3 py-1 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg">Delete</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      <Modal isOpen={modal === 'create' || modal === 'edit'} onClose={closeModal} title={modal === 'edit' ? 'Edit Sector' : 'Add Sector'}>
-        <SectorForm form={form} setForm={setForm} sectors={sectors} selected={selected} saving={saving} error={error} onSubmit={save} onClose={closeModal} />
-      </Modal>
-
-      <Modal isOpen={modal === 'delete'} onClose={closeModal} title="Delete Sector" size="sm">
-        <DeleteConfirm name={selected?.name ?? ''} onConfirm={deleteSector} onCancel={closeModal} loading={saving} />
-      </Modal>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Regions Panel ─────────────────────────────────────────────────────────────
 
 function RegionsPanel() {
   const [regions,  setRegions]  = useState<Region[]>([]);
@@ -303,7 +133,6 @@ function RegionsPanel() {
       <Modal isOpen={modal === 'create' || modal === 'edit'} onClose={closeModal} title={modal === 'edit' ? 'Edit Region' : 'Add Region'}>
         <RegionForm name={name} setName={setName} saving={saving} error={error} onSubmit={save} onClose={closeModal} />
       </Modal>
-
       <Modal isOpen={modal === 'delete'} onClose={closeModal} title="Delete Region" size="sm">
         <DeleteConfirm name={selected?.region_name ?? ''} onConfirm={deleteRegion} onCancel={closeModal} loading={saving} />
       </Modal>
@@ -311,112 +140,133 @@ function RegionsPanel() {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Transfer Rate Panel ───────────────────────────────────────────────────────
 
-function ImplementersPanel() {
-  const [items,    setItems]    = useState<Implementer[]>([]);
-  const [loading,  setLoading]  = useState(true);
-  const [modal,    setModal]    = useState<'create' | 'edit' | 'delete' | null>(null);
-  const [selected, setSelected] = useState<Implementer | null>(null);
-  const [form,     setForm]     = useState({ name: '', description: '' });
-  const [saving,   setSaving]   = useState(false);
-  const [error,    setError]    = useState('');
+function TransferRatePanel() {
+  const { user } = useAuth();
+  const [rate,    setRate]    = useState<number | null>(null);
+  const [input,   setInput]   = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving,  setSaving]  = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [error,   setError]   = useState('');
+
+  const canEdit = ['admin', 'super_admin', 'system_admin'].includes(user?.role ?? '');
 
   const load = useCallback(async () => {
     setLoading(true);
-    try { const r = await lookupsApi.implementers(); setItems(r.data); }
-    finally { setLoading(false); }
+    try {
+      const r = await transferRateApi.get();
+      setRate(r.data.rate);
+      setInput(String(r.data.rate));
+    } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
-  const closeModal = () => setModal(null);
-
-  const save = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.name.trim()) { setError('Name is required'); return; }
+  const save = async () => {
+    const val = parseFloat(input);
+    if (isNaN(val) || val < 0) { setError('Enter a valid non-negative number'); return; }
     setSaving(true); setError('');
     try {
-      if (modal === 'edit' && selected) await lookupsApi.updateImplementer(selected.implementer_id, form);
-      else await lookupsApi.createImplementer(form);
-      await load(); setModal(null);
-      toast.success(modal === 'edit' ? 'Implementer updated' : 'Implementer created');
-    } catch (err: any) { const m = err?.response?.data?.message ?? 'Failed to save'; setError(m); toast.error('Failed', m); }
-    finally { setSaving(false); }
+      const r = await transferRateApi.update(val);
+      setRate(r.data.rate);
+      setInput(String(r.data.rate));
+      setEditing(false);
+      toast.success('Transfer rate updated');
+    } catch (e: any) {
+      setError(e?.response?.data?.message ?? 'Failed to update');
+    } finally { setSaving(false); }
   };
 
-  const deleteItem = async () => {
-    if (!selected) return;
-    setSaving(true);
-    try { await lookupsApi.deleteImplementer(selected.implementer_id); await load(); setModal(null); }
-    catch (err: any) { setError(err?.response?.data?.message ?? 'Failed to delete'); }
-    finally { setSaving(false); }
-  };
+  if (loading) return (
+    <div className="space-y-3">
+      <div className="h-32 bg-gray-100 dark:bg-gray-800 rounded-xl animate-pulse" />
+    </div>
+  );
 
   return (
-    <div>
-      <div className="flex justify-end mb-4">
-        <button onClick={() => { setForm({ name: '', description: '' }); setError(''); setModal('create'); }}
-          className="flex items-center gap-2 px-4 py-2 text-sm bg-brand-500 text-white rounded-lg hover:bg-brand-600">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-          Add Implementer
-        </button>
+    <div className="max-w-xl space-y-5">
+      {/* Current rate card */}
+      <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Global Transfer Rate</p>
+            <p className="text-3xl font-bold text-gray-900 dark:text-white">
+              {rate !== null ? 'TZS ' + rate.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '—'}
+            </p>
+            <p className="text-xs text-gray-400 mt-1">TZS per vehicle · applied to all manifests by default</p>
+          </div>
+          <div className="w-12 h-12 rounded-xl bg-brand-50 dark:bg-brand-500/10 flex items-center justify-center flex-shrink-0">
+            <svg className="w-6 h-6 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" />
+            </svg>
+          </div>
+        </div>
+
+        {canEdit && !editing && (
+          <button
+            onClick={() => { setInput(String(rate ?? 0)); setEditing(true); setError(''); }}
+            className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+            Edit Rate
+          </button>
+        )}
+
+        {canEdit && editing && (
+          <div className="mt-4 space-y-3 pt-4 border-t border-gray-100 dark:border-gray-800">
+            <p className="text-xs font-medium text-gray-500 dark:text-gray-400">New rate per vehicle (TZS)</p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                inputMode="decimal"
+                value={input}
+                onChange={e => {
+                  const v = e.target.value;
+                  if (v === '' || /^\d*\.?\d*$/.test(v)) setInput(v);
+                }}
+                onKeyDown={e => e.key === 'Enter' && save()}
+                autoFocus
+                className="flex-1 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                placeholder="e.g. 15000"
+              />
+              <button onClick={save} disabled={saving}
+                className="px-4 py-2.5 bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors">
+                {saving ? 'Saving…' : 'Save'}
+              </button>
+              <button onClick={() => { setEditing(false); setError(''); }}
+                className="px-3 py-2.5 border border-gray-200 dark:border-gray-700 text-sm text-gray-500 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                Cancel
+              </button>
+            </div>
+            {error && <p className="text-xs text-red-500">{error}</p>}
+          </div>
+        )}
+
+        {!canEdit && (
+          <p className="mt-3 text-xs text-gray-400 italic">Only admins can change the global transfer rate.</p>
+        )}
       </div>
 
-      {loading ? (
-        <div className="space-y-2">{Array.from({length:4}).map((_,i)=><div key={i} className="h-16 bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse" />)}</div>
-      ) : items.length === 0 ? (
-        <div className="text-center py-12 text-gray-400">No implementers yet</div>
-      ) : (
-        <div className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
-                <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-400">Name</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-400">Description</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-600 dark:text-gray-400">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-              {items.map(i => (
-                <tr key={i.implementer_id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                  <td className="px-4 py-3 font-medium text-gray-800 dark:text-white">{i.name}</td>
-                  <td className="px-4 py-3 text-gray-500 dark:text-gray-400 max-w-xs truncate">{i.description ?? '—'}</td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex justify-end gap-2">
-                      <button onClick={() => { setSelected(i); setForm({ name: i.name, description: i.description ?? '' }); setError(''); setModal('edit'); }}
-                        className="px-3 py-1 text-xs text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-500/10 rounded-lg">Edit</button>
-                      <button onClick={() => { setSelected(i); setError(''); setModal('delete'); }}
-                        className="px-3 py-1 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg">Delete</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      <Modal isOpen={modal === 'create' || modal === 'edit'} onClose={closeModal} title={modal === 'edit' ? 'Edit Implementer' : 'Add Implementer'}>
-        <ImplementerForm form={form} setForm={setForm} saving={saving} error={error} onSubmit={save} onClose={closeModal} />
-      </Modal>
-
-      <Modal isOpen={modal === 'delete'} onClose={closeModal} title="Delete Implementer" size="sm">
-        <DeleteConfirm name={selected?.name ?? ''} onConfirm={deleteItem} onCancel={closeModal} loading={saving} />
-      </Modal>
+      {/* Info box */}
+      <div className="rounded-xl border border-blue-100 dark:border-blue-500/20 bg-blue-50 dark:bg-blue-500/5 p-4 text-sm text-blue-700 dark:text-blue-300 space-y-1">
+        <p className="font-semibold text-xs uppercase tracking-wide text-blue-500 dark:text-blue-400">How it works</p>
+        <p>This global rate is automatically applied to every new manifest as its default transfer rate.</p>
+        <p>Each manifest can then have its rate overridden individually on the manifest edit page.</p>
+        <p>The delivery sheet uses the manifest's rate to calculate <strong>Amount to Pay</strong> per driver (vehicles × rate in TZS).</p>
+      </div>
     </div>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function LookupsPage() {
-  const [tab, setTab] = useState<LookupTab>('sectors');
+  const [tab, setTab] = useState<LookupTab>('regions');
 
   const TABS: { key: LookupTab; label: string }[] = [
-    { key: 'sectors',      label: 'Sectors' },
-    { key: 'regions',      label: 'Regions' },
-    { key: 'implementers', label: 'Implementers' },
+    { key: 'regions',       label: 'Regions' },
+    { key: 'transfer_rate', label: 'Transfer Rate' },
   ];
 
   return (
@@ -426,7 +276,7 @@ export default function LookupsPage() {
       <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700">
         {TABS.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
               tab === t.key
                 ? 'border-brand-500 text-brand-600 dark:text-brand-400'
                 : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
@@ -436,9 +286,8 @@ export default function LookupsPage() {
         ))}
       </div>
 
-      {tab === 'sectors'      && <SectorsPanel />}
-      {tab === 'regions'      && <RegionsPanel />}
-      {tab === 'implementers' && <ImplementersPanel />}
+      {tab === 'regions'       && <RegionsPanel />}
+      {tab === 'transfer_rate' && <TransferRatePanel />}
     </div>
   );
 }
