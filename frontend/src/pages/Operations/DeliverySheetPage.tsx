@@ -755,6 +755,45 @@ export default function DeliverySheetPage() {
     </div>
   );
 
+  // ── Export to CSV ────────────────────────────────────────────────────────────
+  const handleExport = () => {
+    const rate      = manifestData ? parseFloat(String(manifestData.manifest.transfer_rate ?? 0))
+                                   : parseFloat(String((batchData?.batch as any)?.transfer_rate ?? 0));
+    const rows: string[][] = [];
+    const batches = manifestData
+      ? manifestData.batches
+      : batchData ? [{ ...batchData.batch, drivers: batchData.drivers }] : [];
+
+    rows.push(['Batch', 'Driver Name', 'Driver ID', 'License No.', 'Mobile', 'Chassis Numbers', 'Vehicle Count', 'Rate (TZS)', 'Amount to Pay (TZS)']);
+
+    for (const batch of batches as any[]) {
+      for (const d of (batch.drivers ?? [])) {
+        const count  = d.chassis_numbers?.length ?? 0;
+        const amount = count * rate;
+        rows.push([
+          batch.batch_number ?? '',
+          d.full_name        ?? '',
+          d.id_number        ?? '',
+          d.license_number   ?? '',
+          d.phone            ?? '',
+          (d.chassis_numbers ?? []).join(', '),
+          String(count),
+          String(rate),
+          String(amount),
+        ]);
+      }
+    }
+
+    const csv = rows.map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `delivery-sheet-${manifestData?.manifest.manifest_number ?? batchData?.batch.batch_number ?? 'export'}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div style={{ fontFamily: 'Arial, sans-serif' }}>
       {/* Toolbar */}
@@ -783,6 +822,14 @@ export default function DeliverySheetPage() {
               Print Combined ({combinedData.total_vehicles} vehicles)
             </button>
           )}
+          <button
+            onClick={handleExport}
+            style={{ background: '#15803d', color: '#fff', border: 'none', padding: '9px 20px', borderRadius: 6, fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6 }}
+            title="Export driver list to CSV"
+          >
+            <svg style={{ width: 15, height: 15 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+            Export CSV
+          </button>
         </div>
       </div>
 

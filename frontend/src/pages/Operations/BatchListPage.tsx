@@ -13,7 +13,20 @@ const PrintIcon = () => (
   </svg>
 );
 
-// ── Batch List ────────────────────────────────────────────────────────────────
+// ── Date formatter ────────────────────────────────────────────────────────────
+const fmtDate = (d?: string | null) => {
+  if (!d) return '—';
+  const parsed = new Date(d);
+  if (isNaN(parsed.getTime())) return d; // fallback for already-formatted strings
+  return parsed.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
+const fmtDateTime = (d?: string | null) => {
+  if (!d) return '—';
+  const parsed = new Date(d);
+  if (isNaN(parsed.getTime())) return d;
+  return parsed.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+};
 export function BatchListPage() {
   const [batches,  setBatches]  = useState<any[]>([]);
   const [total,    setTotal]    = useState(0);
@@ -80,7 +93,7 @@ export function BatchListPage() {
                       <tr key={b.batch_id} className="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
                         <td className="px-4 py-3 font-mono text-xs font-semibold text-gray-800 dark:text-white whitespace-nowrap">{b.batch_number}</td>
                         <td className="px-4 py-3 text-gray-700 dark:text-gray-300 whitespace-nowrap">{b.vessel_name}</td>
-                        <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">{b.batch_date}</td>
+                        <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">{fmtDateTime(b.created_at)}</td>
                         <td className="px-4 py-3 text-center whitespace-nowrap">
                           <span className="font-semibold text-gray-800 dark:text-white">{b.vehicle_count}</span>
                           <span className="text-gray-400">/{b.max_vehicles}</span>
@@ -231,7 +244,7 @@ function StatusRow({ type, currentVal, remark, updatedBy, updatedAt, saving, onS
         <div className="flex items-center gap-3 flex-shrink-0">
           {updatedBy && updatedAt && (
             <span className="hidden sm:block text-[10px] text-gray-400 dark:text-gray-500 whitespace-nowrap">
-              by {updatedBy} · {new Date(updatedAt).toLocaleDateString()}
+              by {updatedBy} · {fmtDateTime(updatedAt)}
             </span>
           )}
           {!editing && (
@@ -356,9 +369,7 @@ export function BatchPrintPage() {
   if (!data) return null;
 
   const { batch, vehicles, printed_at } = data;
-  const printedDate = new Date(printed_at).toLocaleString('en-GB', {
-    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
-  });
+  const printedDate = fmtDateTime(printed_at);
 
   return (
     <>
@@ -410,7 +421,7 @@ export function BatchPrintPage() {
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Date</p>
-              <p className="text-base font-semibold text-gray-800">{batch.batch_date}</p>
+              <p className="text-base font-semibold text-gray-800">{fmtDateTime(batch.created_at)}</p>
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Vehicles</p>
@@ -526,6 +537,32 @@ export function BatchDetailPage() {
     } finally { setGcSaving(false); }
   };
 
+  const handleExportCSV = () => {
+    const vehicles: any[] = batch?.vehicles ?? [];
+    const rows: string[][] = [['No.', 'Chassis Number', 'Brand', 'Model', 'Color', 'Workflow Status', 'Location', 'Release Status', 'Customer']];
+    vehicles.forEach((v, i) => {
+      rows.push([
+        String(i + 1),
+        v.chassis_number     ?? '',
+        v.brand              ?? '',
+        v.model              ?? '',
+        v.color              ?? '',
+        v.workflow_status    ?? '',
+        v.current_location   ?? '',
+        v.release_status     ?? '',
+        v.customer_name      ?? '',
+      ]);
+    });
+    const csv  = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `batch-${batch?.batch_number ?? batchId}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   if (loading) return (
     <div className="space-y-4 p-1">
       {Array.from({length:4}).map((_,i) => <div key={i} className="h-10 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />)}
@@ -544,7 +581,7 @@ export function BatchDetailPage() {
             {batch.batch_number}
           </h1>
           <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-            {batch.vessel_name} · {batch.batch_date}
+            {batch.vessel_name} · {fmtDateTime(batch.created_at)}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
@@ -568,6 +605,16 @@ export function BatchDetailPage() {
               <PrintIcon /> Print Delivery Sheet
             </a>
           )}
+          <button
+            onClick={handleExportCSV}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors whitespace-nowrap"
+            title="Export batch vehicles to CSV"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Export CSV
+          </button>
           <StatusBadge status={batch.status} />
         </div>
       </div>
@@ -577,7 +624,7 @@ export function BatchDetailPage() {
         {[
           { label: 'Vehicles', value: `${batch.vehicle_count} / ${batch.max_vehicles}` },
           { label: 'Status',   value: batch.status },
-          { label: 'Date',     value: batch.batch_date },
+          { label: 'Created',  value: fmtDateTime(batch.created_at) },
         ].map(s => (
           <div key={s.label} className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-3 sm:p-4 text-center">
             <p className="text-sm sm:text-lg font-bold text-gray-900 dark:text-white break-words">{s.value}</p>

@@ -157,7 +157,10 @@ export default function ManifestDetail() {
 
       {/* Workflow funnel */}
       <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5">
-        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Workflow Progress</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Vehicle Status Breakdown</h2>
+          <span className="text-xs text-gray-400">{total} vehicles total</span>
+        </div>
         <div className="grid grid-cols-5 gap-2 mb-4">
           {STEPS.map((step, i) => {
             const val: number = m[step.key] ?? 0;
@@ -173,13 +176,14 @@ export default function ManifestDetail() {
         <div className="space-y-1.5">
           {STEPS.map(step => {
             const val: number = m[step.key] ?? 0;
+            const p = pct(val);
             return (
               <div key={step.key} className="flex items-center gap-3">
                 <span className="w-20 text-[11px] text-gray-500 dark:text-gray-400 shrink-0">{step.label}</span>
                 <div className="flex-1 h-2 rounded-full bg-gray-100 dark:bg-gray-800">
-                  <div className={`h-2 rounded-full ${step.bar} transition-all`} style={{ width: `${pct(val)}%` }} />
+                  <div className={`h-2 rounded-full ${step.bar} transition-all`} style={{ width: `${p}%` }} />
                 </div>
-                <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300 w-8 text-right">{val}</span>
+                <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300 w-16 text-right">{val} ({p}%)</span>
               </div>
             );
           })}

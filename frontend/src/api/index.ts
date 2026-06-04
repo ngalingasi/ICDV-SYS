@@ -8,8 +8,9 @@ export { authApi } from './auth';
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 export const dashboardApi = {
-  get:           () => client.get<DashboardData>('/dashboard'),
-  vehicleStatus: () => client.get('/dashboard/vehicle-status'),
+  get:             ()                   => client.get<DashboardData>('/dashboard'),
+  vehicleStatus:   ()                   => client.get('/dashboard/vehicle-status'),
+  manifest:        (manifestId: number) => client.get(`/dashboard/manifest/${manifestId}`),
 };
 
 // ── ICDVs — Super Admin only ──────────────────────────────────────────────────

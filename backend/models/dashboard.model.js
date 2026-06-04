@@ -1,4 +1,6 @@
-const { query } = require('../config/database');
+const { query }  = require('../config/database');
+const ApiError   = require('../utils/ApiError');
+const httpStatus = require('http-status');
 
 // Schema:
 // vessels:          vessel_id, icdv_id, name, imo_number, vessel_type, country_of_origin, status
@@ -139,4 +141,72 @@ const getVehicleStatusSummary = async (icdvId = null) => {
     sp);
 };
 
-module.exports = { getDashboardStats, getVehicleStatusSummary };
+/**
+ * getManifestDashboardStats — all stats scoped to a single manifest.
+ * Used by the manifest selector on the dashboard.
+ */
+const getManifestDashboardStats = async (manifestId, icdvId = null) => {
+  const mWhere  = icdvId ? 'WHERE manifest_id=? AND icdv_id=?' : 'WHERE manifest_id=?';
+  const mParams = icdvId ? [manifestId, icdvId] : [manifestId];
+
+  // Validate manifest exists + belongs to icdv
+  const [manifest] = await query(
+    `SELECT m.*, v.name AS vessel_name, ic.name AS icdv_name
+     FROM manifests m
+     LEFT JOIN vessels v  ON v.vessel_id = m.vessel_id
+     LEFT JOIN icdvs   ic ON ic.icdv_id  = m.icdv_id
+     WHERE m.manifest_id=?${icdvId ? ' AND m.icdv_id=?' : ''}`,
+    icdvId ? [manifestId, icdvId] : [manifestId]
+  );
+  if (!manifest) throw new ApiError(httpStatus.NOT_FOUND, 'Manifest not found');
+
+  const [
+    vehicles, workflow, fuel, batches,
+  ] = await Promise.all([
+    // Vehicle counts by workflow status
+    query(
+      `SELECT workflow_status, COUNT(*) AS count
+       FROM vehicles ${mWhere} GROUP BY workflow_status`,
+      mParams
+    ),
+    // Release status
+    query(
+      `SELECT release_status, COUNT(*) AS count
+       FROM vehicles ${mWhere} GROUP BY release_status`,
+      mParams
+    ),
+    // Fuel stock if exists
+    query(
+      `SELECT fuel_type, total_ordered, total_dispensed, current_stock
+       FROM manifest_fuel_stock WHERE manifest_id=?`,
+      [manifestId]
+    ),
+    // Batch summary
+    query(
+      `SELECT b.batch_id, b.batch_number, b.status, b.vehicle_count
+       FROM batches b WHERE b.manifest_id=? ORDER BY b.created_at DESC`,
+      [manifestId]
+    ),
+  ]);
+
+  // Build workflow map
+  const workflowMap = {};
+  let totalVehicles = 0;
+  for (const row of vehicles) {
+    workflowMap[row.workflow_status] = Number(row.count);
+    totalVehicles += Number(row.count);
+  }
+
+  return {
+    manifest,
+    total_vehicles:    totalVehicles,
+    workflow:          workflowMap,
+    workflow_steps:    vehicles,
+    release_breakdown: workflow,
+    fuel_stock:        fuel,
+    batches,
+    batch_count:       (batches).length,
+  };
+};
+
+module.exports = { getDashboardStats, getVehicleStatusSummary, getManifestDashboardStats };
