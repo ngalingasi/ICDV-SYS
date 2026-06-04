@@ -135,7 +135,7 @@ export default function IncidentDetailPage() {
 
       {/* Photo lightbox */}
       {zoomed && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm" onClick={() => setZoomed(null)}>
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/80 backdrop-blur-sm" onClick={() => setZoomed(null)}>
           <div className="relative max-w-lg w-full mx-4" onClick={e => e.stopPropagation()}>
             <img src={zoomed} className="w-full rounded-xl shadow-2xl max-h-[80vh] object-contain" />
             <button onClick={() => setZoomed(null)}

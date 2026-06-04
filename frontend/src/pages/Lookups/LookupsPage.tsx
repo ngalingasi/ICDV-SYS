@@ -1,12 +1,12 @@
 import { useEffect, useState, useCallback } from 'react';
-import { lookupsApi, transferRateApi } from '../../api';
+import { lookupsApi, transferRateApi, incidentApi } from '../../api';
 import type { Region } from '../../types';
 import Modal from '../../components/tpfcs/Modal';
 import { FormInput } from '../../components/tpfcs/FormField';
 import { toast } from '../../components/tpfcs/Toast';
 import { useAuth } from '../../store/authStore';
 
-type LookupTab = 'regions' | 'transfer_rate';
+type LookupTab = 'regions' | 'transfer_rate' | 'incident_types';
 
 function DeleteConfirm({ name, onConfirm, onCancel, loading }: {
   name: string; onConfirm: () => void; onCancel: () => void; loading: boolean;
@@ -259,14 +259,174 @@ function TransferRatePanel() {
   );
 }
 
+// ── Incident Types Panel ──────────────────────────────────────────────────────
+
+function IncidentTypesPanel() {
+  const { user } = useAuth();
+  const [types,   setTypes]   = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [modal,   setModal]   = useState<'create' | 'edit' | 'delete' | null>(null);
+  const [sel,     setSel]     = useState<any>(null);
+  const [name,    setName]    = useState('');
+  const [sortOrd, setSortOrd] = useState('0');
+  const [active,  setActive]  = useState(true);
+  const [saving,  setSaving]  = useState(false);
+  const [error,   setError]   = useState('');
+
+  const canManage = ['admin', 'super_admin', 'system_admin'].includes(user?.role ?? '');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try { const r = await incidentApi.types(); setTypes(r.data); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const openCreate = () => { setName(''); setSortOrd('0'); setActive(true); setError(''); setModal('create'); };
+  const openEdit   = (t: any) => { setSel(t); setName(t.name); setSortOrd(String(t.sort_order ?? 0)); setActive(!!t.is_active); setError(''); setModal('edit'); };
+  const openDelete = (t: any) => { setSel(t); setError(''); setModal('delete'); };
+  const closeModal = () => setModal(null);
+
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) { setError('Name is required'); return; }
+    setSaving(true); setError('');
+    try {
+      if (modal === 'edit' && sel) {
+        await incidentApi.updateType(sel.type_id, { name: name.trim(), sort_order: Number(sortOrd), is_active: active });
+      } else {
+        await incidentApi.createType({ name: name.trim(), sort_order: Number(sortOrd) });
+      }
+      await load(); setModal(null);
+    } catch (err: any) { setError(err?.response?.data?.message ?? 'Failed to save'); }
+    finally { setSaving(false); }
+  };
+
+  const deactivate = async () => {
+    if (!sel) return;
+    setSaving(true);
+    try {
+      await incidentApi.updateType(sel.type_id, { is_active: 0 });
+      await load(); setModal(null);
+    } catch (err: any) { setError(err?.response?.data?.message ?? 'Failed'); }
+    finally { setSaving(false); }
+  };
+
+  const SEVERITY_DOT: Record<string, string> = {};
+
+  return (
+    <div>
+      {canManage && (
+        <div className="flex justify-end mb-4">
+          <button onClick={openCreate}
+            className="flex items-center gap-2 px-4 py-2 text-sm bg-brand-500 text-white rounded-lg hover:bg-brand-600">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+            Add Type
+          </button>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="space-y-2">{Array.from({length:6}).map((_,i)=><div key={i} className="h-12 bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse"/>)}</div>
+      ) : types.length === 0 ? (
+        <div className="text-center py-12 text-gray-400">No incident types yet</div>
+      ) : (
+        <div className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
+                <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-400">Name</th>
+                <th className="px-4 py-3 text-center font-medium text-gray-600 dark:text-gray-400">Order</th>
+                <th className="px-4 py-3 text-center font-medium text-gray-600 dark:text-gray-400">Status</th>
+                {canManage && <th className="px-4 py-3 text-right font-medium text-gray-600 dark:text-gray-400">Actions</th>}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+              {types.map(t => (
+                <tr key={t.type_id} className={`hover:bg-gray-50 dark:hover:bg-gray-800/50 ${!t.is_active ? 'opacity-50' : ''}`}>
+                  <td className="px-4 py-3 font-medium text-gray-800 dark:text-white">{t.name}</td>
+                  <td className="px-4 py-3 text-center text-gray-500 dark:text-gray-400">{t.sort_order}</td>
+                  <td className="px-4 py-3 text-center">
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${t.is_active ? 'bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
+                      {t.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
+                  {canManage && (
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex justify-end gap-2">
+                        <button onClick={() => openEdit(t)}
+                          className="px-3 py-1 text-xs text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-500/10 rounded-lg">Edit</button>
+                        {t.is_active && (
+                          <button onClick={() => openDelete(t)}
+                            className="px-3 py-1 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg">Deactivate</button>
+                        )}
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Create / Edit modal */}
+      <Modal isOpen={modal === 'create' || modal === 'edit'} onClose={closeModal} title={modal === 'edit' ? 'Edit Incident Type' : 'Add Incident Type'}>
+        <form onSubmit={save} className="space-y-4">
+          {error && <p className="text-sm text-red-500 bg-red-50 dark:bg-red-500/10 p-3 rounded-lg">{error}</p>}
+          <div>
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 block">Name *</label>
+            <input value={name} onChange={e => setName(e.target.value)} autoFocus required
+              placeholder="e.g. Tyre Puncture"
+              className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-500" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 block">Sort Order</label>
+            <input type="number" value={sortOrd} onChange={e => setSortOrd(e.target.value)} min="0"
+              className="w-24 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-500" />
+            <p className="text-xs text-gray-400 mt-1">Lower numbers appear first</p>
+          </div>
+          {modal === 'edit' && (
+            <div className="flex items-center gap-2">
+              <input type="checkbox" id="activeCheck" checked={active} onChange={e => setActive(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500" />
+              <label htmlFor="activeCheck" className="text-sm text-gray-700 dark:text-gray-300">Active (visible in incident form)</label>
+            </div>
+          )}
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" onClick={closeModal} className="px-4 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg text-gray-600 dark:text-gray-400">Cancel</button>
+            <button type="submit" disabled={saving} className="px-4 py-2 text-sm bg-brand-500 text-white rounded-lg hover:bg-brand-600 disabled:opacity-50">{saving ? 'Saving…' : 'Save'}</button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Deactivate confirm */}
+      <Modal isOpen={modal === 'delete'} onClose={closeModal} title="Deactivate Type" size="sm">
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Deactivate <strong className="text-gray-800 dark:text-white">"{sel?.name}"</strong>? It will be hidden from the incident form but existing records will keep the type.
+          </p>
+          {error && <p className="text-xs text-red-500">{error}</p>}
+          <div className="flex justify-end gap-3">
+            <button onClick={closeModal} className="px-4 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg text-gray-600 dark:text-gray-400">Cancel</button>
+            <button onClick={deactivate} disabled={saving} className="px-4 py-2 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50">{saving ? 'Deactivating…' : 'Deactivate'}</button>
+          </div>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function LookupsPage() {
   const [tab, setTab] = useState<LookupTab>('regions');
 
   const TABS: { key: LookupTab; label: string }[] = [
-    { key: 'regions',       label: 'Regions' },
-    { key: 'transfer_rate', label: 'Transfer Rate' },
+    { key: 'regions',        label: 'Regions' },
+    { key: 'incident_types', label: 'Incident Types' },
+    { key: 'transfer_rate',  label: 'Transfer Rate' },
   ];
 
   return (
@@ -286,8 +446,9 @@ export default function LookupsPage() {
         ))}
       </div>
 
-      {tab === 'regions'       && <RegionsPanel />}
-      {tab === 'transfer_rate' && <TransferRatePanel />}
+      {tab === 'regions'        && <RegionsPanel />}
+      {tab === 'incident_types' && <IncidentTypesPanel />}
+      {tab === 'transfer_rate'  && <TransferRatePanel />}
     </div>
   );
 }

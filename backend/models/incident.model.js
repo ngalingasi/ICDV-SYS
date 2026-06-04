@@ -196,7 +196,9 @@ const listIncidents = async ({ page = 1, limit = 20, status, severity, type_id, 
        v.chassis_number, v.brand, v.model,
        ic.name   AS icdv_name,
        u1.full_name AS reported_by_name,
-       i.driver_snapshot
+       i.driver_snapshot,
+       (SELECT COUNT(*) FROM incident_attachments ia WHERE ia.incident_id = i.incident_id) AS attachment_count,
+       (SELECT ia2.file_path FROM incident_attachments ia2 WHERE ia2.incident_id = i.incident_id AND ia2.mime_type LIKE 'image/%' ORDER BY ia2.uploaded_at LIMIT 1) AS first_image_path
      FROM incidents i
      LEFT JOIN incident_types it ON it.type_id   = i.type_id
      LEFT JOIN vehicles       v  ON v.vehicle_id = i.vehicle_id

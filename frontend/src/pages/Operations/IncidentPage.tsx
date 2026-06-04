@@ -56,8 +56,20 @@ function ReportForm({ onReported }: { onReported: () => void }) {
   };
 
   const handleFilePick = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const picked = Array.from(e.target.files ?? []).slice(0, 3);
-    setFiles(picked);
+    const picked = Array.from(e.target.files ?? []);
+    setFiles(prev => {
+      const merged = [...prev, ...picked];
+      // deduplicate by name+size, cap at 3
+      const seen = new Set<string>();
+      return merged.filter(f => {
+        const key = `${f.name}-${f.size}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      }).slice(0, 3);
+    });
+    // reset input so same file can be re-picked after removal
+    e.target.value = '';
   };
 
   const removeFile = (i: number) => setFiles(f => f.filter((_, idx) => idx !== i));
@@ -327,7 +339,7 @@ function IncidentList({ refreshKey }: { refreshKey: number }) {
 
       {/* Resolve modal */}
       {resolveId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-5 w-full max-w-sm mx-4 space-y-4">
             <p className="text-sm font-semibold text-gray-800 dark:text-white">Resolve Incident</p>
             <textarea value={resNotes} onChange={e => setResNotes(e.target.value)} rows={3}
@@ -376,6 +388,26 @@ function IncidentList({ refreshKey }: { refreshKey: number }) {
                         {' · by '}{inc.reported_by_name}
                       </p>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-1">{inc.description}</p>
+                      {/* Show full attachments by linking to detail page */}
+                      <Link to={`/incidents/${inc.incident_id}`} className="text-xs text-brand-500 hover:text-brand-600 mt-0.5 block">
+                        View details →
+                      </Link>
+                      {inc.attachment_count > 0 && (
+                        <div className="flex items-center gap-2 mt-1.5">
+                          {inc.first_image_path && (
+                            <Link to={`/incidents/${inc.incident_id}`}>
+                              <img
+                                src={`${API_BASE}${inc.first_image_path}`}
+                                alt="evidence"
+                                className="w-10 h-10 object-cover rounded-lg border border-gray-200 dark:border-gray-700 hover:opacity-80 transition-opacity"
+                              />
+                            </Link>
+                          )}
+                          <span className="text-[10px] text-gray-400">
+                            {inc.attachment_count} evidence file{inc.attachment_count > 1 ? 's' : ''}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                   {canManage && inc.status !== 'resolved' && (
