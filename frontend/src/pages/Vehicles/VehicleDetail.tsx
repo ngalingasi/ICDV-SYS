@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { vehiclesApi, workflowApi } from '../../api';
+import { vehiclesApi, workflowApi, incidentApi } from '../../api';
 import type { Vehicle } from '../../types';
 import StatusBadge from '../../components/tpfcs/StatusBadge';
 import { WorkflowProgress } from '../../components/tpfcs/WorkflowCard';
@@ -20,7 +20,9 @@ export default function VehicleDetail() {
   const navigate  = useNavigate();
   const [vehicle,    setVehicle]    = useState<Vehicle | null>(null);
   const [history,    setHistory]    = useState<any[]>([]);
+  const [incidents,  setIncidents]  = useState<any[]>([]);
   const [loading,    setLoading]    = useState(true);
+  const [activeTab,  setActiveTab]  = useState<'history' | 'incidents'>('history');
   const [deleting,   setDeleting]   = useState(false);
   const [showDel,    setShowDel]    = useState(false);
 
@@ -29,9 +31,11 @@ export default function VehicleDetail() {
     Promise.all([
       vehiclesApi.get(Number(id)),
       workflowApi.getHistory(Number(id)),  // workflow audit log
-    ]).then(([vr, hr]) => {
+      incidentApi.forVehicle(Number(id)), // incident history
+    ]).then(([vr, hr, ir]) => {
       setVehicle(vr.data);
       setHistory(hr.data ?? []);
+      setIncidents(ir.data ?? []);
     }).catch(() => {
       // If workflow history fails (vehicle never went through workflow), just load vehicle
       vehiclesApi.get(Number(id)).then(vr => setVehicle(vr.data));
@@ -138,7 +142,61 @@ export default function VehicleDetail() {
         </dl>
       </div>
 
+      {/* Tabs: History + Incidents */}
+      <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700">
+        {([['history', 'Operation History'], ['incidents', `Incidents${incidents.length ? ` (${incidents.length})` : ''}`]] as const).map(([key, label]) => (
+          <button key={key} onClick={() => setActiveTab(key)}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors
+              ${activeTab === key ? 'border-brand-500 text-brand-600 dark:text-brand-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Incidents tab */}
+      {activeTab === 'incidents' && (
+        <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Incident History</h2>
+            <Link to="/incidents" className="text-xs text-brand-500 hover:text-brand-600">Report incident →</Link>
+          </div>
+          {incidents.length === 0 ? (
+            <p className="text-sm text-gray-400 italic text-center py-8">No incidents recorded for this vehicle</p>
+          ) : (
+            <div className="space-y-3">
+              {incidents.map((inc: any) => (
+                <div key={inc.incident_id} className="rounded-lg border border-gray-100 dark:border-gray-800 p-3">
+                  <div className="flex items-start gap-2 flex-wrap">
+                    <Link to={`/incidents/${inc.incident_id}`} className="text-sm font-semibold text-gray-800 dark:text-white hover:text-brand-600">
+                      {inc.incident_type_name}
+                    </Link>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium capitalize
+                      ${inc.status === 'resolved' ? 'bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-400' :
+                        inc.status === 'acknowledged' ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400' :
+                        'bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400'}`}>{inc.status}</span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium capitalize
+                      ${inc.severity === 'critical' ? 'bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400' :
+                        inc.severity === 'high' ? 'bg-orange-50 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400' :
+                        inc.severity === 'medium' ? 'bg-yellow-50 dark:bg-yellow-500/10 text-yellow-700 dark:text-yellow-400' :
+                        'bg-gray-100 dark:bg-gray-800 text-gray-500'}`}>{inc.severity}</span>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{inc.description}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {new Date(inc.reported_at).toLocaleString('en-GB', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })}
+                    {inc.reported_by_name ? ` · ${inc.reported_by_name}` : ''}
+                  </p>
+                  {inc.resolution_notes && (
+                    <p className="text-xs text-gray-400 mt-1.5 italic border-t border-gray-100 dark:border-gray-800 pt-1.5">Resolution: {inc.resolution_notes}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Workflow history timeline */}
+      {activeTab === 'history' && (
       <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
         <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800">
           <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Operation History</h2>
@@ -196,6 +254,7 @@ export default function VehicleDetail() {
           </div>
         )}
       </div>
+      )}
 
       {/* Delete confirmation */}
       {showDel && (

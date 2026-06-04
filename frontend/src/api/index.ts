@@ -371,3 +371,17 @@ export const transferRateApi = {
   get:    ()              => client.get('/lookups/transfer-rate'),
   update: (rate: number)  => client.patch('/lookups/transfer-rate', { rate }),
 };
+
+// ── Incidents ─────────────────────────────────────────────────────────────────
+export const incidentApi = {
+  types:        ()                        => client.get('/incidents/types'),
+  createType:   (data: any)               => client.post('/incidents/types', data),
+  updateType:   (id: number, data: any)   => client.patch(`/incidents/types/${id}`, data),
+  lookup:       (chassis: string)         => client.get('/incidents/lookup', { params: { chassis_number: chassis } }),
+  list:         (params?: any)            => client.get('/incidents', { params }),
+  get:          (id: number)              => client.get(`/incidents/${id}`),
+  create:       (formData: FormData)      => client.post('/incidents', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  acknowledge:  (id: number)              => client.patch(`/incidents/${id}/acknowledge`),
+  resolve:      (id: number, notes?: string) => client.patch(`/incidents/${id}/resolve`, { resolution_notes: notes }),
+  forVehicle:   (vehicleId: number)       => client.get(`/incidents/vehicle/${vehicleId}`),
+};

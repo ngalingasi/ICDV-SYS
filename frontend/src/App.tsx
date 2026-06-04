@@ -49,6 +49,8 @@ import TransferPage      from "./pages/Operations/TransferPage";
 import ReceivePage       from "./pages/Operations/ReceivePage";
 import ChassisSearchPage from "./pages/Operations/ChassisSearchPage";
 import FuelPage          from "./pages/Operations/FuelPage";
+import IncidentPage      from "./pages/Operations/IncidentPage";
+import IncidentDetailPage from "./pages/Operations/IncidentDetailPage";
 
 // ── Deliveries ────────────────────────────────────────────────────────────────
 import DeliveriesPage  from "./pages/Deliveries/DeliveriesPage";
@@ -144,6 +146,8 @@ export default function App() {
               <Route path="/operations/receive"          element={<ReceivePage />} />
               <Route path="/operations/search"           element={<ChassisSearchPage />} />
               <Route path="/operations/fuel"             element={<FuelPage />} />
+              <Route path="/incidents"                   element={<IncidentPage />} />
+              <Route path="/incidents/:incidentId"       element={<IncidentDetailPage />} />
 
               {/* Operations (general) — after workflow so :id doesn't swallow named paths */}
               <Route path="/operations"           element={<OperationsPage />} />

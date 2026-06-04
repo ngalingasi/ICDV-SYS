@@ -69,6 +69,7 @@ const allRoles = {
     'approveFuelOrders',
     'dispenseFuel',
     'createFuelOrders',
+    'manageIncidents',
   ],
 
   admin: [
@@ -92,6 +93,7 @@ const allRoles = {
     'approveFuelOrders',
     'dispenseFuel',
     'createFuelOrders',
+    'manageIncidents',
   ],
 
   // system_admin: full workflow + cross-ICDV read — NO platform management
