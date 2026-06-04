@@ -19,7 +19,7 @@
 SET FOREIGN_KEY_CHECKS = 0;
 
 -- ── 1. incident_types ─────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS incident_types (
+CREATE TABLE  incident_types (
   type_id     INT(11) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   name        VARCHAR(100)    NOT NULL UNIQUE,
   description TEXT            NULL,
@@ -41,7 +41,7 @@ INSERT IGNORE INTO incident_types (name, sort_order) VALUES
   ('Other',                99);
 
 -- ── 2. incidents ──────────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS incidents (
+CREATE TABLE  incidents (
   incident_id     INT(11) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   vehicle_id      INT(11)          NOT NULL,
   manifest_id     INT(11)          NULL,
@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS incidents (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- ── 3. incident_attachments ───────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS incident_attachments (
+CREATE TABLE  incident_attachments (
   attachment_id INT(11) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   incident_id   INT(11) UNSIGNED NOT NULL,
   file_path     VARCHAR(500)    NOT NULL,
