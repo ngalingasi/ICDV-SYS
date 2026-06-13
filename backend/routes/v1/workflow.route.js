@@ -61,4 +61,14 @@ router.get('/vehicles/:vehicleId/history', auth('getVehicles'), tenant(), ctrl.v
 router.get('/batches/:batchId/delivery-sheet',  auth('printDeliverySheet'), tenant(), dsCtrl.getBatchDeliverySheet);
 router.get('/vessels/:vesselId/delivery-sheet', auth('printDeliverySheet'), tenant(), dsCtrl.getVesselDeliverySheet);
 
+// ── 7. LIVE TRANSFER MONITORING (migration 014) ───────────────────────────────
+router.get('/live-transfers',     auth('getVehicles'), tenant(), ctrl.getLiveTransfers);
+router.get('/transfer-performance', auth('getVehicles'), tenant(), ctrl.getTransferPerformance);
+
+// ── 8. TRANSIT TIME CONFIG (migration 014) ────────────────────────────────────
+// Read: any authenticated user with getVehicles. Write: manageLookups (admin+)
+router.get(   '/transit-config',             auth('getVehicles'),   tenant(), ctrl.getTransitConfigs);
+router.post(  '/transit-config',             auth('manageLookups'), tenant(), ctrl.upsertTransitConfig);
+router.delete('/transit-config/:configId',   auth('manageLookups'), tenant(), ctrl.deleteTransitConfig);
+
 module.exports = router;

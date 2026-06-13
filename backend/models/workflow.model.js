@@ -1014,6 +1014,216 @@ const getVehicleHistory = async (vehicleId, icdvId) => {
   return ops;
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// LIVE TRANSFER MONITORING (migration 014)
+// Returns all vehicles currently in_transit with timing + delay calculation.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * getLiveTransfers(icdvId)
+ *
+ * Returns vehicles with workflow_status = 'in_transit', enriched with:
+ *   - transferred_at (TPA gate-out time)
+ *   - elapsed_minutes (NOW - transferred_at)
+ *   - transit_config: normal_minutes, max_minutes (from transit_time_configs)
+ *   - delay_status: 'on_time' | 'delayed' | 'warning' (approaching max)
+ *     warning threshold: elapsed >= (normal_minutes + ((max - normal) * 0.7))
+ */
+const getLiveTransfers = async (icdvId = null) => {
+  const scopeW = icdvId ? 'AND v.icdv_id = ?' : '';
+  const params = icdvId ? [icdvId] : [];
+
+  return query(
+    `SELECT
+       v.vehicle_id,
+       v.chassis_number,
+       v.brand,
+       v.model,
+       v.color,
+       v.destination,
+       v.delivery_location,
+       v.batch_id,
+       v.manifest_id,
+       m.manifest_number,
+       m.arrival_date    AS manifest_arrival_date,
+       vs.name           AS vessel_name,
+       ic.name           AS icdv_name,
+       ic.code           AS icdv_code,
+       d.full_name       AS driver_name,
+       d.phone           AS driver_phone,
+       d.id_number       AS driver_id_card,
+       t.transfer_id,
+       t.transferred_at,
+       t.transfer_notes,
+       TIMESTAMPDIFF(MINUTE, COALESCE(t.transferred_at, v.updated_at), NOW()) AS elapsed_minutes,
+       COALESCE(ttc.normal_minutes, 30)               AS normal_minutes,
+       COALESCE(ttc.max_minutes, 60)                  AS max_minutes,
+       CASE
+         WHEN TIMESTAMPDIFF(MINUTE, COALESCE(t.transferred_at, v.updated_at), NOW()) >=
+              COALESCE(ttc.max_minutes, 60)
+           THEN 'delayed'
+         WHEN TIMESTAMPDIFF(MINUTE, COALESCE(t.transferred_at, v.updated_at), NOW()) >=
+              (COALESCE(ttc.normal_minutes, 30) +
+               ((COALESCE(ttc.max_minutes, 60) - COALESCE(ttc.normal_minutes, 30)) * 0.7))
+           THEN 'warning'
+         ELSE 'on_time'
+       END AS delay_status
+     FROM vehicles v
+     -- vehicle.workflow_status = 'in_transit' is the primary truth.
+     -- LEFT JOIN on transfers to handle edge cases where transfer record
+     -- status is inconsistent with vehicle status (data anomaly).
+     -- We join on the active transfer first; fall back to most recent any-status.
+     LEFT JOIN transfers t ON t.vehicle_id = v.vehicle_id
+                          AND t.status IN ('active', 'completed')
+                          AND t.transfer_id = (
+                            SELECT transfer_id FROM transfers tr2
+                            WHERE tr2.vehicle_id = v.vehicle_id
+                              AND tr2.status IN ('active', 'completed')
+                            ORDER BY tr2.transfer_id DESC LIMIT 1
+                          )
+     LEFT JOIN drivers d        ON d.driver_id   = t.driver_id
+     LEFT JOIN manifests m      ON m.manifest_id = v.manifest_id
+     LEFT JOIN vessels vs       ON vs.vessel_id  = m.vessel_id
+     LEFT JOIN icdvs ic         ON ic.icdv_id    = v.icdv_id
+     LEFT JOIN transit_time_configs ttc ON ttc.icdv_id = v.icdv_id
+     WHERE v.workflow_status = 'in_transit' ${scopeW}
+     ORDER BY elapsed_minutes DESC`,
+    params
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TRANSFER PERFORMANCE REPORT (migration 014)
+// Completed transfers with full timeline: gate-out → received.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * getTransferPerformance({ icdvId, manifest_id, date_from, date_to, page, limit })
+ *
+ * Returns paginated completed transfers with:
+ *   - tpa_gate_out_time (transferred_at)
+ *   - arrival_time (received_at)
+ *   - transfer_duration_minutes
+ *   - on_time status vs configured max_minutes
+ */
+const getTransferPerformance = async ({
+  icdvId = null,
+  manifest_id,
+  date_from,
+  date_to,
+  page  = 1,
+  limit = 25,
+} = {}) => {
+  const where   = [];
+  const params  = [];
+
+  if (icdvId)     { where.push('v.icdv_id = ?');                       params.push(icdvId); }
+  if (manifest_id){ where.push('v.manifest_id = ?');                   params.push(manifest_id); }
+  if (date_from)  { where.push('t.transferred_at >= ?');               params.push(date_from); }
+  if (date_to)    { where.push('t.transferred_at <= ?');               params.push(date_to + ' 23:59:59'); }
+
+  const baseWhere = where.length ? 'WHERE ' + where.join(' AND ') : '';
+  const offset    = (page - 1) * limit;
+
+  const [{ total }] = await query(
+    `SELECT COUNT(*) AS total
+     FROM transfers t
+     JOIN receiving_logs rl ON rl.transfer_id = t.transfer_id
+     JOIN vehicles v        ON v.vehicle_id   = t.vehicle_id
+     ${baseWhere}`,
+    params
+  );
+
+  const rows = await query(
+    `SELECT
+       v.vehicle_id,
+       v.chassis_number,
+       v.brand,
+       v.model,
+       v.destination,
+       m.manifest_number,
+       m.manifest_id,
+       d.full_name        AS driver_name,
+       t.transferred_at   AS tpa_gate_out_time,
+       rl.received_at     AS arrival_time,
+       TIMESTAMPDIFF(MINUTE, t.transferred_at, rl.received_at) AS transfer_duration_minutes,
+       COALESCE(ttc.normal_minutes, 30)  AS normal_minutes,
+       COALESCE(ttc.max_minutes,   60)   AS max_minutes,
+       CASE
+         WHEN TIMESTAMPDIFF(MINUTE, t.transferred_at, rl.received_at) >=
+              COALESCE(ttc.max_minutes, 60)
+           THEN 'delayed'
+         ELSE 'on_time'
+       END AS performance_status
+     FROM transfers t
+     JOIN receiving_logs rl ON rl.transfer_id = t.transfer_id
+     JOIN vehicles v        ON v.vehicle_id   = t.vehicle_id
+     JOIN drivers d         ON d.driver_id    = t.driver_id
+     LEFT JOIN manifests m  ON m.manifest_id  = v.manifest_id
+     LEFT JOIN transit_time_configs ttc
+                            ON ttc.icdv_id    = v.icdv_id
+     ${baseWhere}
+     ORDER BY t.transferred_at DESC
+     LIMIT ? OFFSET ?`,
+    [...params, limit, offset]
+  );
+
+  const { paginate } = buildPagination(page, limit);
+  return paginate(rows, total);
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TRANSIT TIME CONFIG CRUD
+// ─────────────────────────────────────────────────────────────────────────────
+
+const getTransitConfigs = async (icdvId = null) => {
+  const where  = icdvId ? 'WHERE ttc.icdv_id = ?' : '';
+  const params = icdvId ? [icdvId] : [];
+  return query(
+    `SELECT ttc.*, ic.name AS icdv_name, ic.code AS icdv_code
+     FROM transit_time_configs ttc
+     LEFT JOIN icdvs ic ON ic.icdv_id = ttc.icdv_id
+     ${where}
+     ORDER BY ic.name`,
+    params
+  );
+};
+
+/**
+ * upsertTransitConfig({ icdvId, normal_minutes, max_minutes, notes }, userId)
+ * One row per ICDV — INSERT or UPDATE.
+ */
+const upsertTransitConfig = async ({ icdvId, normal_minutes, max_minutes, notes }, userId) => {
+  if (!icdvId) throw new ApiError(400, 'icdv_id is required');
+  if (max_minutes <= normal_minutes)
+    throw new ApiError(422, 'max_minutes must be greater than normal_minutes');
+
+  await query(
+    `INSERT INTO transit_time_configs (icdv_id, normal_minutes, max_minutes, notes, updated_by)
+     VALUES (?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+       normal_minutes = VALUES(normal_minutes),
+       max_minutes    = VALUES(max_minutes),
+       notes          = VALUES(notes),
+       updated_by     = VALUES(updated_by)`,
+    [icdvId, normal_minutes, max_minutes, notes ?? null, userId]
+  );
+
+  const [row] = await query(
+    `SELECT ttc.*, ic.name AS icdv_name, ic.code AS icdv_code
+     FROM transit_time_configs ttc
+     LEFT JOIN icdvs ic ON ic.icdv_id = ttc.icdv_id
+     WHERE ttc.icdv_id = ?`,
+    [icdvId]
+  );
+  return row;
+};
+
+const deleteTransitConfig = async (configId, icdvId = null) => {
+  const where = icdvId ? 'WHERE config_id = ? AND icdv_id = ?' : 'WHERE config_id = ?';
+  await query(`DELETE FROM transit_time_configs ${where}`, icdvId ? [configId, icdvId] : [configId]);
+};
+
 module.exports = {
   // Discharge
   lookupForDischarge, discharge,
@@ -1032,4 +1242,11 @@ module.exports = {
   // Utilities
   findByChassisLast4, generateBatchNumber,
   syncManifestStatus,
+  // Live monitoring + performance report (migration 014)
+  getLiveTransfers,
+  getTransferPerformance,
+  // Transit time config (migration 014)
+  getTransitConfigs,
+  upsertTransitConfig,
+  deleteTransitConfig,
 };

@@ -11,6 +11,10 @@ const isTokenExpired = (token: string): boolean => {
   }
 };
 
+const STORAGE_USER    = 'tpfcs_user';
+const STORAGE_ACCESS  = 'access_token';
+const STORAGE_REFRESH = 'refresh_token';
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user,      setUser]      = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -18,39 +22,47 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const init = async () => {
       try {
-        const stored = localStorage.getItem('tpfcs_user');
-        const token  = localStorage.getItem('access_token');
+        const token  = localStorage.getItem(STORAGE_ACCESS);
+        const stored = localStorage.getItem(STORAGE_USER);
 
-        if (stored && token && !isTokenExpired(token)) {
-          const parsed: User = JSON.parse(stored);
-          setUser(parsed);
-
-          // If the stored user is missing icdv_name (old session before the fix),
-          // fetch fresh user data from /auth/me to get it.
-          if (parsed.icdv_id && !parsed.icdv_name) {
-            try {
-              const BASE_URL = (import.meta as any).env?.VITE_API_URL ?? 'http://localhost:3000/api';
-              const res = await fetch(`${BASE_URL}/v1/auth/me`, {
-                headers: { Authorization: `Bearer ${token}` },
-              });
-              if (res.ok) {
-                const fresh: User = await res.json();
-                const updated = { ...parsed, icdv_name: fresh.icdv_name ?? null };
-                localStorage.setItem('tpfcs_user', JSON.stringify(updated));
-                setUser(updated);
-              }
-            } catch {
-              // silent — use stored user without icdv_name
-            }
-          }
-        } else {
-          localStorage.removeItem('tpfcs_user');
-          localStorage.removeItem('access_token');
-          localStorage.removeItem('refresh_token');
+        if (!token || isTokenExpired(token)) {
+          localStorage.removeItem(STORAGE_USER);
+          localStorage.removeItem(STORAGE_ACCESS);
+          localStorage.removeItem(STORAGE_REFRESH);
+          setIsLoading(false);
+          return;
         }
+
+        if (stored) {
+          try {
+            const parsed: User = JSON.parse(stored);
+            setUser(parsed);
+            setIsLoading(false);
+            // Background: refresh icdv_name if missing
+            if (parsed.icdv_id && !parsed.icdv_name) {
+              try {
+                const base = import.meta.env.VITE_API_URL ?? '/api';
+                const res  = await fetch(`${base}/v1/auth/me`, {
+                  headers: { Authorization: `Bearer ${token}` },
+                });
+                if (res.ok) {
+                  const fresh: User = await res.json();
+                  const updated = { ...parsed, icdv_name: fresh.icdv_name ?? null };
+                  localStorage.setItem(STORAGE_USER, JSON.stringify(updated));
+                  setUser(updated);
+                }
+              } catch { /* silent */ }
+            }
+            return;
+          } catch { /* fall through */ }
+        }
+
+        setIsLoading(false);
+
       } catch {
-        localStorage.clear();
-      } finally {
+        localStorage.removeItem(STORAGE_USER);
+        localStorage.removeItem(STORAGE_ACCESS);
+        localStorage.removeItem(STORAGE_REFRESH);
         setIsLoading(false);
       }
     };
@@ -59,23 +71,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const login = (u: User, accessToken: string, refreshToken: string) => {
-    localStorage.setItem('tpfcs_user',    JSON.stringify(u));
-    localStorage.setItem('access_token',  accessToken);
-    localStorage.setItem('refresh_token', refreshToken);
+    localStorage.setItem(STORAGE_USER,    JSON.stringify(u));
+    localStorage.setItem(STORAGE_ACCESS,  accessToken);
+    localStorage.setItem(STORAGE_REFRESH, refreshToken);
     setUser(u);
   };
 
   const logout = () => {
-    localStorage.removeItem('tpfcs_user');
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
+    localStorage.removeItem(STORAGE_USER);
+    localStorage.removeItem(STORAGE_ACCESS);
+    localStorage.removeItem(STORAGE_REFRESH);
     setUser(null);
+    // React Router redirects to /signin via ProtectedRoute
   };
 
   const updateUser = (partial: Partial<User>) => {
     if (!user) return;
     const updated = { ...user, ...partial };
-    localStorage.setItem('tpfcs_user', JSON.stringify(updated));
+    localStorage.setItem(STORAGE_USER, JSON.stringify(updated));
     setUser(updated);
   };
 

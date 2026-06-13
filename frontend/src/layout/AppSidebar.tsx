@@ -61,6 +61,7 @@ const TENANT_NAV: NavItem[] = [
       { name: "4. TPA Transfer", path: "/operations/transfer" },
       { name: "5. Yard Receive", path: "/operations/receive" },
       { name: "Batches",         path: "/operations/batches" },
+      { name: "Live Transfers",  path: "/operations/live-transfers" },
       { name: "Incidents",       path: "/incidents" },
       { name: "Chassis Search",  path: "/operations/search" },
     ],
@@ -110,6 +111,7 @@ const TRANSFER_OFFICER_NAV: NavItem[] = [
   {
     name: "Operations", icon: <Icon.Operation />, subItems: [
       { name: "3. TPA Transfer", path: "/operations/transfer" },
+      { name: "Live Transfers",  path: "/operations/live-transfers" },
       { name: "Chassis Search",  path: "/operations/search" },
     ],
   },
@@ -155,6 +157,7 @@ const SUPER_ADMIN_NAV: NavItem[] = [
       { name: "4. TPA Transfer", path: "/operations/transfer" },
       { name: "5. Yard Receive", path: "/operations/receive" },
       { name: "Batches",         path: "/operations/batches" },
+      { name: "Live Transfers",  path: "/operations/live-transfers" },
       { name: "Incidents",       path: "/incidents" },
       { name: "Chassis Search",  path: "/operations/search" },
     ],

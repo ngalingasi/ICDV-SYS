@@ -18,6 +18,8 @@ export default function VehiclesPage() {
   const [icdvFilter, setIcdvFilter]     = useState('');
   const [workflowFilter, setWorkflow]   = useState(sp.get('workflow_status') ?? '');
   const [icdvs,      setIcdvs]          = useState<any[]>([]);
+  // manifest_id from URL — set when navigated from "View all →" on ManifestDetail
+  const manifestIdFromUrl               = sp.get('manifest_id') ?? '';
   const limit = 20;
 
   const { isSuperAdmin, isSystemAdmin } = useAuth();
@@ -32,11 +34,12 @@ export default function VehiclesPage() {
       workflow_status: workflowFilter || undefined,
       search: search || undefined,
       icdv_id: icdvFilter || undefined,
+      manifest_id: manifestIdFromUrl || undefined,
     }).then(r => { setVehicles(r.data.results); setTotal(r.data.totalResults); })
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, [page, releaseFilter, opFilter, workflowFilter, icdvFilter]);  // eslint-disable-line
+  useEffect(() => { load(); }, [page, releaseFilter, opFilter, workflowFilter, icdvFilter, manifestIdFromUrl]);  // eslint-disable-line
   useEffect(() => {
     const t = setTimeout(load, 350);
     return () => clearTimeout(t);
@@ -54,6 +57,23 @@ export default function VehiclesPage() {
 
   return (
     <div className="p-4 sm:p-6 space-y-5">
+      {/* Manifest filter banner — shown when navigated from ManifestDetail "View all →" */}
+      {manifestIdFromUrl && (
+        <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-brand-50 dark:bg-brand-500/10 border border-brand-200 dark:border-brand-500/20">
+          <svg className="w-4 h-4 text-brand-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          <p className="text-sm text-brand-700 dark:text-brand-400">
+            Showing vehicles for <span className="font-semibold">Manifest #{manifestIdFromUrl}</span>
+          </p>
+          <Link
+            to="/vehicles"
+            className="ml-auto text-xs text-brand-600 dark:text-brand-400 hover:underline whitespace-nowrap"
+          >
+            Clear filter →
+          </Link>
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <div>
           <h1 className="text-xl font-bold text-gray-800 dark:text-white">Vehicles</h1>

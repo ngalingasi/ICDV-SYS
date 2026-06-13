@@ -118,43 +118,56 @@ const STEP_MAP: Record<string, number> = {
 };
 
 export function WorkflowProgress({ status }: { status: string }) {
-  const current = STEP_MAP[status] ?? -1;
+  const current     = STEP_MAP[status] ?? -1;
+  const isFinalDone = current === STEPS.length - 1; // all steps completed
+
   return (
     <div className="w-full overflow-x-auto pb-1 -mb-1">
       <div className="flex items-start min-w-[260px] w-full mb-1">
-        {STEPS.map((step, i) => (
-          <div key={step} className="flex items-start flex-1">
-            {/* Connector line */}
-            {i > 0 && (
-              <div className="flex-1 flex items-center" style={{ paddingTop: '14px' }}>
-                <div className={`h-0.5 w-full ${i <= current ? 'bg-brand-500' : 'bg-gray-200 dark:bg-gray-700'}`} />
+        {STEPS.map((step, i) => {
+          // A step is "done" (filled checkmark) when:
+          //   - it is before the current step, OR
+          //   - it IS the current step AND we are on the final step (received)
+          const isDone   = i < current || (i === current && isFinalDone);
+          const isActive = i === current && !isFinalDone;
+
+          return (
+            <div key={step} className="flex items-start flex-1">
+              {/* Connector line */}
+              {i > 0 && (
+                <div className="flex-1 flex items-center" style={{ paddingTop: '14px' }}>
+                  <div className={`h-0.5 w-full ${i <= current ? 'bg-brand-500' : 'bg-gray-200 dark:bg-gray-700'}`} />
+                </div>
+              )}
+              {/* Circle + label */}
+              <div className="flex flex-col items-center flex-shrink-0 w-9 sm:w-14">
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold border-2 ${
+                  isDone
+                    ? 'bg-brand-500 border-brand-500 text-white'
+                    : isActive
+                      ? 'border-brand-500 text-brand-500 bg-white dark:bg-gray-900'
+                      : 'border-gray-300 dark:border-gray-600 text-gray-400 bg-white dark:bg-gray-900'
+                }`}>
+                  {isDone ? (
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : String(i + 1)}
+                </div>
+                <span className={`mt-1 text-center leading-tight font-medium ${
+                  isActive || (isDone && isFinalDone && i === current)
+                    ? 'text-brand-600 dark:text-brand-400'
+                    : isDone
+                      ? 'text-gray-400 dark:text-gray-500'
+                      : 'text-gray-400 dark:text-gray-500'
+                }`}>
+                  <span className="hidden sm:block text-[10px]">{step}</span>
+                  <span className="block sm:hidden text-[9px]">{STEPS_SHORT[i]}</span>
+                </span>
               </div>
-            )}
-            {/* Circle + label */}
-            <div className="flex flex-col items-center flex-shrink-0 w-9 sm:w-14">
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold border-2 ${
-                i < current
-                  ? 'bg-brand-500 border-brand-500 text-white'
-                  : i === current
-                    ? 'border-brand-500 text-brand-500 bg-white dark:bg-gray-900'
-                    : 'border-gray-300 dark:border-gray-600 text-gray-400 bg-white dark:bg-gray-900'
-              }`}>
-                {i < current ? (
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                ) : String(i + 1)}
-              </div>
-              <span className={`mt-1 text-center leading-tight font-medium ${
-                i === current ? 'text-brand-600 dark:text-brand-400' : 'text-gray-400 dark:text-gray-500'
-              }`}>
-                {/* Full label on sm+, short on xs */}
-                <span className="hidden sm:block text-[10px]">{step}</span>
-                <span className="block sm:hidden text-[9px]">{STEPS_SHORT[i]}</span>
-              </span>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

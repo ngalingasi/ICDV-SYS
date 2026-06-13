@@ -16,7 +16,9 @@ export default function ProtectedRoute({ allowedRoles }: Props) {
     );
   }
 
-  if (!isAuthenticated) return <Navigate to="/signin" replace />;
+  if (!isAuthenticated) {
+    return <Navigate to="/signin" replace />;
+  }
 
   // Force password change
   if (user?.must_change_password && window.location.pathname !== '/change-password') {
@@ -26,7 +28,6 @@ export default function ProtectedRoute({ allowedRoles }: Props) {
   // Role-based access
   if (allowedRoles && allowedRoles.length > 0) {
     const userRole = user?.role ?? '';
-    // super_admin bypasses all role checks
     if (userRole !== 'super_admin' && !allowedRoles.includes(userRole)) {
       return <Navigate to="/" replace />;
     }

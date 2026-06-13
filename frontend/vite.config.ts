@@ -14,8 +14,8 @@ export default defineConfig(({ mode }) => ({
     }),
   ],
   define: {
-    // Development: API runs on localhost:3000
-    // Production: API is on the same host at /api
+    // Dev:  API at localhost:3000
+    // Prod: API on same domain at /api (served by Express on same port)
     'import.meta.env.VITE_API_URL': mode === 'production'
       ? JSON.stringify('/api')
       : JSON.stringify('http://localhost:3000/api'),

@@ -13,6 +13,7 @@ const dashboardRoute  = require('./icdv_dashboard.route');
 const workflowRoute   = require('./workflow.route');
 const { fuelRouter }  = require('./fuel.route');
 const incidentRoute   = require('./incident.route');
+const erp = require("./erp.route");
 const config = require('../../config/config');
 
 const router = express.Router();
@@ -32,6 +33,7 @@ const defaultRoutes = [
   { path: '/workflow',   route: workflowRoute },
   { path: '/fuel',       route: fuelRouter },
   { path: '/incidents',  route: incidentRoute },
+  { path: '/erp',        route: erp },
 ];
 
 defaultRoutes.forEach(({ path, route }) => router.use(path, route));

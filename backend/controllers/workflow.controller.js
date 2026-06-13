@@ -219,6 +219,55 @@ const vehicleHistory = catchAsync(async (req, res) => {
   res.json(await wf.getVehicleHistory(Number(req.params.vehicleId), req.icdvId));
 });
 
+// ─── Live Transfer Monitoring (migration 014) ─────────────────────────────────
+
+const getLiveTransfers = catchAsync(async (req, res) => {
+  const data = await wf.getLiveTransfers(req.icdvId);
+  res.json(data);
+});
+
+const getTransferPerformance = catchAsync(async (req, res) => {
+  const { manifest_id, date_from, date_to, page, limit } = req.query;
+  const data = await wf.getTransferPerformance({
+    icdvId: req.icdvId,
+    manifest_id: manifest_id ? Number(manifest_id) : undefined,
+    date_from: date_from || undefined,
+    date_to: date_to || undefined,
+    page:  page  ? Number(page)  : 1,
+    limit: limit ? Number(limit) : 25,
+  });
+  res.json(data);
+});
+
+// ─── Transit Time Config (migration 014) ─────────────────────────────────────
+
+const getTransitConfigs = catchAsync(async (req, res) => {
+  const data = await wf.getTransitConfigs(req.icdvId);
+  res.json(data);
+});
+
+const upsertTransitConfig = catchAsync(async (req, res) => {
+  const { normal_minutes, max_minutes, notes } = req.body;
+  if (!normal_minutes) return res.status(400).json({ message: 'normal_minutes is required' });
+  if (!max_minutes)    return res.status(400).json({ message: 'max_minutes is required' });
+
+  // For regular users req.icdvId is set from JWT.
+  // For system_admin / super_admin req.icdvId is null — they must pass icdv_id in body.
+  const effectiveIcdvId = req.icdvId ?? (req.body.icdv_id ? Number(req.body.icdv_id) : null);
+  if (!effectiveIcdvId) return res.status(400).json({ message: 'icdv_id is required' });
+
+  const result = await wf.upsertTransitConfig(
+    { icdvId: effectiveIcdvId, normal_minutes: Number(normal_minutes), max_minutes: Number(max_minutes), notes },
+    req.user.user_id
+  );
+  res.json(result);
+});
+
+const deleteTransitConfig = catchAsync(async (req, res) => {
+  await wf.deleteTransitConfig(Number(req.params.configId), req.icdvId);
+  res.json({ message: 'Transit time config deleted' });
+});
+
 module.exports = {
   // Discharge
   dischargeLookup, dischargeConfirm,
@@ -234,4 +283,10 @@ module.exports = {
   receiveLookup, receiveConfirm,
   // Search & history
   chassisSearch, vehicleHistory,
+  // Live monitoring + performance report (migration 014)
+  getLiveTransfers,
+  getTransferPerformance,
+  getTransitConfigs,
+  upsertTransitConfig,
+  deleteTransitConfig,
 };

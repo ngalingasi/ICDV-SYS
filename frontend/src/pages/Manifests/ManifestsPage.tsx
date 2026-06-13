@@ -6,6 +6,7 @@ import type { Manifest } from '../../types';
 import StatusBadge from '../../components/tpfcs/StatusBadge';
 import Modal from '../../components/tpfcs/Modal';
 import { toast } from '../../components/tpfcs/Toast';
+import ManifestActionsDropdown from '../../components/tpfcs/ManifestActionsDropdown';
 
 export default function ManifestsPage() {
   const [manifests, setManifests]   = useState<Manifest[]>([]);
@@ -94,7 +95,7 @@ export default function ManifestsPage() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
+      <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -126,11 +127,12 @@ export default function ManifestsPage() {
                   <td className="px-4 py-3"><StatusBadge status={m.status} /></td>
                   {isCrossTenant && <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{(m as any).icdv_name ?? '—'}</td>}
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <Link to={`/manifests/${m.manifest_id}`} className="text-xs text-brand-600 hover:underline">View</Link>
-                      {canManageManifests && <Link to={`/manifests/${m.manifest_id}/edit`} className="text-xs text-gray-500 hover:underline">Edit</Link>}
-                      {canManageManifests && <button onClick={() => setDeleteTarget(m)} className="text-xs text-red-500 hover:underline">Delete</button>}
-                    </div>
+                    <ManifestActionsDropdown
+                      manifestId={m.manifest_id}
+                      compact
+                      showDelete
+                      onDelete={() => setDeleteTarget(m)}
+                    />
                   </td>
                 </tr>
               ))}

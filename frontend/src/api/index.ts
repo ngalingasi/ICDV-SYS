@@ -171,6 +171,22 @@ export const workflowApi = {
     client.get(`/workflow/vessels/${vesselId}/delivery-sheet`),
   getManifestDeliverySheet: (manifestId: number) =>
     client.get(`/manifests/${manifestId}/delivery-sheet`),
+
+  // 10. Live Transfer Monitoring (migration 014)
+  getLiveTransfers: () =>
+    client.get('/workflow/live-transfers'),
+
+  // 11. Transfer Performance Report (migration 014)
+  getTransferPerformance: (params?: { manifest_id?: number; date_from?: string; date_to?: string; page?: number; limit?: number }) =>
+    client.get('/workflow/transfer-performance', { params }),
+
+  // 12. Transit Time Config (migration 014)
+  getTransitConfigs: () =>
+    client.get('/workflow/transit-config'),
+  upsertTransitConfig: (data: { normal_minutes: number; max_minutes: number; notes?: string; icdv_id?: number }) =>
+    client.post('/workflow/transit-config', data),
+  deleteTransitConfig: (configId: number) =>
+    client.delete(`/workflow/transit-config/${configId}`),
 };
 
 // ── Lookups (extended) ────────────────────────────────────────────────────────

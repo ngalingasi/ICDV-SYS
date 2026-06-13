@@ -872,3 +872,18 @@ pre[class*="language-"] {
 pre[class*="language-"].line-numbers {
   padding-left: 2.8em !important;
 }
+
+/* ── Live Transfer Monitoring — Fullscreen mode ─────────────────────────────
+   When data-fs="1" is set on <html> (by the fullscreen hook), hide the
+   sidebar and header so the monitoring page fills the entire screen.
+   The monitoring page itself renders a lightweight top-bar as a replacement.
+   z-index of the page wrapper (z-[200]) sits above the sidebar (z-40).
+──────────────────────────────────────────────────────────────────────────── */
+html[data-fs="1"] aside,
+html[data-fs="1"] header {
+  display: none !important;
+}
+html[data-fs="1"] .lg\:ml-\[260px\],
+html[data-fs="1"] .lg\:ml-\[72px\] {
+  margin-left: 0 !important;
+}

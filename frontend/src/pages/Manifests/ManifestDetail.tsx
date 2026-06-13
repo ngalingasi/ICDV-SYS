@@ -7,6 +7,7 @@ import Modal from '../../components/tpfcs/Modal';
 import { toast } from '../../components/tpfcs/Toast';
 import BackButton from '../../components/tpfcs/BackButton';
 import ManifestFuelTab from './ManifestFuelTab';
+import ManifestActionsDropdown from '../../components/tpfcs/ManifestActionsDropdown';
 
 const STEPS = [
   { key: 'manifested_count', label: 'Manifested', bar: 'bg-slate-400' },
@@ -102,41 +103,12 @@ export default function ManifestDetail() {
             </p>
           </div>
         </div>
-        <div className="flex gap-2 flex-wrap">
-          <a
-            href={`/manifests/${id}/delivery-sheet`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium whitespace-nowrap"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-            </svg>
-            Print Delivery Sheet
-          </a>
-          <a
-            href={`/manifests/${id}/delivery-sheet?combined=1`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-lg text-sm font-medium whitespace-nowrap"
-            title="All batches merged — one row per driver with all chassis"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-            </svg>
-            Print Combined Sheet
-          </a>
-          <button onClick={() => setShowImport(true)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg text-sm font-medium">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-            </svg>
-            Import Vehicles
-          </button>
-          <Link to={`/manifests/${id}/edit`}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-sm font-medium">
-            Edit
-          </Link>
+        <div className="flex gap-2 flex-wrap items-center">
+          <ManifestActionsDropdown
+            manifestId={Number(id)}
+            showDelete={false}
+            onImport={() => setShowImport(true)}
+          />
         </div>
       </div>
 

@@ -1,12 +1,12 @@
 import { useEffect, useState, useCallback } from 'react';
-import { lookupsApi, transferRateApi, incidentApi } from '../../api';
+import { lookupsApi, transferRateApi, incidentApi, workflowApi, icdvsApi } from '../../api';
 import type { Region } from '../../types';
 import Modal from '../../components/tpfcs/Modal';
 import { FormInput } from '../../components/tpfcs/FormField';
 import { toast } from '../../components/tpfcs/Toast';
 import { useAuth } from '../../store/authStore';
 
-type LookupTab = 'regions' | 'transfer_rate' | 'incident_types';
+type LookupTab = 'regions' | 'transfer_rate' | 'incident_types' | 'transit_times';
 
 function DeleteConfirm({ name, onConfirm, onCancel, loading }: {
   name: string; onConfirm: () => void; onCancel: () => void; loading: boolean;
@@ -418,6 +418,300 @@ function IncidentTypesPanel() {
   );
 }
 
+// ── Transit Times Panel ───────────────────────────────────────────────────────
+// One transit time config per ICDV.
+// Tracks expected TPA gate-out → ICDV yard arrival duration.
+// system_admin / super_admin can pick any ICDV; regular admin only configures their own.
+
+interface TransitConfig {
+  config_id:      number;
+  icdv_id:        number;
+  icdv_name?:     string;
+  icdv_code?:     string;
+  normal_minutes: number;
+  max_minutes:    number;
+  notes?:         string;
+}
+
+function TransitTimesPanel() {
+  const { user, isSuperAdmin, isSystemAdmin } = useAuth();
+  const isCrossTenant = isSuperAdmin || isSystemAdmin;
+  const canManage = user && ['admin', 'supervisor', 'super_admin', 'system_admin'].includes(user.role);
+
+  const [configs,  setConfigs]  = useState<TransitConfig[]>([]);
+  const [icdvs,    setIcdvs]    = useState<any[]>([]);
+  const [loading,  setLoading]  = useState(true);
+  const [modal,    setModal]    = useState<'edit' | 'delete' | null>(null);
+  const [selected, setSelected] = useState<TransitConfig | null>(null);
+  const [saving,   setSaving]   = useState(false);
+  const [error,    setError]    = useState('');
+
+  // Form state
+  const [selectedIcdvId, setSelectedIcdvId] = useState<number | ''>('');
+  const [normalMinutes,  setNormalMinutes]   = useState('30');
+  const [maxMinutes,     setMaxMinutes]      = useState('60');
+  const [notes,          setNotes]           = useState('');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await workflowApi.getTransitConfigs();
+      setConfigs(r.data);
+    } catch { toast.error('Failed to load transit time configs'); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  // Load ICDV list for cross-tenant users
+  useEffect(() => {
+    if (!isCrossTenant) return;
+    icdvsApi.list({ limit: 200, status: 'active' })
+      .then(r => setIcdvs(r.data.results ?? r.data))
+      .catch(() => {});
+  }, [isCrossTenant]);
+
+  const openEdit = (c: TransitConfig) => {
+    setSelected(c);
+    setSelectedIcdvId(c.icdv_id);
+    setNormalMinutes(String(c.normal_minutes));
+    setMaxMinutes(String(c.max_minutes));
+    setNotes(c.notes ?? '');
+    setError('');
+    setModal('edit');
+  };
+
+  const openCreate = () => {
+    setSelected(null);
+    setSelectedIcdvId('');
+    setNormalMinutes('30');
+    setMaxMinutes('60');
+    setNotes('');
+    setError('');
+    setModal('edit');
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const n = Number(normalMinutes);
+    const m = Number(maxMinutes);
+    if (isCrossTenant && !selectedIcdvId) { setError('Please select an ICDV'); return; }
+    if (!n || n < 1) { setError('Normal minutes must be at least 1'); return; }
+    if (!m || m <= n){ setError('Max minutes must be greater than normal minutes'); return; }
+
+    setSaving(true); setError('');
+    try {
+      await workflowApi.upsertTransitConfig({
+        normal_minutes: n,
+        max_minutes:    m,
+        notes:          notes.trim() || undefined,
+        ...(isCrossTenant && selectedIcdvId ? { icdv_id: Number(selectedIcdvId) } : {}),
+      });
+      toast.success(selected ? 'Transit time updated' : 'Transit time saved');
+      setModal(null);
+      load();
+    } catch (err: any) {
+      setError(err?.response?.data?.message ?? 'Save failed');
+    } finally { setSaving(false); }
+  };
+
+  const handleDelete = async () => {
+    if (!selected) return;
+    setSaving(true);
+    try {
+      await workflowApi.deleteTransitConfig(selected.config_id);
+      toast.success('Transit time config deleted');
+      setModal(null);
+      load();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message ?? 'Delete failed');
+    } finally { setSaving(false); }
+  };
+
+  // ICDVs that don't yet have a config (for the create picker)
+  const configuredIcdvIds = new Set(configs.map(c => c.icdv_id));
+  const availableIcdvs = icdvs.filter(ic => !configuredIcdvIds.has(ic.icdv_id));
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Transit Time Configuration</h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+            Set expected transit duration from TPA gate to each ICDV's yard.
+            One config per ICDV — used by Live Transfer Monitoring to flag delayed vehicles.
+          </p>
+        </div>
+        {canManage && (isCrossTenant ? availableIcdvs.length > 0 : configs.length === 0) && (
+          <button onClick={openCreate}
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm bg-brand-500 hover:bg-brand-600 text-white rounded-lg font-medium whitespace-nowrap">
+            + Add Config
+          </button>
+        )}
+      </div>
+
+      {/* Legend */}
+      <div className="rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 px-4 py-3 text-xs text-blue-700 dark:text-blue-400 space-y-1">
+        <p className="font-semibold">Delay detection — TPA gate-out → ICDV yard arrival</p>
+        <div className="flex flex-wrap gap-x-5 gap-y-0.5 mt-1">
+          <span><span className="inline-block w-2.5 h-2.5 rounded-full bg-green-500 mr-1.5 align-middle" />Within normal time → Green</span>
+          <span><span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-500 mr-1.5 align-middle" />Approaching max → Amber</span>
+          <span><span className="inline-block w-2.5 h-2.5 rounded-full bg-red-500 mr-1.5 align-middle" />Exceeds max → Red (Delayed)</span>
+        </div>
+        <p className="text-blue-500 italic">ICDVs without a config use defaults: Normal 30 min · Max 60 min</p>
+      </div>
+
+      {/* Table */}
+      <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-200 dark:border-gray-700">
+              {['ICDV', 'Normal Time (TPA → Yard)', 'Max Allowed', 'Notes', ...(canManage ? ['Actions'] : [])].map(h => (
+                <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+            {loading ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <tr key={i}>{Array.from({ length: 4 }).map((_, j) => (
+                  <td key={j} className="px-4 py-3"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-20" /></td>
+                ))}</tr>
+              ))
+            ) : configs.length === 0 ? (
+              <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-gray-400">
+                No transit time configs yet. All ICDVs use default: Normal 30 min, Max 60 min.
+              </td></tr>
+            ) : configs.map(c => (
+              <tr key={c.config_id} className="hover:bg-gray-50 dark:hover:bg-gray-800/40">
+                <td className="px-4 py-3">
+                  <p className="font-medium text-gray-800 dark:text-white">{c.icdv_name ?? `ICDV #${c.icdv_id}`}</p>
+                  {c.icdv_code && <p className="text-xs text-gray-400">{c.icdv_code}</p>}
+                </td>
+                <td className="px-4 py-3">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400">
+                    {c.normal_minutes} min
+                  </span>
+                </td>
+                <td className="px-4 py-3">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400">
+                    {c.max_minutes} min
+                  </span>
+                </td>
+                <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{c.notes || '—'}</td>
+                {canManage && (
+                  <td className="px-4 py-3">
+                    <div className="flex gap-3">
+                      <button onClick={() => openEdit(c)} className="text-xs text-brand-600 hover:underline">Edit</button>
+                      <button onClick={() => { setSelected(c); setModal('delete'); }} className="text-xs text-red-500 hover:underline">Delete</button>
+                    </div>
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Edit / Create modal */}
+      {modal === 'edit' && (
+        <Modal isOpen onClose={() => setModal(null)} title={selected ? `Edit: ${selected.icdv_name ?? 'Transit Time'}` : 'Add Transit Time Config'}>
+          <form onSubmit={handleSave} className="space-y-4">
+            {error && <p className="text-sm text-red-500 bg-red-50 dark:bg-red-500/10 p-3 rounded-lg">{error}</p>}
+
+            {/* ICDV picker — only for cross-tenant users; regular admin auto-uses their own ICDV */}
+            {isCrossTenant && !selected && (
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+                  ICDV <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={selectedIcdvId}
+                  onChange={e => setSelectedIcdvId(e.target.value ? Number(e.target.value) : '')}
+                  className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                >
+                  <option value="">Select ICDV…</option>
+                  {availableIcdvs.map((ic: any) => (
+                    <option key={ic.icdv_id} value={ic.icdv_id}>{ic.name} ({ic.code})</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* When editing, show ICDV name as read-only */}
+            {isCrossTenant && selected && (
+              <div className="rounded-lg bg-gray-50 dark:bg-gray-800 px-3 py-2.5 text-sm text-gray-700 dark:text-gray-300">
+                <span className="text-xs text-gray-500 block mb-0.5">ICDV</span>
+                <strong>{selected.icdv_name}</strong>
+                {selected.icdv_code && <span className="text-gray-400 ml-2">{selected.icdv_code}</span>}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+                  Normal Time (minutes) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number" min="1" max="480"
+                  value={normalMinutes} onChange={e => setNormalMinutes(e.target.value)}
+                  className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+                <p className="text-xs text-green-600 mt-1">🟢 On-time threshold</p>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+                  Max Allowed (minutes) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number" min="1" max="480"
+                  value={maxMinutes} onChange={e => setMaxMinutes(e.target.value)}
+                  className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+                <p className="text-xs text-red-600 mt-1">🔴 Delayed threshold</p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Notes (optional)</label>
+              <input
+                value={notes} onChange={e => setNotes(e.target.value)}
+                placeholder="e.g. 12 km from TPA, highway route"
+                className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button type="button" onClick={() => setModal(null)}
+                className="px-4 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg text-gray-600 dark:text-gray-400">Cancel</button>
+              <button type="submit" disabled={saving}
+                className="px-4 py-2 text-sm bg-brand-500 text-white rounded-lg hover:bg-brand-600 disabled:opacity-50">
+                {saving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Delete modal */}
+      {modal === 'delete' && selected && (
+        <Modal isOpen onClose={() => setModal(null)} title="Delete Transit Time Config">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Delete transit time config for <strong className="text-gray-800 dark:text-white">{selected.icdv_name}</strong>?
+            {' '}This ICDV will fall back to the default (Normal 30 min, Max 60 min).
+          </p>
+          <div className="flex justify-end gap-3 mt-5">
+            <button onClick={() => setModal(null)} className="px-4 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg text-gray-600 dark:text-gray-400">Cancel</button>
+            <button onClick={handleDelete} disabled={saving} className="px-4 py-2 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50">
+              {saving ? 'Deleting...' : 'Delete'}
+            </button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function LookupsPage() {
@@ -427,6 +721,7 @@ export default function LookupsPage() {
     { key: 'regions',        label: 'Regions' },
     { key: 'incident_types', label: 'Incident Types' },
     { key: 'transfer_rate',  label: 'Transfer Rate' },
+    { key: 'transit_times',  label: 'Transit Times' },
   ];
 
   return (
@@ -449,6 +744,7 @@ export default function LookupsPage() {
       {tab === 'regions'        && <RegionsPanel />}
       {tab === 'incident_types' && <IncidentTypesPanel />}
       {tab === 'transfer_rate'  && <TransferRatePanel />}
+      {tab === 'transit_times'  && <TransitTimesPanel />}
     </div>
   );
 }

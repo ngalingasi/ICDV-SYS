@@ -51,6 +51,8 @@ import ChassisSearchPage from "./pages/Operations/ChassisSearchPage";
 import FuelPage          from "./pages/Operations/FuelPage";
 import IncidentPage      from "./pages/Operations/IncidentPage";
 import IncidentDetailPage from "./pages/Operations/IncidentDetailPage";
+import LiveTransferMonitoringPage from "./pages/Operations/LiveTransferMonitoringPage";
+import TransferPerformancePage    from "./pages/Operations/TransferPerformancePage";
 
 // ── Deliveries ────────────────────────────────────────────────────────────────
 import DeliveriesPage  from "./pages/Deliveries/DeliveriesPage";
@@ -148,6 +150,11 @@ export default function App() {
               <Route path="/operations/fuel"             element={<FuelPage />} />
               <Route path="/incidents"                   element={<IncidentPage />} />
               <Route path="/incidents/:incidentId"       element={<IncidentDetailPage />} />
+              {/* Live monitoring + performance report */}
+              <Route path="/operations/live-transfers"              element={<LiveTransferMonitoringPage />} />
+              <Route path="/operations/transfer-performance"        element={<TransferPerformancePage />} />
+              <Route path="/manifests/:id/live-transfers"           element={<LiveTransferMonitoringPage />} />
+              <Route path="/manifests/:id/transfer-performance"     element={<TransferPerformancePage />} />
 
               {/* Operations (general) — after workflow so :id doesn't swallow named paths */}
               <Route path="/operations"           element={<OperationsPage />} />
