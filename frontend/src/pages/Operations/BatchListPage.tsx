@@ -4,6 +4,8 @@ import { workflowApi } from '../../api';
 import StatusBadge from '../../components/tpfcs/StatusBadge';
 import { useAuth } from '../../store/authStore';
 import { toast } from '../../components/tpfcs/Toast';
+import ManifestSelector from '../../components/tpfcs/ManifestSelector';
+import type { Manifest } from '../../types';
 
 // ── SVG print icon ────────────────────────────────────────────────────────────
 const PrintIcon = () => (
@@ -34,16 +36,22 @@ export function BatchListPage() {
   const [search,   setSearch]   = useState('');
   const [status,   setStatus]   = useState('');
   const [page,     setPage]     = useState(1);
+  const [selectedManifest, setSelectedManifest] = useState<Manifest | null>(null);
   const limit = 15;
 
   const load = () => {
     setLoading(true);
-    workflowApi.listBatches({ page, limit, status: status || undefined, search: search || undefined })
+    workflowApi.listBatches({
+      page, limit,
+      status:      status || undefined,
+      search:      search || undefined,
+      manifest_id: selectedManifest?.manifest_id ?? undefined,
+    })
       .then(r => { setBatches(r.data.results); setTotal(r.data.totalResults); })
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, [page, status]); // eslint-disable-line
+  useEffect(() => { load(); }, [page, status, selectedManifest]); // eslint-disable-line
   useEffect(() => { const t = setTimeout(load, 350); return () => clearTimeout(t); }, [search]); // eslint-disable-line
 
   const totalPages = Math.ceil(total / limit);
@@ -56,6 +64,15 @@ export function BatchListPage() {
           <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{total} total batches</p>
         </div>
         <div className="sm:ml-auto flex flex-wrap items-center gap-2">
+          {/* Manifest filter */}
+          <div className="w-56">
+            <ManifestSelector
+              value={selectedManifest}
+              onChange={m => { setSelectedManifest(m); setPage(1); }}
+              placeholder="All manifests…"
+              allLabel="All manifests"
+            />
+          </div>
           <input value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Search batch number..."
             className="flex-1 min-w-0 sm:w-52 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-500" />

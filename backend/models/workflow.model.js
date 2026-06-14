@@ -385,11 +385,12 @@ const getBatch = async (batchId, icdvId) => {
   return batch;
 };
 
-const getBatches = async ({ page, limit, vessel_id, status, document_status, gc_status, operational_status, search } = {}, icdvId = null) => {
+const getBatches = async ({ page, limit, vessel_id, manifest_id, status, document_status, gc_status, operational_status, search } = {}, icdvId = null) => {
   const { limit: l, offset, paginate } = buildPagination(page, limit);
   let where = '1=1'; const params = [];
   if (icdvId !== null)        { where += ' AND b.icdv_id=?';             params.push(icdvId); }
   if (vessel_id)              { where += ' AND b.vessel_id=?';           params.push(vessel_id); }
+  if (manifest_id)            { where += ' AND b.manifest_id=?';         params.push(manifest_id); }
   if (status)                 { where += ' AND b.status=?';              params.push(status); }
   if (document_status)        { where += ' AND b.document_status=?';     params.push(document_status); }
   if (gc_status)              { where += ' AND b.gc_status=?';           params.push(gc_status); }
@@ -622,20 +623,24 @@ const lookupForTransfer = async (last4, icdvId) => {
 };
 
 const lookupDriverByIdCard = async (idCard, icdvId) => {
-  const _drvSql = icdvId ? 'SELECT * FROM drivers WHERE id_number=? AND icdv_id=?' : 'SELECT * FROM drivers WHERE id_number=?';
-  const [driver] = await query(_drvSql, icdvId ? [idCard, icdvId] : [idCard]);
+  // Driver lookup is GLOBAL — a driver can work for any ICDV transfer
+  // as long as they are active and have no pending active assignment.
+  // icdvId is kept as a parameter for API compatibility but is no longer
+  // used to scope the driver query.
+  const [driver] = await query('SELECT * FROM drivers WHERE id_number=?', [idCard]);
   if (!driver)
     throw new ApiError(httpStatus.NOT_FOUND, `No driver found with ID card '${idCard}'`);
   if (driver.status !== 'active')
     throw new ApiError(httpStatus.CONFLICT,
       `Driver ${driver.full_name} is ${driver.status.toUpperCase()}. Only active drivers can perform transfers.`);
 
+  // Check globally — driver must not have ANY active assignment regardless of ICDV
   const [activeAssign] = await query(
     `SELECT da.assignment_id, v.chassis_number
      FROM driver_assignments da
      JOIN vehicles v ON v.vehicle_id = da.vehicle_id
-     WHERE da.driver_id=? AND da.status='active' AND da.icdv_id=?`,
-    [driver.driver_id, icdvId]
+     WHERE da.driver_id=? AND da.status='active'`,
+    [driver.driver_id]
   );
   if (activeAssign)
     throw new ApiError(httpStatus.CONFLICT,
@@ -685,13 +690,14 @@ const confirmTransfer = async (vehicleId, driverId, driverIdCard, notes, operato
       }
     }
 
-    // Lock driver — only if a driver is assigned (driver is optional)
-    // vehicle.icdv_id is always populated after the FOR UPDATE fetch above.
+    // Lock driver globally — driver must not be active in any ICDV transfer.
+    // icdv_id for the assignment record comes from the vehicle (vehicle.icdv_id),
+    // not from the driver's home ICDV.
     const effectiveIcdvForDriver = icdvId ?? vehicle.icdv_id;
     if (driverId !== null) {
       const [active] = await connQuery(conn,
-        "SELECT assignment_id FROM driver_assignments WHERE driver_id=? AND status='active' AND icdv_id=? FOR UPDATE",
-        [driverId, effectiveIcdvForDriver]
+        "SELECT assignment_id FROM driver_assignments WHERE driver_id=? AND status='active' FOR UPDATE",
+        [driverId]
       );
       if (active) throw new ApiError(httpStatus.CONFLICT, 'Driver already has an active assignment');
     }

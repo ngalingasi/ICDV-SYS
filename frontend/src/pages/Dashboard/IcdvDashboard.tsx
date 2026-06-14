@@ -17,12 +17,20 @@ const WORKFLOW_STEPS = [
 
 // ─── Vehicle Status Breakdown (reusable) ──────────────────────────────────────
 
-function VehicleStatusBreakdown({ workflow, total, loading }: {
-  workflow: Record<string, number>;
-  total: number;
-  loading: boolean;
+function VehicleStatusBreakdown({ workflow, total, loading, manifestId }: {
+  workflow:   Record<string, number>;
+  total:      number;
+  loading:    boolean;
+  manifestId?: number | null;
 }) {
   const pct = (n: number) => total > 0 ? Math.round((n / total) * 100) : 0;
+
+  // Build vehicle list URL for a given workflow status, scoped to manifest if selected
+  const vehicleUrl = (wfStatus: string) => {
+    const base = `/vehicles?workflow_status=${wfStatus}`;
+    return manifestId ? `${base}&manifest_id=${manifestId}` : base;
+  };
+
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5">
       <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Vehicle Status Breakdown</h2>
@@ -31,13 +39,19 @@ function VehicleStatusBreakdown({ workflow, total, loading }: {
         {WORKFLOW_STEPS.map((step, i) => {
           const val = workflow[step.key] ?? 0;
           return (
-            <div key={step.key} className={`rounded-lg ${step.bg} border border-gray-100 dark:border-gray-800 p-2.5 text-center`}>
+            <Link
+              key={step.key}
+              to={vehicleUrl(step.key)}
+              className={`rounded-lg ${step.bg} border border-gray-100 dark:border-gray-800 p-2.5 text-center
+                hover:ring-2 hover:ring-brand-400 hover:ring-offset-1 transition-all cursor-pointer`}
+              title={`View ${val} ${step.label} vehicles${manifestId ? ' for this manifest' : ''}`}
+            >
               <p className="text-[10px] text-gray-400 font-medium">{i + 1}</p>
               {loading
                 ? <div className="mx-auto w-8 h-6 bg-gray-200 dark:bg-gray-700 rounded animate-pulse my-1" />
                 : <p className={`text-xl font-bold ${step.color}`}>{val}</p>}
               <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">{step.label}</p>
-            </div>
+            </Link>
           );
         })}
       </div>
@@ -48,7 +62,12 @@ function VehicleStatusBreakdown({ workflow, total, loading }: {
           const p   = pct(val);
           return (
             <div key={step.key} className="flex items-center gap-3">
-              <span className="w-20 text-[11px] text-gray-500 dark:text-gray-400 shrink-0">{step.label}</span>
+              <Link
+                to={vehicleUrl(step.key)}
+                className="w-20 text-[11px] text-gray-500 dark:text-gray-400 shrink-0 hover:text-brand-600 dark:hover:text-brand-400 hover:underline"
+              >
+                {step.label}
+              </Link>
               <div className="flex-1 h-2 rounded-full bg-gray-100 dark:bg-gray-800">
                 <div className={`h-2 rounded-full ${step.dot} transition-all`} style={{ width: `${p}%` }} />
               </div>
@@ -118,7 +137,7 @@ function ManifestDashboardPanel({ manifest, icdvScoped }: { manifest: Manifest; 
       </div>
 
       {/* Vehicle Status Breakdown */}
-      <VehicleStatusBreakdown workflow={workflow} total={total} loading={loading} />
+      <VehicleStatusBreakdown workflow={workflow} total={total} loading={loading} manifestId={manifest.manifest_id} />
 
       {/* Fuel + Batches row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">

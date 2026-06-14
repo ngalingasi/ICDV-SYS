@@ -245,27 +245,50 @@ export default function TransferPerformancePage() {
     : 0;
 
   // ── Print ──────────────────────────────────────────────────────────────────
-  const handlePrint = () => {
-    if (!rows.length) return;
-    const html = buildPrintHTML(rows, {
-      manifest:     selectedManifest,
-      dateFrom:     dateFrom ? fmtDate(dateFrom) : '',
-      dateTo:       dateTo   ? fmtDate(dateTo)   : '',
-      printed_by:   user?.full_name ?? user?.username ?? 'System',
-      print_date:   new Date().toLocaleString('en-GB', {
-        day: '2-digit', month: 'short', year: 'numeric',
-        hour: '2-digit', minute: '2-digit',
-      }),
-      on_time:      onTimeCount,
-      delayed:      delayedCount,
-      avg_duration: avgDuration,
-    });
-    const w = window.open('', '_blank', 'width=1100,height=800');
-    if (!w) return;
-    w.document.open();
-    w.document.write(html);
-    w.document.close();
-    w.onload = () => { w.focus(); w.print(); };
+  const [printing, setPrinting] = useState(false);
+
+  const handlePrint = async () => {
+    if (!totalResults) return;
+    setPrinting(true);
+    try {
+      // Fetch ALL records (no pagination) for the print output
+      const r = await workflowApi.getTransferPerformance({
+        manifest_id: effectiveManifestId,
+        date_from:   dateFrom || undefined,
+        date_to:     dateTo   || undefined,
+        page:  1,
+        limit: totalResults, // fetch every record
+      });
+      const allRows: PerfRow[] = r.data.results ?? [];
+      const onTime   = allRows.filter(r => r.performance_status === 'on_time').length;
+      const delayed  = allRows.filter(r => r.performance_status === 'delayed').length;
+      const avgDur   = allRows.length
+        ? Math.round(allRows.reduce((s, r) => s + (r.transfer_duration_minutes ?? 0), 0) / allRows.length)
+        : 0;
+      const html = buildPrintHTML(allRows, {
+        manifest:     selectedManifest,
+        dateFrom:     dateFrom ? fmtDate(dateFrom) : '',
+        dateTo:       dateTo   ? fmtDate(dateTo)   : '',
+        printed_by:   user?.full_name ?? user?.username ?? 'System',
+        print_date:   new Date().toLocaleString('en-GB', {
+          day: '2-digit', month: 'short', year: 'numeric',
+          hour: '2-digit', minute: '2-digit',
+        }),
+        on_time:      onTime,
+        delayed:      delayed,
+        avg_duration: avgDur,
+      });
+      const w = window.open('', '_blank', 'width=1100,height=800');
+      if (!w) return;
+      w.document.open();
+      w.document.write(html);
+      w.document.close();
+      w.onload = () => { w.focus(); w.print(); };
+    } catch {
+      // silent — user stays on page
+    } finally {
+      setPrinting(false);
+    }
   };
 
   return (
@@ -287,12 +310,14 @@ export default function TransferPerformancePage() {
             </p>
           </div>
         </div>
-        {rows.length > 0 && (
+        {totalResults > 0 && (
           <button
             onClick={handlePrint}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors"
+            disabled={printing}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white rounded-lg text-sm font-medium transition-colors"
           >
-            <PrintIcon /> Print Report
+            <PrintIcon />
+            {printing ? `Preparing ${totalResults} records…` : `Print Report (${totalResults})`}
           </button>
         )}
       </div>
