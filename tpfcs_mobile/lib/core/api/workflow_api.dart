@@ -6,7 +6,10 @@ import '../models/models.dart';
 // ─── Error extraction helper ──────────────────────────────────────────────────
 /// Extracts the actual backend error message from a Dio exception.
 /// Falls back to a user-friendly generic message based on status code.
-String extractApiError(Object e, {String fallback = 'Operation failed. Please try again.'}) {
+String extractApiError(
+  Object e, {
+  String fallback = 'Operation failed. Please try again.',
+}) {
   if (e is DioException) {
     final data = e.response?.data;
     if (data is Map<String, dynamic>) {
@@ -21,12 +24,13 @@ String extractApiError(Object e, {String fallback = 'Operation failed. Please tr
       409 => 'Conflict — vehicle may already be in this state.',
       422 => 'Validation error. Check the data and try again.',
       500 => 'Server error. Please try again later.',
-      _   => e.type == DioExceptionType.connectionTimeout ||
-             e.type == DioExceptionType.receiveTimeout
-             ? 'Connection timed out. Check your internet connection.'
-             : e.type == DioExceptionType.connectionError
-             ? 'Cannot connect to server. Check your internet connection.'
-             : fallback,
+      _ =>
+        e.type == DioExceptionType.connectionTimeout ||
+                e.type == DioExceptionType.receiveTimeout
+            ? 'Connection timed out. Check your internet connection.'
+            : e.type == DioExceptionType.connectionError
+            ? 'Cannot connect to server. Check your internet connection.'
+            : fallback,
     };
   }
   return fallback;
@@ -38,44 +42,63 @@ class WorkflowApi {
 
   // ── 1. Discharge ────────────────────────────────────────────────────────────
   Future<Vehicle> dischargeLookup(String chassis) async {
-    final res = await _ref.read(dioProvider).getJson(
-      '/workflow/discharge/lookup', params: {'chassis': chassis});
+    final res = await _ref
+        .read(dioProvider)
+        .getJson('/workflow/discharge/lookup', params: {'chassis': chassis});
     return Vehicle.fromJson(res);
   }
 
   Future<void> dischargeConfirm(int vehicleId, {String? notes}) async {
-    await _ref.read(dioProvider).postJson(
-      '/workflow/discharge/confirm',
-      data: {'vehicle_id': vehicleId, if (notes != null) 'notes': notes},
-    );
+    await _ref
+        .read(dioProvider)
+        .postJson(
+          '/workflow/discharge/confirm',
+          data: {'vehicle_id': vehicleId, if (notes != null) 'notes': notes},
+        );
   }
 
   // ── 2. Batch ────────────────────────────────────────────────────────────────
   Future<Vehicle> batchLookup(String chassis) async {
-    final res = await _ref.read(dioProvider).getJson(
-      '/workflow/batch/lookup', params: {'chassis': chassis});
+    final res = await _ref
+        .read(dioProvider)
+        .getJson('/workflow/batch/lookup', params: {'chassis': chassis});
     return Vehicle.fromJson(res);
   }
 
-  Future<Map<String, dynamic>> batchConfirm(int vehicleId, {String? notes}) async {
-    return _ref.read(dioProvider).postJson(
-      '/workflow/batch/confirm',
-      data: {'vehicle_id': vehicleId, if (notes != null) 'notes': notes},
-    );
+  Future<Map<String, dynamic>> batchConfirm(
+    int vehicleId, {
+    String? notes,
+  }) async {
+    return _ref
+        .read(dioProvider)
+        .postJson(
+          '/workflow/batch/confirm',
+          data: {'vehicle_id': vehicleId, if (notes != null) 'notes': notes},
+        );
   }
 
   // ── 2b. Batch list (for backoffice_officer) ─────────────────────────────────
   Future<List<BatchStatusInfo>> getBatches({
-    int page = 1, int limit = 20,
-    String? status, String? manifestId,
+    int page = 1,
+    int limit = 20,
+    String? status,
+    String? manifestId,
   }) async {
-    final res = await _ref.read(dioProvider).getJson('/workflow/batches', params: {
-      'page': page, 'limit': limit,
-      if (status     != null) 'status':      status,
-      if (manifestId != null) 'manifest_id': manifestId,
-    });
+    final res = await _ref
+        .read(dioProvider)
+        .getJson(
+          '/workflow/batches',
+          params: {
+            'page': page,
+            'limit': limit,
+            if (status != null) 'status': status,
+            if (manifestId != null) 'manifest_id': manifestId,
+          },
+        );
     final list = (res['results'] as List? ?? []);
-    return list.map((e) => BatchStatusInfo.fromJson(e as Map<String, dynamic>)).toList();
+    return list
+        .map((e) => BatchStatusInfo.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   // ── 2c. Batch status update (backoffice_officer) ────────────────────────────
@@ -86,34 +109,43 @@ class WorkflowApi {
     String? gcStatus,
     String? gcRemark,
   }) async {
-    final res = await _ref.read(dioProvider).postJson(
-      '/workflow/batches/$batchId/status',
-      data: {
-        if (documentStatus != null) 'document_status': documentStatus,
-        if (documentRemark != null) 'document_remark': documentRemark,
-        if (gcStatus       != null) 'gc_status':       gcStatus,
-        if (gcRemark       != null) 'gc_remark':       gcRemark,
-      },
-    );
+    final res = await _ref
+        .read(dioProvider)
+        .postJson(
+          '/workflow/batches/$batchId/status',
+          data: {
+            if (documentStatus != null) 'document_status': documentStatus,
+            if (documentRemark != null) 'document_remark': documentRemark,
+            if (gcStatus != null) 'gc_status': gcStatus,
+            if (gcRemark != null) 'gc_remark': gcRemark,
+          },
+        );
     return BatchStatusInfo.fromJson(res);
   }
 
   // ── 2d. Get single batch detail ─────────────────────────────────────────────
   Future<BatchStatusInfo> getBatch(int batchId) async {
-    final res = await _ref.read(dioProvider).getJson('/workflow/batches/$batchId');
+    final res = await _ref
+        .read(dioProvider)
+        .getJson('/workflow/batches/$batchId');
     return BatchStatusInfo.fromJson(res);
   }
 
   // ── 3. Transfer ─────────────────────────────────────────────────────────────
   Future<Vehicle> transferLookup(String chassis) async {
-    final res = await _ref.read(dioProvider).getJson(
-      '/workflow/transfer/lookup', params: {'chassis': chassis});
+    final res = await _ref
+        .read(dioProvider)
+        .getJson('/workflow/transfer/lookup', params: {'chassis': chassis});
     return Vehicle.fromJson(res);
   }
 
   Future<Driver> driverLookup(String idCard) async {
-    final res = await _ref.read(dioProvider).getJson(
-      '/workflow/transfer/driver-lookup', params: {'id_card': idCard});
+    final res = await _ref
+        .read(dioProvider)
+        .getJson(
+          '/workflow/transfer/driver-lookup',
+          params: {'id_card': idCard},
+        );
     return Driver.fromJson(res);
   }
 
@@ -123,38 +155,48 @@ class WorkflowApi {
     required String driverIdCard,
     String? notes,
   }) async {
-    await _ref.read(dioProvider).postJson(
-      '/workflow/transfer/confirm',
-      data: {
-        'vehicle_id':     vehicleId,
-        'driver_id':      driverId,
-        'driver_id_card': driverIdCard,
-        if (notes != null) 'notes': notes,
-      },
-    );
+    await _ref
+        .read(dioProvider)
+        .postJson(
+          '/workflow/transfer/confirm',
+          data: {
+            'vehicle_id': vehicleId,
+            'driver_id': driverId,
+            'driver_id_card': driverIdCard,
+            if (notes != null) 'notes': notes,
+          },
+        );
   }
 
   // ── 4. Receive ──────────────────────────────────────────────────────────────
   Future<ReceiveLookup> receiveLookup(String idCard) async {
-    final res = await _ref.read(dioProvider).getJson(
-      '/workflow/receive/lookup', params: {'id_card': idCard});
+    final res = await _ref
+        .read(dioProvider)
+        .getJson('/workflow/receive/lookup', params: {'id_card': idCard});
     return ReceiveLookup.fromJson(res);
   }
 
-  Future<void> receiveConfirm(int driverId, int vehicleId, {String? notes}) async {
-    await _ref.read(dioProvider).postJson(
-      '/workflow/receive/confirm',
-      data: {
-        'driver_id':  driverId,
-        'vehicle_id': vehicleId,
-        if (notes != null) 'notes': notes,
-      },
-    );
+  Future<void> receiveConfirm(
+    int driverId,
+    int vehicleId, {
+    String? notes,
+  }) async {
+    await _ref
+        .read(dioProvider)
+        .postJson(
+          '/workflow/receive/confirm',
+          data: {
+            'driver_id': driverId,
+            'vehicle_id': vehicleId,
+            if (notes != null) 'notes': notes,
+          },
+        );
   }
 
   // ── 5. Chassis search ───────────────────────────────────────────────────────
   Future<List<Vehicle>> search(String chassis) async {
-    final resp = await _ref.read(dioProvider)
+    final resp = await _ref
+        .read(dioProvider)
         .get('/workflow/search', queryParameters: {'chassis': chassis});
     final data = resp.data;
     List<dynamic> list;
@@ -167,54 +209,87 @@ class WorkflowApi {
     } else {
       list = [];
     }
-    return list.map((e) => Vehicle.fromJson(e as Map<String, dynamic>)).toList();
+    return list
+        .map((e) => Vehicle.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   // ── 6. Vehicle operation history ────────────────────────────────────────────
   Future<List<OperationHistory>> getVehicleHistory(int vehicleId) async {
     try {
-      final res = await _ref.read(dioProvider)
+      final res = await _ref
+          .read(dioProvider)
           .get('/workflow/vehicles/$vehicleId/history');
       final data = res.data;
-      final list = data is List ? data
-          : (data['data'] as List? ?? data['operations'] as List? ?? []);
-      return list.map((e) => OperationHistory.fromJson(e as Map<String, dynamic>)).toList();
-    } catch (_) { return []; }
+      final list =
+          data is List
+              ? data
+              : (data['data'] as List? ?? data['operations'] as List? ?? []);
+      return list
+          .map((e) => OperationHistory.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (_) {
+      return [];
+    }
   }
 
   Future<List<OperationHistory>> getVehicleOperations(int vehicleId) async {
     try {
-      final res = await _ref.read(dioProvider)
+      final res = await _ref
+          .read(dioProvider)
           .get('/vehicles/$vehicleId/operations');
       final data = res.data;
-      final list = data is List ? data
-          : (data['data'] as List? ?? data['operations'] as List? ?? []);
-      return list.map((e) => OperationHistory.fromJson(e as Map<String, dynamic>)).toList();
-    } catch (_) { return []; }
+      final list =
+          data is List
+              ? data
+              : (data['data'] as List? ?? data['operations'] as List? ?? []);
+      return list
+          .map((e) => OperationHistory.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (_) {
+      return [];
+    }
   }
 
   // ── 10. Vehicles list (for workflow status drill-down) ──────────────────────
   Future<Map<String, dynamic>> getVehicles({
     String? workflowStatus,
-    int?    manifestId,
-    int     page  = 1,
-    int     limit = 30,
+    int? manifestId,
+    int page = 1,
+    int limit = 30,
   }) async {
-    final res = await _ref.read(dioProvider).getJson('/vehicles', params: {
-      'page': page, 'limit': limit,
-      if (workflowStatus != null) 'workflow_status': workflowStatus,
-      if (manifestId     != null) 'manifest_id':     manifestId,
-    });
+    final res = await _ref
+        .read(dioProvider)
+        .getJson(
+          '/vehicles',
+          params: {
+            'page': page,
+            'limit': limit,
+            if (workflowStatus != null) 'workflow_status': workflowStatus,
+            if (manifestId != null) 'manifest_id': manifestId,
+          },
+        );
     return res as Map<String, dynamic>;
   }
-  Future<List<ManifestSummary>> getManifests({int page = 1, int limit = 30}) async {
+
+  Future<List<ManifestSummary>> getManifests({
+    int page = 1,
+    int limit = 30,
+  }) async {
     try {
-      final res = await _ref.read(dioProvider).getJson('/manifests', params: {
-        'page': page, 'limit': limit, 'status': 'active',
-      });
+      final res = await _ref
+          .read(dioProvider)
+          .getJson(
+            '/manifests',
+            params: {'page': page, 'limit': limit, 'status': 'active'},
+          );
       final list = (res['results'] as List? ?? []);
-      return list.map((e) => ManifestSummary.fromJson(e as Map<String, dynamic>)).toList();
-    } catch (_) { return []; }
+      return list
+          .map((e) => ManifestSummary.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (_) {
+      return [];
+    }
   }
 
   // ── 8. Dashboard (global + manifest-scoped) ─────────────────────────────────
@@ -232,44 +307,56 @@ class WorkflowApi {
 
   /// GET /manifests/:id/fuel/orders
   Future<List<FuelOrder>> getFuelOrders(int manifestId) async {
-    final res = await _ref.read(dioProvider)
+    final res = await _ref
+        .read(dioProvider)
         .getJson('/manifests/$manifestId/fuel/orders');
     final list = (res['results'] as List? ?? res as List? ?? []);
-    return (list).map((e) => FuelOrder.fromJson(e as Map<String, dynamic>)).toList();
+    return (list)
+        .map((e) => FuelOrder.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   /// POST /manifests/:id/fuel/orders — create order
-  Future<FuelOrder> createFuelOrder(int manifestId, {
+  Future<FuelOrder> createFuelOrder(
+    int manifestId, {
     required String fuelType,
     required double quantityLitres,
     String? notes,
   }) async {
-    final res = await _ref.read(dioProvider).postJson(
-      '/manifests/$manifestId/fuel/orders',
-      data: {
-        'fuel_type':        fuelType,
-        'quantity_litres':  quantityLitres,
-        if (notes != null) 'notes': notes,
-      },
-    );
+    final res = await _ref
+        .read(dioProvider)
+        .postJson(
+          '/manifests/$manifestId/fuel/orders',
+          data: {
+            'fuel_type': fuelType,
+            'quantity_litres': quantityLitres,
+            if (notes != null) 'notes': notes,
+          },
+        );
     return FuelOrder.fromJson(res);
   }
 
   /// PATCH /manifests/:id/fuel/orders/:orderId/approve
-  Future<void> approveFuelOrder(int manifestId, int orderId) =>
-      _ref.read(dioProvider).postJson(
-        '/manifests/$manifestId/fuel/orders/$orderId/approve', data: {});
+  Future<void> approveFuelOrder(int manifestId, int orderId) => _ref
+      .read(dioProvider)
+      .postJson(
+        '/manifests/$manifestId/fuel/orders/$orderId/approve',
+        data: {},
+      );
 
   /// PATCH /manifests/:id/fuel/orders/:orderId/reject
   Future<void> rejectFuelOrder(int manifestId, int orderId, {String? reason}) =>
-      _ref.read(dioProvider).postJson(
-        '/manifests/$manifestId/fuel/orders/$orderId/reject',
-        data: {if (reason != null) 'reason': reason},
-      );
+      _ref
+          .read(dioProvider)
+          .postJson(
+            '/manifests/$manifestId/fuel/orders/$orderId/reject',
+            data: {if (reason != null) 'reason': reason},
+          );
 
   /// GET /fuel/lookup?chassis=X — find vehicle for dispense
   Future<Vehicle> fuelVehicleLookup(String chassis) async {
-    final res = await _ref.read(dioProvider)
+    final res = await _ref
+        .read(dioProvider)
         .getJson('/fuel/lookup', params: {'chassis': chassis});
     return Vehicle.fromJson(res);
   }
@@ -280,13 +367,17 @@ class WorkflowApi {
     required double quantityLitres,
     required int manifestId,
     String? notes,
-  }) =>
-      _ref.read(dioProvider).postJson('/fuel/dispense', data: {
-        'vehicle_id':       vehicleId,
-        'quantity_litres':  quantityLitres,
-        'manifest_id':      manifestId,
-        if (notes != null) 'notes': notes,
-      });
+  }) => _ref
+      .read(dioProvider)
+      .postJson(
+        '/fuel/dispense',
+        data: {
+          'vehicle_id': vehicleId,
+          'quantity_litres': quantityLitres,
+          'manifest_id': manifestId,
+          if (notes != null) 'notes': notes,
+        },
+      );
 }
 
 final workflowApiProvider = Provider<WorkflowApi>(WorkflowApi.new);
