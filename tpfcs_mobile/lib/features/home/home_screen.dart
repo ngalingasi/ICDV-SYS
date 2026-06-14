@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/providers/auth_provider.dart';
+import '../../core/models/models.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/widgets.dart';
@@ -10,17 +11,32 @@ import '../../core/utils/widgets.dart';
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
-  // Not const — Color values can't be const in all Flutter versions
-  static final _ops = [
+  // All possible operation cards
+  static const _allOps = [
     _Op('Discharge',    Icons.anchor_rounded,        '/discharge',
-        const Color(0xFFCFDEF7), const Color(0xFFADC6F0), const Color(0xFF6AAEF5)),
+        Color(0xFFCFDEF7), Color(0xFFADC6F0), Color(0xFF6AAEF5)),
     _Op('Batch',        Icons.layers_rounded,         '/batch',
-        const Color(0xFFE2D4F7), const Color(0xFFCBB8F0), const Color(0xFFB28CF5)),
+        Color(0xFFE2D4F7), Color(0xFFCBB8F0), Color(0xFFB28CF5)),
     _Op('TPA Transfer', Icons.local_shipping_rounded, '/transfer',
-        const Color(0xFFFDE8CC), const Color(0xFFF9D0A0), const Color(0xFFF5A652)),
+        Color(0xFFFDE8CC), Color(0xFFF9D0A0), Color(0xFFF5A652)),
     _Op('Yard Receive', Icons.warehouse_rounded,      '/receive',
-        const Color(0xFFCCF0DC), const Color(0xFFA0E0BC), const Color(0xFF4DC98A)),
+        Color(0xFFCCF0DC), Color(0xFFA0E0BC), Color(0xFF4DC98A)),
+    _Op('Fuel',         Icons.local_gas_station_rounded, '/fuel',
+        Color(0xFFFFEDCC), Color(0xFFFFD9A0), Color(0xFFFF9800)),
+    _Op('Batch Status', Icons.assignment_turned_in_rounded, '/batch-status',
+        Color(0xFFD4F7E2), Color(0xFFB8F0CE), Color(0xFF4CAF50)),
   ];
+
+  List<_Op> _opsForUser(User? user) {
+    if (user == null) return [];
+    final ops = <_Op>[];
+    if (user.canDischarge)         { ops.add(_allOps[0]); ops.add(_allOps[1]); }
+    if (user.canTransfer)            ops.add(_allOps[2]);
+    if (user.canReceive)             ops.add(_allOps[3]);
+    if (user.canManageFuel)          ops.add(_allOps[4]);
+    if (user.canUpdateBatchStatus)   ops.add(_allOps[5]);
+    return ops;
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -29,107 +45,145 @@ class HomeScreen extends ConsumerWidget {
     final initial   = user?.fullName.isNotEmpty == true ? user!.fullName[0].toUpperCase() : 'U';
     final c         = AppColors(isDarkMode(context));
     final dark      = isDarkMode(context);
+    final ops       = _opsForUser(user);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
       child: Scaffold(
         backgroundColor: c.bg,
         body: CustomScrollView(slivers: [
-          SliverToBoxAdapter(child: Stack(children: [
-            Positioned(top: -40, right: -40, child: Container(width: 280, height: 280,
-              decoration: BoxDecoration(shape: BoxShape.circle,
-                gradient: RadialGradient(colors: [
-                  AppColors.navy.withOpacity(dark ? 0.4 : 0.07), Colors.transparent])))),
-
-            SafeArea(child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [
-                  // Logo chip
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(color: c.surface1,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: c.border)),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      ClipOval(child: Image.asset('assets/images/logo.png',
-                        width: 22, height: 22, fit: BoxFit.cover)),
-                      const SizedBox(width: 8),
-                      Text('TPFCS', style: TextStyle(
-                        color: c.accent, fontSize: 11,
-                        fontWeight: FontWeight.w800, letterSpacing: 1.5)),
+          // ── Hero header ─────────────────────────────────────────────────────
+          SliverToBoxAdapter(
+            child: Stack(children: [
+              Positioned(
+                top: -40, right: -40,
+                child: Container(
+                  width: 280, height: 280,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(colors: [
+                      AppColors.navy.withOpacity(dark ? 0.4 : 0.07),
+                      Colors.transparent,
                     ]),
                   ),
-                  const Spacer(),
-
-                  // Theme toggle
-                  GestureDetector(
-                    onTap: () => ref.read(themeProvider.notifier).toggle(context),
-                    child: Container(
-                      width: 38, height: 38,
-                      decoration: BoxDecoration(color: c.surface1,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: c.border)),
-                      child: Icon(dark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
-                        color: c.accent, size: 18)),
-                  ),
-                  const SizedBox(width: 10),
-
-                  // Avatar
-                  GestureDetector(
-                    onTap: () => context.push('/profile'),
-                    child: Container(width: 38, height: 38,
-                      decoration: BoxDecoration(shape: BoxShape.circle, color: c.surface1,
-                          border: Border.all(color: c.accent.withOpacity(0.5), width: 1.5)),
-                      child: Center(child: Text(initial, style: TextStyle(
-                        color: c.accent, fontWeight: FontWeight.w900, fontSize: 16)))),
-                  ),
-                ]),
-                const SizedBox(height: 28),
-
-                Text('Hello, $firstName', style: TextStyle(color: c.textSecond, fontSize: 14)),
-                const SizedBox(height: 4),
-                Text(
-                  'Operations Dashboard',
-                  style: TextStyle(
-                    color: c.textPrimary,
-                    fontSize: 30,
-                    fontWeight: FontWeight.w900,
-                    height: 1.1,
-                    letterSpacing: -0.8,
+                ),
+              ),
+              SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(children: [
+                        // Logo chip
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: c.surface1,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: c.border),
+                          ),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            ClipOval(child: Image.asset('assets/images/logo.png',
+                              width: 22, height: 22, fit: BoxFit.cover)),
+                            const SizedBox(width: 8),
+                            Text('TPFCS', style: TextStyle(
+                              color: c.accent, fontSize: 11,
+                              fontWeight: FontWeight.w800, letterSpacing: 1.5)),
+                          ]),
+                        ),
+                        const Spacer(),
+                        // Theme toggle
+                        GestureDetector(
+                          onTap: () => ref.read(themeProvider.notifier).toggle(context),
+                          child: Container(
+                            width: 38, height: 38,
+                            decoration: BoxDecoration(
+                              color: c.surface1,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: c.border),
+                            ),
+                            child: Icon(
+                              dark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                              color: c.accent, size: 18),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        // Avatar
+                        GestureDetector(
+                          onTap: () => context.push('/profile'),
+                          child: Container(
+                            width: 38, height: 38,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: c.surface1,
+                              border: Border.all(color: c.accent.withOpacity(0.5), width: 1.5),
+                            ),
+                            child: Center(child: Text(initial, style: TextStyle(
+                              color: c.accent, fontWeight: FontWeight.w900, fontSize: 16))),
+                          ),
+                        ),
+                      ]),
+                      const SizedBox(height: 28),
+                      Text('Hello, $firstName', style: TextStyle(color: c.textSecond, fontSize: 14)),
+                      const SizedBox(height: 4),
+                      Text('Operations Dashboard', style: TextStyle(
+                        color: c.textPrimary, fontSize: 30,
+                        fontWeight: FontWeight.w900, height: 1.1, letterSpacing: -0.8)),
+                      if (user?.icdvName != null) ...[
+                        const SizedBox(height: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: c.accentDim,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: c.accent.withOpacity(0.3)),
+                          ),
+                          child: Text(user!.icdvName!, style: TextStyle(
+                            color: c.accent, fontSize: 11, fontWeight: FontWeight.w700)),
+                        ),
+                      ],
+                      const SizedBox(height: 28),
+                    ],
                   ),
                 ),
-                if (user?.icdvName != null) ...[
-                  const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(color: c.accentDim,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: c.accent.withOpacity(0.3))),
-                    child: Text(user!.icdvName!, style: TextStyle(
-                      color: c.accent, fontSize: 11, fontWeight: FontWeight.w700))),
-                ],
-                const SizedBox(height: 28),
-              ]),
-            )),
-          ])),
-
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            sliver: SliverGrid(
-              delegate: SliverChildBuilderDelegate(
-                (ctx, i) => _OpCard(op: _ops[i]), childCount: _ops.length),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2, crossAxisSpacing: 12,
-                mainAxisSpacing: 12, childAspectRatio: 0.92),
-            ),
+              ),
+            ]),
           ),
 
+          // ── Operation cards grid (role-filtered) ────────────────────────────
+          if (ops.isNotEmpty)
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              sliver: SliverGrid(
+                delegate: SliverChildBuilderDelegate(
+                  (ctx, i) => _OpCard(op: ops[i]),
+                  childCount: ops.length,
+                ),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2, crossAxisSpacing: 12,
+                  mainAxisSpacing: 12, childAspectRatio: 0.92),
+              ),
+            ),
+
+          if (ops.isEmpty)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(40),
+                child: Center(child: Text(
+                  'No operations available for your role.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: c.textMuted, fontSize: 14))),
+              ),
+            ),
+
+          // ── Quick actions ───────────────────────────────────────────────────
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(20, 28, 20, 8),
             sliver: SliverToBoxAdapter(child: Row(children: [
               Text('QUICK ACTIONS', style: TextStyle(
-                color: c.textMuted, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 2)),
+                color: c.textMuted, fontSize: 10,
+                fontWeight: FontWeight.w700, letterSpacing: 2)),
               const Spacer(),
               Container(width: 40, height: 1, color: c.border),
             ])),
@@ -138,11 +192,15 @@ class HomeScreen extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
             sliver: SliverList(delegate: SliverChildListDelegate([
               const SizedBox(height: 12),
-              _QuickRow(icon: Icons.search_rounded, label: 'Chassis Search',
-                  sub: 'Track any vehicle status', onTap: () => context.push('/search')),
+              _QuickRow(
+                icon: Icons.search_rounded, label: 'Chassis Search',
+                sub: 'Track any vehicle status',
+                onTap: () => context.push('/search')),
               const SizedBox(height: 10),
-              _QuickRow(icon: Icons.person_outline_rounded, label: 'My Profile',
-                  sub: 'Account & settings', onTap: () => context.push('/profile')),
+              _QuickRow(
+                icon: Icons.person_outline_rounded, label: 'My Profile',
+                sub: 'Account & settings',
+                onTap: () => context.push('/profile')),
             ])),
           ),
         ]),

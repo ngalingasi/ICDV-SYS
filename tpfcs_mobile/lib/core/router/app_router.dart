@@ -13,6 +13,9 @@ import '../../features/transfer/transfer_screen.dart';
 import '../../features/receive/receive_screen.dart';
 import '../../features/search/search_screen.dart';
 import '../../features/profile/profile_screen.dart';
+import '../../features/fuel/fuel_screen.dart';
+import '../../features/backoffice/batch_status_screen.dart';
+import '../../features/vehicles/vehicle_list_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final notifier = _AuthListenable(ref);
@@ -23,13 +26,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final auth = ref.read(authProvider);
       final path = state.matchedLocation;
 
-      // Stay on splash while session is being restored
-      if (auth.isInitializing) return '/splash';
+      // Splash handles its own navigation — don't redirect from it
+      if (path == '/splash') return null;
 
-      if (path == '/splash') {
-        // Once init is done, leave splash
-        return auth.isAuthenticated ? '/dashboard' : '/login';
-      }
+      // While restoring session, allow access to dashboard optimistically.
+      // If token is invalid, _tryRestoreSession() will set isAuthenticated=false
+      // and this redirect will fire again, sending user to /login.
+      if (auth.isInitializing) return null;
 
       if (!auth.isAuthenticated) return path == '/login' ? null : '/login';
       if (auth.user!.mustChangePassword) return path == '/change-password' ? null : '/change-password';
@@ -54,10 +57,25 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
 
       // ── Operation screens (no shell — full screen) ───────────────────────
-      GoRoute(path: '/discharge', builder: (_, __) => const DischargeScreen()),
-      GoRoute(path: '/batch',     builder: (_, __) => const BatchScreen()),
-      GoRoute(path: '/transfer',  builder: (_, __) => const TransferScreen()),
-      GoRoute(path: '/receive',   builder: (_, __) => const ReceiveScreen()),
+      GoRoute(path: '/discharge',    builder: (_, __) => const DischargeScreen()),
+      GoRoute(path: '/batch',        builder: (_, __) => const BatchScreen()),
+      GoRoute(path: '/transfer',     builder: (_, __) => const TransferScreen()),
+      GoRoute(path: '/receive',      builder: (_, __) => const ReceiveScreen()),
+      GoRoute(path: '/fuel',         builder: (_, __) => const FuelScreen()),
+      GoRoute(path: '/batch-status', builder: (_, __) => const BatchStatusScreen()),
+      GoRoute(
+        path: '/vehicles',
+        builder: (_, state) {
+          final status     = state.uri.queryParameters['workflow_status'] ?? '';
+          final manifestId = int.tryParse(state.uri.queryParameters['manifest_id'] ?? '');
+          final manifestNo = state.uri.queryParameters['manifest_number'];
+          return VehicleListScreen(
+            workflowStatus:  status,
+            manifestId:      manifestId,
+            manifestNumber:  manifestNo,
+          );
+        },
+      ),
     ],
     errorBuilder: (_, state) => Scaffold(
       body: Center(child: Text('Page not found: ${state.uri}')),

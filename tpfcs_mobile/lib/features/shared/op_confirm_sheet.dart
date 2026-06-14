@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
+import '../../core/api/workflow_api.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/providers/theme_provider.dart';
 
@@ -89,13 +91,12 @@ class _OpConfirmSheetState extends State<_OpConfirmSheet>
       _ctrl.reset(); _ctrl.forward();
       widget.onResult(true);
     } catch (e) {
-      final msg = e.toString();
+      // Extract actual backend message from Dio response
+      final msg = extractApiError(e,
+        fallback: 'Operation failed. Please try again.');
       setState(() {
         _state = _SheetState.error;
-        _errorMessage = msg.contains('409') ? 'Vehicle status mismatch — check workflow.'
-            : msg.contains('404')           ? 'Vehicle or record not found.'
-            : msg.contains('SocketException')? 'No connection to server.'
-            : 'Operation failed. Please try again.';
+        _errorMessage = msg;
       });
       _ctrl.reset(); _ctrl.forward();
       widget.onResult(false);

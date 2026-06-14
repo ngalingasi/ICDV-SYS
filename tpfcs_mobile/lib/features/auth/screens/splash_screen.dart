@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/api/api_client.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/utils/widgets.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -20,33 +20,36 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   @override
   void initState() {
     super.initState();
+    // Shorter animation — 900ms total instead of 2400ms
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2400),
+      duration: const Duration(milliseconds: 900),
     );
     _fade = CurvedAnimation(
       parent: _ctrl,
-      curve: const Interval(0.0, 0.45, curve: Curves.easeOut),
+      curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
     );
-    _scale = Tween<double>(begin: 0.75, end: 1.0).animate(
+    _scale = Tween<double>(begin: 0.85, end: 1.0).animate(
       CurvedAnimation(
         parent: _ctrl,
-        curve: const Interval(0.0, 0.45, curve: Curves.easeOutBack),
+        curve: const Interval(0.0, 0.6, curve: Curves.easeOutBack),
       ),
     );
     _progress = CurvedAnimation(
       parent: _ctrl,
-      curve: const Interval(0.35, 0.95, curve: Curves.easeInOut),
+      curve: const Interval(0.2, 1.0, curve: Curves.easeInOut),
     );
-    _ctrl.forward().then(
-      (_) => Future.delayed(const Duration(milliseconds: 300), _navigate),
-    );
-  }
 
-  void _navigate() {
-    if (!mounted) return;
-    final auth = ref.read(authProvider);
-    context.go(auth.isAuthenticated ? '/dashboard' : '/login');
+    // Check token from secure storage immediately — no network call needed.
+    // If a token exists, navigate to dashboard optimistically.
+    // The router's redirect + authProvider will validate in the background
+    // and redirect to /login if the token is invalid/expired.
+    _ctrl.forward().then((_) async {
+      if (!mounted) return;
+      final token = await getAccessToken();
+      if (!mounted) return;
+      context.go(token != null ? '/dashboard' : '/login');
+    });
   }
 
   @override

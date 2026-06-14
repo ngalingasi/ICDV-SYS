@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/api/workflow_api.dart';
+import '../../core/api/workflow_api.dart' show extractApiError;
+
 import '../../core/models/models.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/theme/app_theme.dart';
@@ -138,13 +140,7 @@ class _TransferScreenState extends ConsumerState<TransferScreen> {
     subtitle: '${_vehicle!.chassisNumber} is now IN TRANSIT\nDriver: ${_driver!.fullName}',
     onNext: _reset, nextLabel: 'Process Another');
 
-  String _parseError(Object e) {
-    final s = e.toString();
-    if (s.contains('409')) return 'Vehicle not BATCHED or driver has active assignment';
-    if (s.contains('404')) return 'Not found — check chassis or ID card';
-    if (s.contains('SocketException')) return 'No connection to server';
-    return 'Operation failed. Please try again.';
-  }
+  String _parseError(Object e) => extractApiError(e);
 }
 
 class _OutlineBtn extends StatelessWidget {

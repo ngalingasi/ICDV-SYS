@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/api/workflow_api.dart';
+import '../../core/api/workflow_api.dart' show extractApiError;
+
 import '../../core/models/models.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/theme/app_theme.dart';
@@ -127,13 +129,7 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> {
     subtitle: '${_data!.vehicle.chassisNumber} is now at ICDV Yard.\nDriver assignment closed.',
     onNext: _reset, nextLabel: 'Receive Another');
 
-  String _parseError(Object e) {
-    final s = e.toString();
-    if (s.contains('404')) return 'Driver not found or no active assignment';
-    if (s.contains('409')) return 'Vehicle is not IN_TRANSIT';
-    if (s.contains('SocketException')) return 'No connection to server';
-    return 'Operation failed. Please try again.';
-  }
+  String _parseError(Object e) => extractApiError(e);
 }
 
 class _OutlineBtn extends StatelessWidget {

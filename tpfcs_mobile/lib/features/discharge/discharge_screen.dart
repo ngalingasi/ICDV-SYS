@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/api/workflow_api.dart';
+import '../../core/api/workflow_api.dart' show extractApiError;
+
 import '../../core/models/models.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/theme/app_theme.dart';
@@ -119,13 +121,7 @@ class _DischargeScreenState extends ConsumerState<DischargeScreen> {
     subtitle: '${_vehicle!.chassisNumber}\nmoved to Holding Ground',
     onNext: _reset, nextLabel: 'Discharge Another');
 
-  String _parseError(Object e) {
-    final s = e.toString();
-    if (s.contains('404')) return 'Vehicle not found';
-    if (s.contains('409')) return 'Vehicle is not in MANIFESTED status';
-    if (s.contains('SocketException')) return 'No connection to server';
-    return 'Operation failed. Please try again.';
-  }
+  String _parseError(Object e) => extractApiError(e);
 }
 
 class _OutlineBtn extends StatelessWidget {
