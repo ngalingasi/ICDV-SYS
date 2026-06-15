@@ -4,7 +4,7 @@ const ApiError = require('../utils/ApiError');
 const { buildPagination } = require('../utils/paginate');
 const { getTransferRate } = require('./lookup.model');
 
-const generateManifestNumber = async (icdvId = null) => {
+/*const generateManifestNumber = async (icdvId = null) => {
   const year   = new Date().getFullYear();
   const prefix = `ICDV-MAN-${year}-`;
   const whereIcdv = icdvId ? ' AND icdv_id=?' : '';
@@ -14,6 +14,25 @@ const generateManifestNumber = async (icdvId = null) => {
      FROM manifests WHERE manifest_number LIKE ?${whereIcdv}`,
     p
   );
+  return `${prefix}${String((last || 0) + 1).padStart(4, '0')}`;
+};
+*/
+
+const generateManifestNumber = async (icdvId) => {
+  const year = new Date().getFullYear();
+
+  // Get the ICDV code
+  const [icdv] = await query(`SELECT code FROM icdvs WHERE icdv_id=?`, [icdvId]);
+  if (!icdv) throw new ApiError(httpStatus.BAD_REQUEST, 'Invalid icdv_id');
+
+  const prefix = `${icdv.code}-MAN-${year}-`;
+
+  const [{ last }] = await query(
+    `SELECT MAX(CAST(SUBSTRING_INDEX(manifest_number, '-', -1) AS UNSIGNED)) AS last
+     FROM manifests WHERE manifest_number LIKE ? AND icdv_id=?`,
+    [`${prefix}%`, icdvId]
+  );
+
   return `${prefix}${String((last || 0) + 1).padStart(4, '0')}`;
 };
 

@@ -38,6 +38,8 @@ interface LiveVehicle {
   icdv_name?:         string;
   driver_name?:       string;
   driver_phone?:      string;
+  driver_license?:    string;
+  driver_id_card?:    string;
   transfer_id:        number;
   transferred_at:     string;
   elapsed_minutes:    number;
@@ -140,14 +142,56 @@ function VehicleCard({ v, isFS }: { v: LiveVehicle; isFS: boolean }) {
 
       <button
         onClick={() => setShowDriver(s => !s)}
-        className="text-[10px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 underline-offset-2 hover:underline"
+        className="text-[10px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 underline-offset-2 hover:underline mt-1"
       >
         {showDriver ? 'Hide driver' : 'Show driver'}
       </button>
       {showDriver && (
-        <div className="rounded-lg bg-white/60 dark:bg-gray-800/60 px-3 py-2 text-xs">
-          <p className="font-medium text-gray-700 dark:text-gray-300">{v.driver_name ?? '—'}</p>
-          {v.driver_phone && <p className="text-gray-500 dark:text-gray-400">{v.driver_phone}</p>}
+        <div className="rounded-lg bg-white/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700 px-3 py-2.5 mt-1 space-y-1.5">
+          {/* Driver name */}
+          <p className="text-xs font-semibold text-gray-800 dark:text-white">
+            {v.driver_name ?? '—'}
+          </p>
+
+          {/* Licence number */}
+          {v.driver_license && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-gray-400 uppercase tracking-wide w-14 flex-shrink-0">Licence</span>
+              <span className="text-xs font-mono text-gray-700 dark:text-gray-300">{v.driver_license}</span>
+            </div>
+          )}
+
+          {/* ID card — click to copy */}
+          {v.driver_id_card && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-gray-400 uppercase tracking-wide w-14 flex-shrink-0">ID Card</span>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(v.driver_id_card!);
+                  // Brief visual feedback via title tooltip
+                }}
+                title="Click to copy"
+                className="text-xs font-mono text-brand-600 dark:text-brand-400 hover:underline cursor-copy"
+              >
+                {v.driver_id_card}
+              </button>
+              <CopyIcon />
+            </div>
+          )}
+
+          {/* Phone — click to call */}
+          {v.driver_phone && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-gray-400 uppercase tracking-wide w-14 flex-shrink-0">Phone</span>
+              <a
+                href={`tel:${v.driver_phone}`}
+                className="text-xs text-green-600 dark:text-green-400 hover:underline font-medium flex items-center gap-1"
+              >
+                <PhoneIcon />
+                {v.driver_phone}
+              </a>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -413,3 +457,5 @@ const ClockIcon      = () => <svg className="w-3.5 h-3.5 text-gray-400 flex-shri
 const RefreshIcon    = () => <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>;
 const FullscreenIcon = () => <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 8V6a2 2 0 012-2h2M4 16v2a2 2 0 002 2h2m8-16h2a2 2 0 012 2v2m0 8v2a2 2 0 01-2 2h-2"/></svg>;
 const ExitFSIcon     = () => <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>;
+const PhoneIcon      = () => <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>;
+const CopyIcon       = () => <svg className="w-3 h-3 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>;

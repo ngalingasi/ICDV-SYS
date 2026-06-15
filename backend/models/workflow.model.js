@@ -817,12 +817,13 @@ const getTpaStats = async (icdvId = null) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const lookupForReceive = async (idCard, icdvId) => {
-  const _dSql = icdvId ? 'SELECT * FROM drivers WHERE id_number=? AND icdv_id=?' : 'SELECT * FROM drivers WHERE id_number=?';
-  const [driver] = await query(_dSql, icdvId ? [idCard, icdvId] : [idCard]);
+  // Driver lookup is global — any driver regardless of their home ICDV
+  const [driver] = await query('SELECT * FROM drivers WHERE id_number=?', [idCard]);
   if (!driver)
     throw new ApiError(httpStatus.NOT_FOUND, `No driver found with ID card '${idCard}'`);
-  const _rcvIcdvId = driver.icdv_id;
 
+  // Assignment lookup is global — the assignment's icdv_id is the VEHICLE's ICDV
+  // (not the driver's home ICDV), so we must not filter by driver.icdv_id
   const [assignment] = await query(
     `SELECT da.*,
        v.vehicle_id, v.chassis_number, v.brand, v.model, v.color, v.year,
@@ -836,8 +837,8 @@ const lookupForReceive = async (idCard, icdvId) => {
      LEFT JOIN manifests m ON m.manifest_id = v.manifest_id
      LEFT JOIN vessels vs ON vs.vessel_id = m.vessel_id
      LEFT JOIN transfers t ON t.transfer_id = da.transfer_id
-     WHERE da.driver_id=? AND da.status='active' AND da.icdv_id=?`,
-    [driver.driver_id, _rcvIcdvId]
+     WHERE da.driver_id=? AND da.status='active'`,
+    [driver.driver_id]
   );
   if (!assignment)
     throw new ApiError(httpStatus.NOT_FOUND, `Driver ${driver.full_name} has no active vehicle assignment`);
@@ -864,21 +865,21 @@ const confirmReceive = async (driverId, vehicleId, notes, operatorId, icdvId) =>
     // Resolve the effective icdv_id for all queries below
     const effectiveIcdvId = icdvId ?? vehicle.icdv_id;
 
-    // Find assignment — when a driver is provided use the driver+vehicle scope;
-    // when no driver was assigned (optional driver), match on vehicle alone.
+    // Find assignment — global scope: assignment's icdv_id is the vehicle's ICDV
+    // not the driver's home ICDV, so never filter by icdv_id on driver_assignments.
     let assignment;
     if (driverId !== null) {
       [assignment] = await connQuery(conn,
-        "SELECT * FROM driver_assignments WHERE driver_id=? AND vehicle_id=? AND status='active' AND icdv_id=? FOR UPDATE",
-        [driverId, vehicleId, effectiveIcdvId]
+        "SELECT * FROM driver_assignments WHERE driver_id=? AND vehicle_id=? AND status='active' FOR UPDATE",
+        [driverId, vehicleId]
       );
       if (!assignment)
         throw new ApiError(httpStatus.NOT_FOUND, 'No active driver assignment found');
     } else {
       // No driver — look for the active transfer for this vehicle directly
       [assignment] = await connQuery(conn,
-        "SELECT * FROM driver_assignments WHERE vehicle_id=? AND status='active' AND icdv_id=? FOR UPDATE",
-        [vehicleId, effectiveIcdvId]
+        "SELECT * FROM driver_assignments WHERE vehicle_id=? AND status='active' FOR UPDATE",
+        [vehicleId]
       );
       // No assignment is acceptable when vehicle was transferred without a driver
     }
