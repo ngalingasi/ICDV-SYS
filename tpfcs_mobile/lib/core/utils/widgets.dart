@@ -414,13 +414,20 @@ class StepIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = AppColors(isDarkMode(context));
+    // When current is the last step index, the operation is complete —
+    // show a filled checkmark on every step including the final one.
+    final isFinalDone = current >= total - 1;
+
     return Row(
       children: List.generate(total, (i) {
-        final done   = i < current;
-        final active = i == current;
+        // A step is "done" (filled checkmark) when:
+        //   - it's before the current step, OR
+        //   - it IS the current (final) step and the operation completed
+        final done   = i < current || (i == current && isFinalDone);
+        final active = i == current && !isFinalDone;
         return Expanded(child: Row(children: [
           if (i > 0) Expanded(child: Container(height: 1,
-            color: done ? c.accent : c.border)),
+            color: (done || active) ? c.accent : c.border)),
           Column(mainAxisSize: MainAxisSize.min, children: [
             Container(width: 26, height: 26,
               decoration: BoxDecoration(
@@ -440,7 +447,7 @@ class StepIndicator extends StatelessWidget {
             if (i < labels.length)
               Text(labels[i], style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700,
                   letterSpacing: 0.5,
-                  color: active ? c.accent : c.textMuted)),
+                  color: (active || (done && i == current)) ? c.accent : c.textMuted)),
           ]),
         ]));
       }),

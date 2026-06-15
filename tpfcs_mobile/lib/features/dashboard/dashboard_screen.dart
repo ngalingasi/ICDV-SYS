@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:dio/dio.dart';
 import '../../core/api/api_client.dart';
 import '../../core/api/workflow_api.dart';
+import '../../core/api/workflow_api.dart' show extractApiError;
 import '../../core/models/models.dart' show ManifestSummary;
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/theme_provider.dart';
@@ -112,8 +114,20 @@ class RecentVessel {
 
 // ── Provider ──────────────────────────────────────────────────────────────────
 // Family provider: null = global dashboard, int = manifest-scoped dashboard
+// Waits until auth session restore completes before fetching — avoids 401
+// on startup when the token is expired and refresh hasn't fired yet.
 final dashboardProvider = FutureProvider.autoDispose.family<Map<String, dynamic>, int?>(
   (ref, manifestId) async {
+    // If still restoring session, wait for it to complete
+    final auth = ref.watch(authProvider);
+    if (auth.isInitializing) {
+      // Return empty map — dashboard will re-fetch when isInitializing changes
+      // because authProvider is watched and will trigger a rebuild
+      throw Exception('initializing');
+    }
+    if (!auth.isAuthenticated) {
+      throw Exception('unauthenticated');
+    }
     final api = ref.read(workflowApiProvider);
     if (manifestId != null) {
       return api.getManifestDashboard(manifestId);
@@ -245,13 +259,34 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
                 sliver: dash.when(
                   loading: () => SliverToBoxAdapter(child: _Shimmer(c: c)),
-                  error:
-                      (e, _) => SliverToBoxAdapter(
+                  error: (e, _) {
+                    // Still initializing — show shimmer instead of error
+                    if (e.toString().contains('initializing') ||
+                        e.toString().contains('unauthenticated')) {
+                      return SliverToBoxAdapter(child: _Shimmer(c: c));
+                    }
+                    // 401 = token expired and refresh failed → force logout
+                    final is401 = e is DioException &&
+                        e.response?.statusCode == 401;
+                    if (is401) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        ref.read(authProvider.notifier).logout();
+                        if (context.mounted) context.go('/login');
+                      });
+                      return SliverToBoxAdapter(
                         child: Padding(
                           padding: const EdgeInsets.only(top: 32),
-                          child: ErrorBanner(e.toString()),
+                          child: ErrorBanner('Session expired. Redirecting to login…'),
                         ),
+                      );
+                    }
+                    return SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 32),
+                        child: ErrorBanner(extractApiError(e)),
                       ),
+                    );
+                  },
                   data: (data) {
                     final stats = DashboardStats.fromJson(data);
                     final vessels =
