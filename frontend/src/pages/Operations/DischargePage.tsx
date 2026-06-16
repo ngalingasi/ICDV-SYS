@@ -68,7 +68,7 @@ export default function DischargePage() {
         </p>
       </div>
 
-      {vehicle && <WorkflowProgress status={step === 'done' ? 'discharged' : vehicle.workflow_status} />}
+      {vehicle && <WorkflowProgress status={step === 'done' ? 'discharged' : vehicle.workflow_status} completed />}
 
       {/* ── Step 1: Search ─────────────────────────────────────────────── */}
       {step === 'search' && (

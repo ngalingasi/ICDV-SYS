@@ -56,7 +56,7 @@ export default function ReceivePage() {
         </p>
       </div>
 
-      {assignment && <WorkflowProgress status={step === 'done' ? 'received' : assignment.workflow_status} />}
+      {assignment && <WorkflowProgress status={step === 'done' ? 'received' : assignment.workflow_status} completed />}
 
       {step === 'lookup' && (
         <Section title="Driver ID Card Scan">

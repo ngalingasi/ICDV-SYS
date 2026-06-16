@@ -117,19 +117,29 @@ const STEP_MAP: Record<string, number> = {
   manifested: 0, discharged: 1, batched: 2, in_transit: 3, received: 4,
 };
 
-export function WorkflowProgress({ status }: { status: string }) {
-  const current     = STEP_MAP[status] ?? -1;
-  const isFinalDone = current === STEPS.length - 1; // all steps completed
+export function WorkflowProgress({ status, completed = false }: { status: string; completed?: boolean }) {
+  const current = STEP_MAP[status] ?? -1;
+  // `vehicle.workflow_status` always represents the LAST COMPLETED step
+  // (e.g. a vehicle looked up for batching has workflow_status='discharged',
+  // meaning Discharge is done and Batch is the upcoming action).
+  // `completed` lets a caller force-mark the current step done even when
+  // it's the final step in the chain (Received has no "next" step).
+  const isCurrentDone = completed || current === STEPS.length - 1;
+  // The step right after the current one is the "next action" — shown
+  // with the outlined active style so the user sees what's coming up.
+  const nextStepIndex = isCurrentDone ? current + 1 : current;
 
   return (
     <div className="w-full overflow-x-auto pb-1 -mb-1">
       <div className="flex items-start min-w-[260px] w-full mb-1">
         {STEPS.map((step, i) => {
           // A step is "done" (filled checkmark) when:
-          //   - it is before the current step, OR
-          //   - it IS the current step AND we are on the final step (received)
-          const isDone   = i < current || (i === current && isFinalDone);
-          const isActive = i === current && !isFinalDone;
+          //   - it is before or at the current completed step
+          const isDone   = i < current || (i === current && isCurrentDone);
+          // The "active" (outlined, highlighted) step is the next one in
+          // line after whatever was last completed — not the completed
+          // step itself.
+          const isActive = i === nextStepIndex && !isDone;
 
           return (
             <div key={step} className="flex items-start flex-1">
@@ -155,11 +165,9 @@ export function WorkflowProgress({ status }: { status: string }) {
                   ) : String(i + 1)}
                 </div>
                 <span className={`mt-1 text-center leading-tight font-medium ${
-                  isActive || (isDone && isFinalDone && i === current)
+                  isActive || (isDone && i === current)
                     ? 'text-brand-600 dark:text-brand-400'
-                    : isDone
-                      ? 'text-gray-400 dark:text-gray-500'
-                      : 'text-gray-400 dark:text-gray-500'
+                    : 'text-gray-400 dark:text-gray-500'
                 }`}>
                   <span className="hidden sm:block text-[10px]">{step}</span>
                   <span className="block sm:hidden text-[9px]">{STEPS_SHORT[i]}</span>

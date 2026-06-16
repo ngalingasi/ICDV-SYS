@@ -64,7 +64,7 @@ export default function BatchPage() {
         </Link>
       </div>
 
-      {vehicle && <WorkflowProgress status={step === 'done' ? 'batched' : vehicle.workflow_status} />}
+      {vehicle && <WorkflowProgress status={step === 'done' ? 'batched' : vehicle.workflow_status} completed />}
 
       <div className="rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 px-3 py-2.5 text-xs text-blue-700 dark:text-blue-400 leading-relaxed">
         System assigns vehicles to the current open batch for the vessel (max 20 per batch).

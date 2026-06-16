@@ -101,6 +101,16 @@ function ManifestDashboardPanel({ manifest, icdvScoped }: { manifest: Manifest; 
   const fuelStock: any[] = data?.fuel_stock ?? [];
   const batches: any[]   = data?.batches ?? [];
 
+  // release_breakdown rows: [{ release_status: 'released'|'collected'|'unreleased', count }]
+  const releaseRows: any[] = data?.release_breakdown ?? [];
+  const releasedCount   = releaseRows
+    .filter(r => r.release_status === 'released' || r.release_status === 'collected')
+    .reduce((sum, r) => sum + Number(r.count), 0);
+  const unreleasedCount = releaseRows
+    .filter(r => r.release_status === 'unreleased')
+    .reduce((sum, r) => sum + Number(r.count), 0);
+  const openBatchesCount = batches.filter(b => b.status === 'open').length;
+
   return (
     <div className="space-y-5">
 
@@ -119,20 +129,25 @@ function ManifestDashboardPanel({ manifest, icdvScoped }: { manifest: Manifest; 
         </Link>
       </div>
 
-      {/* Summary cards */}
+      {/* Summary cards — same 8-card layout as the global dashboard, scoped to this manifest */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Total Vehicles', value: total,                       color: 'text-gray-800 dark:text-white' },
-          { label: 'Batches',        value: batches.length,              color: 'text-violet-600 dark:text-violet-400' },
-          { label: 'In Transit',     value: workflow.in_transit ?? 0,    color: 'text-orange-600 dark:text-orange-400' },
-          { label: 'Received',       value: workflow.received ?? 0,      color: 'text-emerald-600 dark:text-emerald-400' },
-        ].map(({ label, value, color }) => (
-          <div key={label} className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 text-center">
+          { label: 'Total Vehicles',   value: total,             color: 'text-gray-800 dark:text-white',           to: `/vehicles?manifest_id=${manifest.manifest_id}` },
+          { label: 'Released',         value: releasedCount,     color: 'text-green-600 dark:text-green-400',      to: `/vehicles?manifest_id=${manifest.manifest_id}&release_status=released` },
+          { label: 'Open Batches',     value: openBatchesCount,  color: 'text-violet-600 dark:text-violet-400',    to: `/operations/batches?manifest_id=${manifest.manifest_id}` },
+          { label: 'Unreleased',       value: unreleasedCount,   color: 'text-red-600 dark:text-red-400',          to: `/vehicles?manifest_id=${manifest.manifest_id}&release_status=unreleased` },
+          { label: 'In Transit',       value: workflow.in_transit ?? 0,  color: 'text-orange-600 dark:text-orange-400',  to: `/vehicles?manifest_id=${manifest.manifest_id}&workflow_status=in_transit` },
+          { label: 'Received at Yard', value: workflow.received  ?? 0,   color: 'text-emerald-600 dark:text-emerald-400', to: `/vehicles?manifest_id=${manifest.manifest_id}&workflow_status=received` },
+          { label: 'Total Batches',    value: batches.length,    color: 'text-indigo-600 dark:text-indigo-400',    to: `/operations/batches?manifest_id=${manifest.manifest_id}` },
+          { label: 'Discharged',       value: workflow.discharged ?? 0,  color: 'text-blue-600 dark:text-blue-400',       to: `/vehicles?manifest_id=${manifest.manifest_id}&workflow_status=discharged` },
+        ].map(({ label, value, color, to }) => (
+          <Link key={label} to={to}
+            className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 text-center hover:ring-2 hover:ring-brand-400 hover:ring-offset-1 transition-all cursor-pointer">
             <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
             {loading
               ? <div className="mx-auto mt-1 w-12 h-7 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
               : <p className={`text-2xl font-bold mt-1 ${color}`}>{value}</p>}
-          </div>
+          </Link>
         ))}
       </div>
 

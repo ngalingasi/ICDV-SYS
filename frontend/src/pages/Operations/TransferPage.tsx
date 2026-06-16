@@ -289,7 +289,7 @@ export default function TransferPage() {
       {/* TPA Stats — visible to transfer_officer and admin+ */}
       {canViewTpaStats && <TpaStatsPanel />}
 
-      {vehicle && <WorkflowProgress status={step === 'done' ? 'in_transit' : vehicle.workflow_status} />}
+      {vehicle && <WorkflowProgress status={step === 'done' ? 'in_transit' : vehicle.workflow_status} completed />}
 
       {/* Step pills — scroll horizontally on very narrow screens */}
       <div className="overflow-x-auto pb-1">

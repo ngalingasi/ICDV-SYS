@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router';
-import { workflowApi } from '../../api';
+import { Link, useParams, useSearchParams } from 'react-router';
+import { workflowApi, manifestsApi } from '../../api';
 import StatusBadge from '../../components/tpfcs/StatusBadge';
 import { useAuth } from '../../store/authStore';
 import { toast } from '../../components/tpfcs/Toast';
@@ -30,6 +30,8 @@ const fmtDateTime = (d?: string | null) => {
   return parsed.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
 export function BatchListPage() {
+  const [sp] = useSearchParams();
+  const manifestIdFromUrl = sp.get('manifest_id');
   const [batches,  setBatches]  = useState<any[]>([]);
   const [total,    setTotal]    = useState(0);
   const [loading,  setLoading]  = useState(true);
@@ -38,6 +40,14 @@ export function BatchListPage() {
   const [page,     setPage]     = useState(1);
   const [selectedManifest, setSelectedManifest] = useState<Manifest | null>(null);
   const limit = 15;
+
+  // Pre-select manifest if navigated here with ?manifest_id=X (e.g. from dashboard)
+  useEffect(() => {
+    if (!manifestIdFromUrl) return;
+    manifestsApi.get(Number(manifestIdFromUrl))
+      .then(r => setSelectedManifest(r.data))
+      .catch(() => {/* manifest not found — ignore, filter stays empty */});
+  }, [manifestIdFromUrl]);
 
   const load = () => {
     setLoading(true);

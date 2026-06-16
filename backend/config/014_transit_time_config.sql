@@ -13,7 +13,7 @@
 
 SET FOREIGN_KEY_CHECKS = 0;
 
-CREATE TABLE  transit_time_configs (
+CREATE TABLE IF NOT EXISTS transit_time_configs (
   config_id      INT(11) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   icdv_id        INT(10) UNSIGNED NOT NULL,          -- one config per ICDV
   normal_minutes SMALLINT         NOT NULL DEFAULT 30, -- green threshold (TPA → yard)
