@@ -15,6 +15,7 @@ const { authLimiter }     = require('./middlewares/rateLimiter');
 const routes              = require('./routes/v1');
 const { errorConverter, errorHandler } = require('./middlewares/error');
 const ApiError            = require('./utils/ApiError');
+const requestLogger       = require('./middlewares/requestLogger');
 
 const app = express();
 app.disable('etag');
@@ -46,6 +47,13 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(xss());
 app.use(compression());
+
+// ── Integration / request logging ─────────────────────────────────────────────
+// Logs every API request+response into integration_logs.
+// Placed after body parsing so req.body is available; req.user (set later
+// by per-route auth middleware) is read inside the res.on('finish') handler,
+// by which time route handlers have already run and req.user is populated.
+app.use(requestLogger);
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
 const rawOrigins = (process.env.ALLOWED_ORIGINS || '').trim();
