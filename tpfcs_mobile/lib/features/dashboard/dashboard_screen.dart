@@ -52,16 +52,16 @@ class DashboardStats {
       // Manifest-scoped: read workflow map + top-level total_vehicles
       final wf = j['workflow'] as Map<String, dynamic>? ?? {};
       return DashboardStats(
-        totalVessels:      0,
-        totalManifests:    1,
-        totalVehicles:     _i(j['total_vehicles']),
-        manifestedCount:   _i(wf['manifested']),
-        dischargedCount:   _i(wf['discharged']),
-        batchedCount:      _i(wf['batched']),
-        inTransitCount:    _i(wf['in_transit']),
-        receivedCount:     _i(wf['received']),
-        openBatches:       _i(j['batch_count']),
-        releasedVehicles:  0,
+        totalVessels: 0,
+        totalManifests: 1,
+        totalVehicles: _i(j['total_vehicles']),
+        manifestedCount: _i(wf['manifested']),
+        dischargedCount: _i(wf['discharged']),
+        batchedCount: _i(wf['batched']),
+        inTransitCount: _i(wf['in_transit']),
+        receivedCount: _i(wf['received']),
+        openBatches: _i(j['batch_count']),
+        releasedVehicles: 0,
         unreleasedVehicles: 0,
       );
     }
@@ -69,16 +69,16 @@ class DashboardStats {
     // Global dashboard: read from nested stats object
     final s = j['stats'] as Map<String, dynamic>? ?? j;
     return DashboardStats(
-      totalVessels:      _i(s['total_vessels']),
-      totalManifests:    _i(s['total_manifests']),
-      totalVehicles:     _i(s['total_vehicles']),
-      manifestedCount:   _i(s['manifested_count']),
-      dischargedCount:   _i(s['discharged_count']),
-      batchedCount:      _i(s['batched_count']),
-      inTransitCount:    _i(s['in_transit_count']),
-      receivedCount:     _i(s['received_count']),
-      openBatches:       _i(s['open_batches']),
-      releasedVehicles:  _i(s['released_vehicles']),
+      totalVessels: _i(s['total_vessels']),
+      totalManifests: _i(s['total_manifests']),
+      totalVehicles: _i(s['total_vehicles']),
+      manifestedCount: _i(s['manifested_count']),
+      dischargedCount: _i(s['discharged_count']),
+      batchedCount: _i(s['batched_count']),
+      inTransitCount: _i(s['in_transit_count']),
+      receivedCount: _i(s['received_count']),
+      openBatches: _i(s['open_batches']),
+      releasedVehicles: _i(s['released_vehicles']),
       unreleasedVehicles: _i(s['unreleased_vehicles']),
     );
   }
@@ -116,25 +116,26 @@ class RecentVessel {
 // Family provider: null = global dashboard, int = manifest-scoped dashboard
 // Waits until auth session restore completes before fetching — avoids 401
 // on startup when the token is expired and refresh hasn't fired yet.
-final dashboardProvider = FutureProvider.autoDispose.family<Map<String, dynamic>, int?>(
-  (ref, manifestId) async {
-    // If still restoring session, wait for it to complete
-    final auth = ref.watch(authProvider);
-    if (auth.isInitializing) {
-      // Return empty map — dashboard will re-fetch when isInitializing changes
-      // because authProvider is watched and will trigger a rebuild
-      throw Exception('initializing');
-    }
-    if (!auth.isAuthenticated) {
-      throw Exception('unauthenticated');
-    }
-    final api = ref.read(workflowApiProvider);
-    if (manifestId != null) {
-      return api.getManifestDashboard(manifestId);
-    }
-    return api.getDashboard();
-  },
-);
+final dashboardProvider = FutureProvider.autoDispose.family<
+  Map<String, dynamic>,
+  int?
+>((ref, manifestId) async {
+  // If still restoring session, wait for it to complete
+  final auth = ref.watch(authProvider);
+  if (auth.isInitializing) {
+    // Return empty map — dashboard will re-fetch when isInitializing changes
+    // because authProvider is watched and will trigger a rebuild
+    throw Exception('initializing');
+  }
+  if (!auth.isAuthenticated) {
+    throw Exception('unauthenticated');
+  }
+  final api = ref.read(workflowApiProvider);
+  if (manifestId != null) {
+    return api.getManifestDashboard(manifestId);
+  }
+  return api.getDashboard();
+});
 
 final manifestListProvider = FutureProvider.autoDispose<List<ManifestSummary>>(
   (ref) => ref.read(workflowApiProvider).getManifests(),
@@ -221,7 +222,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         body: RefreshIndicator(
           color: c.accent,
           backgroundColor: c.surface0,
-          onRefresh: () => ref.refresh(dashboardProvider(_selectedManifest?.manifestId).future),
+          onRefresh:
+              () => ref.refresh(
+                dashboardProvider(_selectedManifest?.manifestId).future,
+              ),
           child: CustomScrollView(
             slivers: [
               // ── App bar ────────────────────────────────────────────────
@@ -244,12 +248,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   child: manifestAsync.when(
                     loading: () => const SizedBox.shrink(),
                     error: (_, __) => const SizedBox.shrink(),
-                    data: (manifests) => _ManifestFilterChip(
-                      manifests: manifests,
-                      selected: _selectedManifest,
-                      onChanged: (m) => setState(() => _selectedManifest = m),
-                      c: c,
-                    ),
+                    data:
+                        (manifests) => _ManifestFilterChip(
+                          manifests: manifests,
+                          selected: _selectedManifest,
+                          onChanged:
+                              (m) => setState(() => _selectedManifest = m),
+                          c: c,
+                        ),
                   ),
                 ),
               ),
@@ -266,8 +272,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       return SliverToBoxAdapter(child: _Shimmer(c: c));
                     }
                     // 401 = token expired and refresh failed → force logout
-                    final is401 = e is DioException &&
-                        e.response?.statusCode == 401;
+                    final is401 =
+                        e is DioException && e.response?.statusCode == 401;
                     if (is401) {
                       WidgetsBinding.instance.addPostFrameCallback((_) {
                         ref.read(authProvider.notifier).logout();
@@ -276,7 +282,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       return SliverToBoxAdapter(
                         child: Padding(
                           padding: const EdgeInsets.only(top: 32),
-                          child: ErrorBanner('Session expired. Redirecting to login…'),
+                          child: ErrorBanner(
+                            'Session expired. Redirecting to login…',
+                          ),
                         ),
                       );
                     }
@@ -302,8 +310,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         _OverviewGrid(stats: stats, c: c, dark: dark),
                         const SizedBox(height: 20),
                         _WorkflowFunnel(
-                          stats: stats, c: c, dark: dark,
-                          manifestId:     _selectedManifest?.manifestId,
+                          stats: stats,
+                          c: c,
+                          dark: dark,
+                          manifestId: _selectedManifest?.manifestId,
                           manifestNumber: _selectedManifest?.manifestNumber,
                         ),
                         const SizedBox(height: 20),
@@ -722,7 +732,7 @@ class _WorkflowFunnel extends StatelessWidget {
   final DashboardStats stats;
   final AppColors c;
   final bool dark;
-  final int?    manifestId;
+  final int? manifestId;
   final String? manifestNumber;
   const _WorkflowFunnel({
     required this.stats,
@@ -796,8 +806,10 @@ class _WorkflowFunnel extends StatelessWidget {
                         children: [
                           Expanded(
                             child: _StepChip(
-                              step: step, val: val, dark: dark,
-                              manifestId:     manifestId,
+                              step: step,
+                              val: val,
+                              dark: dark,
+                              manifestId: manifestId,
                               manifestNumber: manifestNumber,
                             ),
                           ),
@@ -906,10 +918,10 @@ class _WorkflowFunnel extends StatelessWidget {
 }
 
 class _StepChip extends StatelessWidget {
-  final _WStep  step;
-  final int     val;
-  final bool    dark;
-  final int?    manifestId;
+  final _WStep step;
+  final int val;
+  final bool dark;
+  final int? manifestId;
   final String? manifestNumber;
   const _StepChip({
     required this.step,
@@ -931,8 +943,9 @@ class _StepChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         onTap: () {
           final params = <String, String>{'workflow_status': statusKey};
-          if (manifestId     != null) params['manifest_id']     = '$manifestId';
-          if (manifestNumber != null) params['manifest_number'] = manifestNumber!;
+          if (manifestId != null) params['manifest_id'] = '$manifestId';
+          if (manifestNumber != null)
+            params['manifest_number'] = manifestNumber!;
           final uri = Uri(path: '/vehicles', queryParameters: params);
           context.push(uri.toString());
         },
@@ -1526,67 +1539,113 @@ class _NavItem extends StatelessWidget {
 // ── Manifest filter chip ──────────────────────────────────────────────────────
 class _ManifestFilterChip extends StatelessWidget {
   final List<ManifestSummary> manifests;
-  final ManifestSummary?      selected;
+  final ManifestSummary? selected;
   final ValueChanged<ManifestSummary?> onChanged;
   final AppColors c;
-  const _ManifestFilterChip({required this.manifests, required this.selected,
-      required this.onChanged, required this.c});
+  const _ManifestFilterChip({
+    required this.manifests,
+    required this.selected,
+    required this.onChanged,
+    required this.c,
+  });
 
   @override
   Widget build(BuildContext context) {
     if (manifests.isEmpty) return const SizedBox.shrink();
     return Container(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: c.surface0, borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: c.border)),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Icon(Icons.description_outlined, size: 14, color: c.textMuted),
-          const SizedBox(width: 6),
-          Text('FILTER BY MANIFEST', style: TextStyle(
-            color: c.textMuted, fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
-          const Spacer(),
-          if (selected != null)
-            GestureDetector(
-              onTap: () => onChanged(null),
-              child: Text('Clear', style: TextStyle(color: c.accent, fontSize: 11,
-                  fontWeight: FontWeight.w700))),
-        ]),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<ManifestSummary>(
-          value: selected,
-          decoration: InputDecoration(
-            isDense: true,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            filled: true,
-            fillColor: c.surface1,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: c.border)),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: c.border)),
+      decoration: BoxDecoration(
+        color: c.surface0,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: c.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.description_outlined, size: 14, color: c.textMuted),
+              const SizedBox(width: 6),
+              Text(
+                'FILTER BY MANIFEST',
+                style: TextStyle(
+                  color: c.textMuted,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.5,
+                ),
+              ),
+              const Spacer(),
+              if (selected != null)
+                GestureDetector(
+                  onTap: () => onChanged(null),
+                  child: Text(
+                    'Clear',
+                    style: TextStyle(
+                      color: c.accent,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+            ],
           ),
-          hint: Text('All manifests (global stats)', style: TextStyle(color: c.textMuted, fontSize: 13)),
-          items: [
-            const DropdownMenuItem<ManifestSummary>(
-              value: null,
-              child: Text('All manifests', style: TextStyle(fontSize: 13))),
-            ...manifests.map((m) => DropdownMenuItem(
-              value: m,
-              child: Text('${m.manifestNumber}  ·  ${m.vesselName ?? "—"}',
-                style: const TextStyle(fontSize: 13),
-                overflow: TextOverflow.ellipsis))),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<ManifestSummary>(
+            value: selected,
+            decoration: InputDecoration(
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
+              filled: true,
+              fillColor: c.surface1,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: c.border),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: c.border),
+              ),
+            ),
+            hint: Text(
+              'All manifests (global stats)',
+              style: TextStyle(color: c.textMuted, fontSize: 13),
+            ),
+            items: [
+              const DropdownMenuItem<ManifestSummary>(
+                value: null,
+                child: Text('All manifests', style: TextStyle(fontSize: 13)),
+              ),
+              ...manifests.map(
+                (m) => DropdownMenuItem(
+                  value: m,
+                  child: Text(
+                    '${m.manifestNumber}  ·  ${m.vesselName ?? "—"}',
+                    style: const TextStyle(fontSize: 13),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+            ],
+            onChanged: onChanged,
+            isExpanded: true,
+          ),
+          if (selected != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Showing stats for: ${selected!.manifestNumber}',
+              style: TextStyle(
+                color: c.accent,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ],
-          onChanged: onChanged,
-          isExpanded: true,
-        ),
-        if (selected != null) ...[
-          const SizedBox(height: 6),
-          Text('Showing stats for: ${selected!.manifestNumber}',
-            style: TextStyle(color: c.accent, fontSize: 11, fontWeight: FontWeight.w600)),
         ],
-      ]),
+      ),
     );
   }
 }
