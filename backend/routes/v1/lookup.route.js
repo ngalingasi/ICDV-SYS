@@ -35,4 +35,9 @@ router.route('/transfer-rate')
   .get(auth(), lookupController.getTransferRate)
   .patch(auth('manageLookups'), lookupController.updateTransferRate);
 
+// Operator config (super_admin only — used on invoices as issuing entity)
+router.route('/operator-config')
+  .get(auth('getLookups'),     lookupController.getOperatorConfig)
+  .patch(auth('manageLookups'), lookupController.updateOperatorConfig);
+
 module.exports = router;

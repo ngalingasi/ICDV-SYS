@@ -81,6 +81,7 @@ export function BatchListPage() {
               onChange={m => { setSelectedManifest(m); setPage(1); }}
               placeholder="All manifests…"
               allLabel="All manifests"
+              statusFilter="active"
             />
           </div>
           <input value={search} onChange={e => setSearch(e.target.value)}

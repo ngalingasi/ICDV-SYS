@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router';
-import { manifestsApi, vehiclesApi } from '../../api';
+import { manifestsApi, vehiclesApi, closeManifestOperation } from '../../api';
 import type { Manifest, Vehicle } from '../../types';
 import StatusBadge from '../../components/tpfcs/StatusBadge';
 import Modal from '../../components/tpfcs/Modal';
@@ -8,6 +8,7 @@ import { toast } from '../../components/tpfcs/Toast';
 import BackButton from '../../components/tpfcs/BackButton';
 import ManifestFuelTab from './ManifestFuelTab';
 import ManifestActionsDropdown from '../../components/tpfcs/ManifestActionsDropdown';
+import { useAuth } from '../../store/authStore';
 
 const STEPS = [
   { key: 'manifested_count', label: 'Manifested', bar: 'bg-slate-400' },
@@ -75,8 +76,23 @@ export default function ManifestDetail() {
     } finally { setImporting(false); }
   };
 
+  const { isSuperAdmin } = useAuth();
   const fmtDate = (d?: string) =>
     d ? new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—';
+
+  const handleCloseOperation = async () => {
+    if (!window.confirm(
+      'Close Operation for this manifest?\n\nThis will permanently close the manifest. ' +
+      'Vehicles still in transit, batched, or discharged will block this action.'
+    )) return;
+    try {
+      await closeManifestOperation(Number(id));
+      toast.success('Manifest operation closed successfully');
+      load();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? 'Failed to close operation');
+    }
+  };
 
   if (loading) return <div className="p-6 text-sm text-gray-500 animate-pulse">Loading manifest...</div>;
   if (!manifest) return <div className="p-6 text-sm text-red-500">Manifest not found</div>;
@@ -109,6 +125,17 @@ export default function ManifestDetail() {
             showDelete={false}
             onImport={() => setShowImport(true)}
           />
+          {isSuperAdmin && manifest.status !== 'closed' && manifest.status !== 'cancelled' && (
+            <button
+              onClick={handleCloseOperation}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 text-xs font-medium hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+              </svg>
+              Close Operation
+            </button>
+          )}
         </div>
       </div>
 

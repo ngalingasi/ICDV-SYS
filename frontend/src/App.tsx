@@ -72,6 +72,10 @@ import CreateIcdvWizard  from "./pages/SuperAdmin/CreateIcdvWizard";
 
 // ── Fallback ──────────────────────────────────────────────────────────────────
 import NotFound        from "./pages/OtherPage/NotFound";
+import InvoicesPage    from "./pages/Invoices/InvoicesPage";
+import InvoiceForm     from "./pages/Invoices/InvoiceForm";
+import InvoiceDetail   from "./pages/Invoices/InvoiceDetail";
+import BillingPage     from "./pages/Billing/BillingPage";
 
 // ── Super Admin Route Guard ───────────────────────────────────────────────────
 function SuperAdminRoute() {
@@ -190,6 +194,17 @@ export default function App() {
               <Route path="/super-admin/icdvs/create"       element={<CreateIcdvWizard />} />
               <Route path="/super-admin/icdvs/:icdvId"      element={<IcdvDetail />} />
               <Route path="/super-admin/icdvs/:icdvId/edit" element={<IcdvForm />} />
+            </Route>
+          </Route>
+
+          {/* ── Invoices (super_admin) + Billing (admin / cashier) ─────── */}
+          <Route element={<ProtectedRoute />}>
+            <Route element={<AppLayout />}>
+              <Route path="/invoices"     element={<InvoicesPage />} />
+              <Route path="/invoices/new" element={<InvoiceForm />} />
+              <Route path="/invoices/:id" element={<InvoiceDetail />} />
+              <Route path="/billing"      element={<BillingPage />} />
+              <Route path="/billing/:id"  element={<InvoiceDetail />} />
             </Route>
           </Route>
 

@@ -48,13 +48,6 @@ app.use(express.urlencoded({ extended: true }));
 app.use(xss());
 app.use(compression());
 
-// ── Integration / request logging ─────────────────────────────────────────────
-// Logs every API request+response into integration_logs.
-// Placed after body parsing so req.body is available; req.user (set later
-// by per-route auth middleware) is read inside the res.on('finish') handler,
-// by which time route handlers have already run and req.user is populated.
-app.use(requestLogger);
-
 // ── CORS ──────────────────────────────────────────────────────────────────────
 const rawOrigins = (process.env.ALLOWED_ORIGINS || '').trim();
 const corsOrigin = rawOrigins === '*'
@@ -69,6 +62,13 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
+
+// ── Integration / request logging ─────────────────────────────────────────────
+// Placed after CORS (so CORS preflight OPTIONS requests are not logged)
+// and after compression (body parsing already done), before routes so
+// req.body is available. req.user is read inside res.on('finish') which
+// fires after route handlers have run and req.user is populated.
+app.use(requestLogger);
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 app.use(passport.initialize());

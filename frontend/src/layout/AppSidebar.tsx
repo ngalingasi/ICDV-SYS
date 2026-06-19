@@ -129,6 +129,7 @@ const YARD_OFFICER_NAV: NavItem[] = [
       { name: "Chassis Search",  path: "/operations/search" },
     ],
   },
+  { name: "Billing",   icon: <Icon.Lookups />,   path: "/billing" },
 ];
 
 const TENANT_BOTTOM_NAV: NavItem[] = [
@@ -162,6 +163,12 @@ const SUPER_ADMIN_NAV: NavItem[] = [
       { name: "Chassis Search",  path: "/operations/search" },
     ],
   },
+  {
+    name: "Invoices", icon: <Icon.Lookups />, subItems: [
+      { name: "All Invoices",  path: "/invoices" },
+      { name: "New Invoice",   path: "/invoices/new" },
+    ],
+  },
 ];
 
 const SUPER_ADMIN_BOTTOM_NAV: NavItem[] = [
@@ -183,7 +190,7 @@ const fuelOfficerNav = [
 
 export default function AppSidebar() {
   const { isOpen, isExpanded, isMobileOpen, toggleMobileSidebar } = useSidebar();
-  const { isSuperAdmin, isSystemAdmin, isDischargeOfficer, isBackofficeOfficer, isTransferOfficer, isYardOfficer, isFuelOfficer, icdvName, user } = useAuth();
+  const { isSuperAdmin, isSystemAdmin, isDischargeOfficer, isBackofficeOfficer, isTransferOfficer, isYardOfficer, isFuelOfficer, isCashier, icdvName, user } = useAuth();
   const isCrossTenant = isSuperAdmin || (isSystemAdmin ?? false);
   const location = useLocation();
   const expanded = isOpen || isExpanded || isMobileOpen;
@@ -209,6 +216,12 @@ export default function AppSidebar() {
   } else if (isFuelOfficer) {
     NAV        = fuelOfficerNav;
     BOTTOM_NAV = [{ name: "Profile", icon: <Icon.Profile />, path: "/profile" }];
+  } else if (isCashier) {
+    NAV        = [
+      { name: "Dashboard", icon: <Icon.Dashboard />, path: "/" },
+      { name: "Billing",   icon: <Icon.Lookups />,   path: "/billing" },
+    ];
+    BOTTOM_NAV = [{ name: "Profile", icon: <Icon.Profile />, path: "/profile" }];
   } else {
     NAV        = TENANT_NAV;
     BOTTOM_NAV = TENANT_BOTTOM_NAV;
@@ -222,6 +235,7 @@ export default function AppSidebar() {
     : isTransferOfficer   ? "Transfer Officer"
     : isYardOfficer       ? "Yard Officer"
     : isFuelOfficer       ? "Fuel Officer"
+    : isCashier           ? "Cashier"
     : user?.role === 'admin'      ? "Administrator"
     : user?.role === 'supervisor' ? "Supervisor"
     : "Vehicle Import & Delivery";

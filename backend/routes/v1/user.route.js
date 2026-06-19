@@ -20,6 +20,7 @@ const VALID_ROLES = [
   'yard_officer',
   // Fuel management role (migration 011)
   'fuel_officer',
+  'cashier',
 ];
 
 const createUserSchema = {

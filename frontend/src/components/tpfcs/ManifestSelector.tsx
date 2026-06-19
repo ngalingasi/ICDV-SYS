@@ -3,14 +3,18 @@
  *
  * Reusable manifest picker dropdown with search.
  * Shared between:
- *   - IcdvDashboard (existing usage)
- *   - LiveTransferMonitoringPage (new usage)
+ *   - IcdvDashboard
+ *   - LiveTransferMonitoringPage
+ *   - TransferPerformancePage
+ *   - BatchListPage
  *
  * Props:
- *   value     — currently selected Manifest or null (= all)
- *   onChange  — called when selection changes
- *   icdvId    — optional scope: only list manifests for this ICDV
- *   placeholder — override the "select" label (default: "Select a manifest…")
+ *   value        — currently selected Manifest or null (= all)
+ *   onChange     — called when selection changes
+ *   icdvId       — optional scope: only list manifests for this ICDV
+ *   statusFilter — optional: 'active' | 'completed' | 'pending' — omit to show all
+ *   placeholder  — override the trigger label when nothing selected
+ *   allLabel     — label for the "clear / show all" option inside the dropdown
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -18,11 +22,12 @@ import { manifestsApi } from '../../api';
 import type { Manifest } from '../../types';
 
 interface ManifestSelectorProps {
-  value:        Manifest | null;
-  onChange:     (m: Manifest | null) => void;
-  icdvId?:      number | null;
-  placeholder?: string;
-  allLabel?:    string;
+  value:         Manifest | null;
+  onChange:      (m: Manifest | null) => void;
+  icdvId?:       number | null;
+  statusFilter?: 'active' | 'completed' | 'pending';   // undefined = all statuses
+  placeholder?:  string;
+  allLabel?:     string;
 }
 
 const fmtDate = (d: string) =>
@@ -32,6 +37,7 @@ export default function ManifestSelector({
   value,
   onChange,
   icdvId,
+  statusFilter,
   placeholder = 'Select a manifest…',
   allLabel    = 'All manifests',
 }: ManifestSelectorProps) {
@@ -44,10 +50,15 @@ export default function ManifestSelector({
   const load = useCallback(async (q: string) => {
     setLoading(true);
     try {
-      const r = await manifestsApi.list({ search: q || undefined, limit: 30, icdv_id: icdvId || undefined });
+      const r = await manifestsApi.list({
+        search:  q        || undefined,
+        limit:   30,
+        icdv_id: icdvId   || undefined,
+        status:  statusFilter,          // undefined = omitted = all statuses
+      });
       setList(r.data.results ?? []);
     } finally { setLoading(false); }
-  }, [icdvId]);
+  }, [icdvId, statusFilter]);
 
   useEffect(() => {
     if (open) load(search);

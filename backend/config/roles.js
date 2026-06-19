@@ -81,7 +81,6 @@ const allRoles = {
     'getOperations',      'manageOperations',  'updateOperations',
     'getDeliveries',      'manageDeliveries',
     'getLookups',         'manageLookups',
-    // New rights — admin has full access to all new features
     'dischargeVehicles',
     'transferVehicles',
     'receiveVehicles',
@@ -94,6 +93,9 @@ const allRoles = {
     'dispenseFuel',
     'createFuelOrders',
     'manageIncidents',
+    // Billing — ICDV admin can view invoices + mark as paid
+    'viewInvoices',
+    'markInvoicePaid',
   ],
 
   // system_admin: full workflow + cross-ICDV read — NO platform management
@@ -142,77 +144,71 @@ const allRoles = {
     'approveFuelOrders',
     'dispenseFuel',
     'createFuelOrders',
+    // Invoicing — super_admin has full control
+    'manageInvoices',     // create/edit/approve/cancel
+    'viewInvoices',
+    'markInvoicePaid',
   ],
 
   // ── New operational roles ────────────────────────────────────────────────────
 
   discharge_officer: [
-    // Read access
     'getVessels',
     'getManifests',
     'getVehicles',
     'getDrivers',
     'getDeliveries',
-    // Workflow: discharge from vessel + assign to batch
     'dischargeVehicles',
-    // Cannot: transfer, receive, print batches, print delivery sheets, update doc/gc
   ],
 
   backoffice_officer: [
-    // Read access
     'getVessels',
     'getManifests',
     'getVehicles',
     'getDrivers',
     'getDeliveries',
     'getOperations',
-    // Vessel management — backoffice can create and manage vessels
     'manageVessels',
-    // Manifest management — backoffice can create manifests and import vehicles
     'manageManifests',
-    // Operational updates
     'updateOperations',
-    // Batch document + GC status management
     'updateBatchStatus',
-    // Print features
     'printBatches',
     'printDeliverySheet',
-    // Cannot: discharge, transfer, receive vehicles
   ],
 
   transfer_officer: [
-    // Read access (vehicles + drivers only — scoped view)
     'getVehicles',
     'getDrivers',
-    // Workflow: transfer batched vehicles through TPA gate
     'transferVehicles',
-    // Reporting: view TPA gate exit counts
     'viewTpaStats',
-    // Cannot: discharge, batch, receive, print delivery sheets
   ],
 
   yard_officer: [
-    // Read access
     'getVehicles',
     'getManifests',
     'getDrivers',
-    // Workflow: receive vehicles at yard
     'receiveVehicles',
-    // Print: delivery sheet for received vehicles
     'printDeliverySheet',
-    // Cannot: discharge, batch, transfer, print batch chassis list, update doc/gc
   ],
 
   // ── Fuel officer (migration 011) ─────────────────────────────────────────────
   fuel_officer: [
-    // Read access needed to look up vehicles and manifests
     'getVehicles',
     'getManifests',
-    // Fuel workflow
-    'createFuelOrders',  // create pending fuel orders
-    'dispenseFuel',      // dispense fuel to a vehicle (after order is approved)
-    'viewFuel',          // view fuel orders, stock, dashboard
-    // Cannot: approve/reject orders, discharge, batch, transfer, receive
+    'createFuelOrders',
+    'dispenseFuel',
+    'viewFuel',
+  ],
+
+  // ── Cashier (migration 016) ───────────────────────────────────────────────────
+  // ICDV-scoped. Can view approved/paid invoices and mark as paid.
+  // Cannot approve, create, or cancel invoices.
+  cashier: [
+    'viewInvoices',       // view billing list (approved + paid)
+    'markInvoicePaid',    // mark approved invoices as paid
+    // Read-only access to vehicles/manifests for reference
+    'getManifests',
+    'getVehicles',
   ],
 };
 

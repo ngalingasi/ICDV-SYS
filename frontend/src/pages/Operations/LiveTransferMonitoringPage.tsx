@@ -397,6 +397,7 @@ export default function LiveTransferMonitoringPage() {
                 onChange={setSelectedManifest}
                 placeholder="All manifests…"
                 allLabel="All manifests (no filter)"
+                statusFilter="active"
               />
             </div>
           )}

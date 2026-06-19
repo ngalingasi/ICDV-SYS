@@ -7,7 +7,7 @@ export interface User {
   mobile?:              string;
   gender?:              string;
   avatar?:              string | null;
-  role:                 'admin' | 'supervisor' | 'operator' | 'super_admin' | 'system_admin' | 'manager' | 'discharge_officer' | 'backoffice_officer' | 'transfer_officer' | 'yard_officer' | 'fuel_officer';
+  role:                 'admin' | 'supervisor' | 'operator' | 'super_admin' | 'system_admin' | 'manager' | 'discharge_officer' | 'backoffice_officer' | 'transfer_officer' | 'yard_officer' | 'fuel_officer' | 'cashier';
   icdv_id?:             number | null;
   icdv_name?:           string | null;
   status:               'active' | 'inactive';
@@ -236,7 +236,7 @@ export interface UserRecord {
   email?:               string;
   mobile?:              string;
   gender?:              string;
-  role:                 'admin' | 'supervisor' | 'operator' | 'super_admin' | 'system_admin' | 'manager' | 'discharge_officer' | 'backoffice_officer' | 'transfer_officer' | 'yard_officer' | 'fuel_officer';
+  role:                 'admin' | 'supervisor' | 'operator' | 'super_admin' | 'system_admin' | 'manager' | 'discharge_officer' | 'backoffice_officer' | 'transfer_officer' | 'yard_officer' | 'fuel_officer' | 'cashier';
   icdv_id?:             number | null;
   icdv_name?:           string | null;
   status:               'active' | 'inactive';

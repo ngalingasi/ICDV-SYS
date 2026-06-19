@@ -6,7 +6,7 @@ import { FormInput } from '../../components/tpfcs/FormField';
 import { toast } from '../../components/tpfcs/Toast';
 import { useAuth } from '../../store/authStore';
 
-type LookupTab = 'regions' | 'transfer_rate' | 'incident_types' | 'transit_times';
+type LookupTab = 'regions' | 'transfer_rate' | 'incident_types' | 'transit_times' | 'invoice_items' | 'operator_config';
 
 function DeleteConfirm({ name, onConfirm, onCancel, loading }: {
   name: string; onConfirm: () => void; onCancel: () => void; loading: boolean;
@@ -722,13 +722,15 @@ export default function LookupsPage() {
     { key: 'incident_types', label: 'Incident Types' },
     { key: 'transfer_rate',  label: 'Transfer Rate' },
     { key: 'transit_times',  label: 'Transit Times' },
+    { key: 'invoice_items',  label: 'Invoice Items' },
+    { key: 'operator_config',label: 'Operator Details' },
   ];
 
   return (
     <div className="space-y-5">
       <h1 className="text-xl font-bold text-gray-800 dark:text-white">Lookup Management</h1>
 
-      <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700">
+      <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700 flex-wrap">
         {TABS.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
@@ -745,6 +747,89 @@ export default function LookupsPage() {
       {tab === 'incident_types' && <IncidentTypesPanel />}
       {tab === 'transfer_rate'  && <TransferRatePanel />}
       {tab === 'transit_times'  && <TransitTimesPanel />}
+      {tab === 'invoice_items'  && <InvoiceItemsPanelWrapper />}
+      {tab === 'operator_config'&& <OperatorConfigPanel />}
+    </div>
+  );
+}
+
+// ── Invoice Items wrapper (lazy import to keep file light) ──────────────────
+import InvoiceItemsPanelExternal from '../Invoices/InvoiceItemsPanel';
+
+function InvoiceItemsPanelWrapper() {
+  return <InvoiceItemsPanelExternal />;
+}
+
+// ── Operator Config Panel ────────────────────────────────────────────────────
+import { invoicesApi } from '../../api';
+
+function OperatorConfigPanel() {
+  const [config,  setConfig]  = useState<Record<string,string>>({});
+  const [loading, setLoading] = useState(true);
+  const [saving,  setSaving]  = useState(false);
+  const [saved,   setSaved]   = useState(false);
+  const [error,   setError]   = useState<string|null>(null);
+
+  useEffect(() => {
+    invoicesApi.getOperatorConfig()
+      .then(r => setConfig(r.data))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const set = (k: string, v: string) => setConfig(prev => ({ ...prev, [k]: v }));
+
+  const save = async () => {
+    setSaving(true); setError(null); setSaved(false);
+    try {
+      const res = await invoicesApi.updateOperatorConfig(config);
+      setConfig(res.data);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (e: any) {
+      setError(e?.response?.data?.message ?? 'Save failed');
+    } finally { setSaving(false); }
+  };
+
+  const fields: { key: string; label: string; placeholder?: string }[] = [
+    { key: 'name',         label: 'Company Name',     placeholder: 'ODOGWU COMPANY LIMITED' },
+    { key: 'address',      label: 'Address',          placeholder: 'Kinondoni, Macho Street' },
+    { key: 'phone',        label: 'Phone',            placeholder: '0762-992-000' },
+    { key: 'email',        label: 'Email',            placeholder: 'info@odogwu.tz' },
+    { key: 'tin',          label: 'TIN',              placeholder: 'Tax Identification Number' },
+    { key: 'vrn',          label: 'VRN',              placeholder: 'VAT Registration Number' },
+    { key: 'bank_name',    label: 'Bank Name',        placeholder: 'NMB Bank' },
+    { key: 'bank_account', label: 'Bank Account No.', placeholder: '22610059509' },
+    { key: 'bank_branch',  label: 'Bank Branch',      placeholder: 'Branch name (optional)' },
+  ];
+
+  if (loading) return <div className="text-sm text-gray-400 animate-pulse">Loading operator config…</div>;
+
+  return (
+    <div className="space-y-4 max-w-xl">
+      <p className="text-sm text-gray-500 dark:text-gray-400">
+        These details appear on every invoice as the issuing operator (Odogwu Company Limited).
+      </p>
+      <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5 space-y-4">
+        {fields.map(f => (
+          <div key={f.key}>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">{f.label}</label>
+            <input
+              value={config[f.key] ?? ''}
+              onChange={e => set(f.key, e.target.value)}
+              placeholder={f.placeholder}
+              className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+          </div>
+        ))}
+
+        {error  && <p className="text-xs text-red-500">{error}</p>}
+        {saved  && <p className="text-xs text-green-600 dark:text-green-400">Saved successfully.</p>}
+
+        <button onClick={save} disabled={saving}
+          className="px-6 py-2 bg-brand-500 hover:bg-brand-600 disabled:opacity-60 text-white rounded-lg text-sm font-medium transition-colors">
+          {saving ? 'Saving…' : 'Save Operator Details'}
+        </button>
+      </div>
     </div>
   );
 }

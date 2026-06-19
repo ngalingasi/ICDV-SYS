@@ -12,6 +12,7 @@ export interface AuthState {
   isTransferOfficer:    boolean;
   isYardOfficer:        boolean;
   isFuelOfficer:        boolean;
+  isCashier:            boolean;
   icdvId:               number | null;
   icdvName:             string | null;
 }

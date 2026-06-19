@@ -401,3 +401,38 @@ export const incidentApi = {
   resolve:      (id: number, notes?: string) => client.patch(`/incidents/${id}/resolve`, { resolution_notes: notes }),
   forVehicle:   (vehicleId: number)       => client.get(`/incidents/vehicle/${vehicleId}`),
 };
+
+// ── Invoices ───────────────────────────────────────────────────────────────────
+export const invoicesApi = {
+  // Operator config
+  getOperatorConfig:  ()          => client.get('/invoices/operator-config'),
+  updateOperatorConfig: (data: any) => client.patch('/invoices/operator-config', data),
+  // Invoice items catalog
+  listItems:   (params?: any)     => client.get('/invoices/items', { params }),
+  getItem:     (id: number)       => client.get(`/invoices/items/${id}`),
+  createItem:  (data: any)        => client.post('/invoices/items', data),
+  updateItem:  (id: number, data: any) => client.patch(`/invoices/items/${id}`, data),
+  deleteItem:  (id: number)       => client.delete(`/invoices/items/${id}`),
+  // Manifest helpers
+  getManifestVehicleCount: (manifestId: number) =>
+    client.get(`/invoices/manifests/${manifestId}/vehicle-count`),
+  // Invoices
+  list:       (params?: any)      => client.get('/invoices', { params }),
+  get:        (id: number)        => client.get(`/invoices/${id}`),
+  create:     (data: any)         => client.post('/invoices', data),
+  update:     (id: number, data: any) => client.patch(`/invoices/${id}`, data),
+  approve:    (id: number)        => client.post(`/invoices/${id}/approve`),
+  cancel:     (id: number, reason?: string) =>
+    client.post(`/invoices/${id}/cancel`, { reason }),
+  printData:  (id: number)        => client.get(`/invoices/${id}/print`),
+  // Billing
+  markPaid:   (id: number)        => client.post(`/invoices/${id}/mark-paid`),
+  uploadEvidence: (id: number, formData: FormData) =>
+    client.post(`/invoices/${id}/evidence`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+};
+
+// ── Manifest close operation ────────────────────────────────────────────────────
+export const closeManifestOperation = (manifestId: number) =>
+  client.post(`/invoices/manifests/${manifestId}/close`);

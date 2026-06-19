@@ -46,9 +46,19 @@ const updateTransferRate = catchAsync(async (req, res) => {
   res.json({ setting_key: 'transfer_rate', setting_value: row.setting_value, rate: parseFloat(row.setting_value) });
 });
 
+// ── Operator config (delegates to invoice model) ──────────────────────────────
+const invoiceModel = require('../models/invoice.model');
+const getOperatorConfig = catchAsync(async (req, res) => {
+  res.json(await invoiceModel.getOperatorConfig());
+});
+const updateOperatorConfig = catchAsync(async (req, res) => {
+  res.json(await invoiceModel.updateOperatorConfig(req.body, req.user.user_id));
+});
+
 module.exports = {
   createSector, getSectors, getSector, updateSector, deleteSector,
   createRegion, getRegions, getRegion, updateRegion, deleteRegion,
   createImplementer, getImplementers, getImplementer, updateImplementer, deleteImplementer,
   getTransferRate, updateTransferRate,
+  getOperatorConfig, updateOperatorConfig,
 };

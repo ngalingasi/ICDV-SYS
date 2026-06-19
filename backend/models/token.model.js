@@ -7,28 +7,15 @@ const ApiError = require('../utils/ApiError');
 const { tokenTypes } = require('../config/tokens');
 
 /**
- * Generate a signed JWT.
- * user param is optional — when provided, embeds full_name, email, role
- * so ERP redirect frontends can build a complete user object from the
- * token alone without waiting for /auth/me.
+ * Generate a signed JWT
  */
-const generateToken = (userId, expires, type, secret = config.jwt.secret, user = null) => {
+const generateToken = (userId, expires, type, secret = config.jwt.secret) => {
   const payload = {
     sub: userId,
     iat: moment().unix(),
     exp: expires.unix(),
     type,
   };
-
-  if (user) {
-    payload.full_name            = user.full_name  ?? null;
-    payload.username             = user.username   ?? null;
-    payload.email                = user.email      ?? null;
-    payload.role                 = user.role       ?? null;
-    payload.icdv_id              = user.icdv_id    ?? null;
-    payload.must_change_password = user.must_change_password ?? 0;
-  }
-
   return jwt.sign(payload, secret);
 };
 
@@ -66,7 +53,7 @@ const verifyToken = async (token, type) => {
  */
 const generateAuthTokens = async (user) => {
   const accessTokenExpires = moment().add(config.jwt.accessExpirationMinutes, 'minutes');
-  const accessToken = generateToken(user.user_id, accessTokenExpires, tokenTypes.ACCESS, config.jwt.secret, user);
+  const accessToken = generateToken(user.user_id, accessTokenExpires, tokenTypes.ACCESS);
 
   const refreshTokenExpires = moment().add(config.jwt.refreshExpirationDays, 'days');
   const refreshToken = generateToken(user.user_id, refreshTokenExpires, tokenTypes.REFRESH);

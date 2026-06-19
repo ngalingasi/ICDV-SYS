@@ -224,13 +224,32 @@ function ManifestDashboardPanel({ manifest, icdvScoped }: { manifest: Manifest; 
 function GlobalDashboard() {
   const [data,    setData]    = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState<string | null>(null);
 
   useEffect(() => {
-    dashboardApi.get().then(r => setData(r.data)).finally(() => setLoading(false));
+    setError(null);
+    dashboardApi.get()
+      .then(r => setData(r.data))
+      .catch(() => setError('Failed to load dashboard data. Please refresh the page.'))
+      .finally(() => setLoading(false));
   }, []);
 
   const s = data?.stats;
   const totalForPct = s?.total_vehicles || 1;
+
+  if (error) {
+    return (
+      <div className="rounded-xl border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/5 p-5 text-center">
+        <p className="text-sm text-red-600 dark:text-red-400 font-medium">{error}</p>
+        <button
+          onClick={() => { setError(null); setLoading(true); dashboardApi.get().then(r => setData(r.data)).catch(() => setError('Failed to load dashboard data. Please refresh the page.')).finally(() => setLoading(false)); }}
+          className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/30 rounded-lg hover:bg-red-100 dark:hover:bg-red-500/10 transition-colors"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
   const workflow: Record<string, number> = {
     manifested: s?.manifested_count ?? 0,
     discharged: s?.discharged_count ?? 0,
@@ -379,6 +398,7 @@ export default function IcdvDashboard() {
               value={selectedManifest}
               onChange={setSelectedManifest}
               icdvId={isCrossTenant ? null : (user?.icdv_id ?? null)}
+              statusFilter="active"
             />
           </div>
         </div>
