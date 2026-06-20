@@ -23,6 +23,8 @@ export const icdvsApi = {
   stats:       ()                          => client.get('/icdvs/stats'),
   getUsers:    (id: number, params?: any)  => client.get(`/icdvs/${id}/users`, { params }),
   createAdmin: (id: number, data: any)     => client.post(`/icdvs/${id}/admins`, data),
+  // Any authenticated ICDV user — own ICDV's batch capacity only
+  getBatchCapacity: () => client.get<{ batch_capacity: number }>('/icdvs/me/batch-capacity'),
 };
 
 // ── Vessels ───────────────────────────────────────────────────────────────────

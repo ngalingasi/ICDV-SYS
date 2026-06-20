@@ -230,7 +230,10 @@ const discharge = async (vehicleId, notes, operatorId, icdvId) =>
 // 2. BATCH
 // ─────────────────────────────────────────────────────────────────────────────
 
-const BATCH_MAX = 20;
+// Fallback only — actual capacity now comes from icdvs.batch_capacity
+// (super_admin configurable per ICDV, see migration 019). This is used
+// only if that lookup somehow returns null/0.
+const BATCH_MAX_FALLBACK = 20;
 
 /**
  * generateBatchNumber(vesselId, icdvId, conn)
@@ -287,6 +290,15 @@ const addToBatch = async (vehicleId, notes, operatorId, icdvId) =>
 
     const vesselId = vehicle.vessel_id;
 
+    // Batch capacity is per-ICDV (set by super_admin on the ICDV profile,
+    // default 20). Always resolve from the vehicle's actual ICDV — icdvId
+    // here can be null for cross-tenant (super_admin) calls.
+    const [icdvRow] = await connQuery(conn,
+      `SELECT batch_capacity FROM icdvs WHERE icdv_id=?`,
+      [vehicle.icdv_id]
+    );
+    const batchMax = icdvRow?.batch_capacity || BATCH_MAX_FALLBACK;
+
     const [openBatch] = await connQuery(conn,
       `SELECT batch_id, vehicle_count, batch_number FROM batches
        WHERE icdv_id=? AND vessel_id=? AND status='open'
@@ -300,7 +312,7 @@ const addToBatch = async (vehicleId, notes, operatorId, icdvId) =>
       batchNumber = openBatch.batch_number;
       const newCount = openBatch.vehicle_count + 1;
 
-      if (newCount >= BATCH_MAX) {
+      if (newCount >= batchMax) {
         await connQuery(conn,
           `UPDATE batches SET vehicle_count=?, status='full', updated_at=NOW() WHERE batch_id=?`,
           [newCount, batchId]

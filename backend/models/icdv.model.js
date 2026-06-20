@@ -8,7 +8,7 @@ const createIcdv = async (body, creatorId) => {
     name, code, address = null, phone = null, email = null,
     logo_path = null, country = 'Tanzania', city = null,
     is_active = 1, settings = null,
-    tin = null, vrn = null,
+    tin = null, vrn = null, batch_capacity = 20,
   } = body;
 
   if (!name) throw new ApiError(httpStatus.BAD_REQUEST, 'ICDV name is required');
@@ -18,10 +18,10 @@ const createIcdv = async (body, creatorId) => {
   if (existing.length) throw new ApiError(httpStatus.CONFLICT, 'ICDV code already exists');
 
   const r = await query(
-    `INSERT INTO icdvs (name, code, address, phone, email, logo_path, country, city, is_active, settings, tin, vrn, created_by)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    `INSERT INTO icdvs (name, code, address, phone, email, logo_path, country, city, is_active, settings, tin, vrn, batch_capacity, created_by)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [name, code.toUpperCase(), address, phone, email, logo_path, country, city, is_active,
-     settings ? JSON.stringify(settings) : null, tin, vrn, creatorId]
+     settings ? JSON.stringify(settings) : null, tin, vrn, batch_capacity || 20, creatorId]
   );
   return getIcdvById(r.insertId);
 };
@@ -68,7 +68,7 @@ const getIcdvById = async (id) => {
 
 const updateIcdv = async (id, body) => {
   await getIcdvById(id);
-  const allowed = ['name','code','address','phone','email','logo_path','country','city','is_active','settings','tin','vrn'];
+  const allowed = ['name','code','address','phone','email','logo_path','country','city','is_active','settings','tin','vrn','batch_capacity'];
   const fields = []; const params = [];
   for (const key of allowed) {
     if (body[key] !== undefined) { fields.push(`${key}=?`); params.push(body[key]); }
@@ -107,4 +107,13 @@ const getPlatformStats = async () => {
   return { ...totals, breakdown };
 };
 
-module.exports = { createIcdv, getIcdvs, getIcdvById, updateIcdv, deleteIcdv, getPlatformStats };
+// Narrow, non-admin-safe lookup — used by operational pages (e.g. BatchPage)
+// to display the current ICDV's batch capacity without exposing the full
+// ICDV record (which is restricted to super_admin via getIcdvById/getIcdvs).
+const getBatchCapacity = async (icdvId) => {
+  if (!icdvId) return { batch_capacity: 20 };
+  const [row] = await query('SELECT batch_capacity FROM icdvs WHERE icdv_id=?', [icdvId]);
+  return { batch_capacity: row?.batch_capacity ?? 20 };
+};
+
+module.exports = { createIcdv, getIcdvs, getIcdvById, updateIcdv, deleteIcdv, getPlatformStats, getBatchCapacity };

@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { workflowApi } from '../../api';
+import { workflowApi, icdvsApi } from '../../api';
 import { toast } from '../../components/tpfcs/Toast';
 import {
   ChassisInput, VehicleCard, NotesInput,
@@ -17,6 +17,13 @@ export default function BatchPage() {
   const [result,  setResult]  = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState('');
+  const [batchCapacity, setBatchCapacity] = useState<number | null>(null);
+
+  useEffect(() => {
+    icdvsApi.getBatchCapacity()
+      .then(r => setBatchCapacity(r.data.batch_capacity))
+      .catch(() => setBatchCapacity(20)); // fall back to the system default on error
+  }, []);
 
   const reset = () => {
     setStep('search'); setChassis(''); setVehicle(null);
@@ -67,7 +74,7 @@ export default function BatchPage() {
       {vehicle && <WorkflowProgress status={step === 'done' ? 'batched' : vehicle.workflow_status} completed />}
 
       <div className="rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 px-3 py-2.5 text-xs text-blue-700 dark:text-blue-400 leading-relaxed">
-        System assigns vehicles to the current open batch for the vessel (max 20 per batch).
+        System assigns vehicles to the current open batch for the vessel (max {batchCapacity ?? 20} per batch).
         A new batch is created only when the current one becomes full.
       </div>
 

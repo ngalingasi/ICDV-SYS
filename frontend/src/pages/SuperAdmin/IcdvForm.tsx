@@ -17,6 +17,7 @@ interface FormState {
   address:  string;
   tin:      string;
   vrn:      string;
+  batch_capacity: string;
   is_active: string;
 }
 
@@ -24,7 +25,7 @@ const EMPTY: FormState = {
   name: '', code: '', email: '', phone: '',
   city: 'Dar es Salaam', country: 'Tanzania',
   address: '', is_active: '1',
-  tin: '', vrn: '',
+  tin: '', vrn: '', batch_capacity: '20',
 };
 
 export default function IcdvForm() {
@@ -52,6 +53,7 @@ export default function IcdvForm() {
         address:   r.data.address   ?? '',
         tin:       r.data.tin       ?? '',
         vrn:       r.data.vrn       ?? '',
+        batch_capacity: String((r.data as any).batch_capacity ?? 20),
         is_active: String(r.data.is_active ?? 1),
       }))
       .catch(() => setApiError('Failed to load ICDV'))
@@ -75,7 +77,7 @@ export default function IcdvForm() {
   const handleSubmit = async () => {
     if (!validate()) return;
     setSaving(true); setApiError('');
-    const payload = { ...form, is_active: Number(form.is_active) };
+    const payload = { ...form, is_active: Number(form.is_active), batch_capacity: Number(form.batch_capacity) || 20 };
     try {
       if (isEdit && icdvId) {
         await icdvsApi.update(Number(icdvId), payload);
@@ -161,6 +163,11 @@ export default function IcdvForm() {
               <div>
                 <label className={LabelCls}>VRN <span className="text-gray-400 font-normal">(VAT Reg. No.)</span></label>
                 <input type="text" value={form.vrn} onChange={set('vrn')} className={InputCls} placeholder="10011831D" />
+              </div>
+              <div>
+                <label className={LabelCls}>Batch Capacity <span className="text-gray-400 font-normal">(vehicles per batch)</span></label>
+                <input type="number" min={1} value={form.batch_capacity} onChange={set('batch_capacity')} className={InputCls} placeholder="20" />
+                <p className="mt-1 text-xs text-gray-400">A batch is marked "full" once it reaches this many vehicles. Default 20.</p>
               </div>
               <div className="sm:col-span-2">
                 <label className={LabelCls}>Address</label>

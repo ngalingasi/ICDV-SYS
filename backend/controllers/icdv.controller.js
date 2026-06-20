@@ -10,6 +10,13 @@ const updateIcdv       = catchAsync(async (req, res) => { res.json(await icdvMod
 const deleteIcdv       = catchAsync(async (req, res) => { await icdvModel.deleteIcdv(Number(req.params.icdvId)); res.status(httpStatus.NO_CONTENT).send(); });
 const getPlatformStats = catchAsync(async (req, res) => { res.json(await icdvModel.getPlatformStats()); });
 
+// GET /icdvs/me/batch-capacity — any authenticated ICDV user can read their
+// own ICDV's batch capacity (super_admin/system_admin get the fallback 20
+// since they're not tied to a single ICDV here).
+const getBatchCapacity = catchAsync(async (req, res) => {
+  res.json(await icdvModel.getBatchCapacity(req.icdvId));
+});
+
 // POST /icdvs/:icdvId/admins — create an admin user scoped to a specific ICDV
 const createIcdvAdmin = catchAsync(async (req, res) => {
   const icdvId = Number(req.params.icdvId);
@@ -27,4 +34,4 @@ const getIcdvUsers = catchAsync(async (req, res) => {
   res.json(await userModel.getUsers(req.query, Number(req.params.icdvId)));
 });
 
-module.exports = { createIcdv, getIcdvs, getIcdv, updateIcdv, deleteIcdv, getPlatformStats, createIcdvAdmin, getIcdvUsers };
+module.exports = { createIcdv, getIcdvs, getIcdv, updateIcdv, deleteIcdv, getPlatformStats, createIcdvAdmin, getIcdvUsers, getBatchCapacity };

@@ -280,6 +280,7 @@ export default function IcdvDetail() {
           <InfoRow label="Country" value={icdv.country} />
           <InfoRow label="TIN"     value={icdv.tin} />
           <InfoRow label="VRN"     value={icdv.vrn} />
+          <InfoRow label="Batch Capacity" value={`${(icdv as any).batch_capacity ?? 20} vehicles`} />
           <InfoRow label="Status"  value={icdv.is_active ? 'Active' : 'Inactive'} />
         </div>
 
