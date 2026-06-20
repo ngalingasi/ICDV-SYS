@@ -91,16 +91,18 @@ export default function InvoiceForm() {
 
   const pickManifest = useCallback((key: number, manifest: Manifest | null) => {
     if (!manifest) { updateLine(key, { manifest_id: null, manifest_number: undefined }); return; }
+    const selectedIcdv = icdvList.find(i => i.icdv_id === Number(icdvId));
+    const icdvName = selectedIcdv?.name ?? 'the ICDV';
     invoicesApi.getManifestVehicleCount(manifest.manifest_id).then(r => {
       const count = r.data.total_vehicles ?? 1;
       updateLine(key, {
         manifest_id:     manifest.manifest_id,
         manifest_number: manifest.manifest_number,
-        description:     `BEING PAYMENT IN RESPECT OF VEHICLES DISCHARGE PROCESS AND TRANSFER FROM DAR PORT HOLDING AREA TO FAB ICD ${(manifest as any).vessel_name ?? manifest.manifest_number}`,
+        description:     `BEING PAYMENT IN RESPECT OF VEHICLES DISCHARGE PROCESS AND TRANSFER FROM DAR PORT HOLDING AREA TO ${icdvName} ICD, ${(manifest as any).vessel_name ?? manifest.manifest_number}`,
         quantity:        count,
       });
     }).catch(() => updateLine(key, { manifest_id: manifest.manifest_id, manifest_number: manifest.manifest_number }));
-  }, []); // eslint-disable-line
+  }, [icdvId, icdvList]); // eslint-disable-line
 
   const handleSubmit = async () => {
     if (!icdvId)   { setError('Select an ICDV'); return; }
