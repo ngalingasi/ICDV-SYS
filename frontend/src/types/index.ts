@@ -41,6 +41,9 @@ export interface Icdv {
   city?:          string | null;
   is_active:      number;
   settings?:      any | null;
+  tin?:           string | null;
+  vrn?:           string | null;
+  batch_capacity?: number;
   user_count?:    number;
   vessel_count?:  number;
   vehicle_count?: number;
@@ -75,7 +78,7 @@ export interface Vessel {
 }
 
 // ── Manifest ──────────────────────────────────────────────────────────────────
-export type ManifestStatus = 'pending' | 'active' | 'completed' | 'cancelled';
+export type ManifestStatus = 'pending' | 'active' | 'completed' | 'cancelled' | 'closed';
 
 export interface Manifest {
   manifest_id:        number;

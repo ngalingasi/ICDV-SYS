@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router';
 import PageBreadCrumb from '../../components/common/PageBreadCrumb';
 import { icdvsApi, usersApi } from '../../api';
-import type { Icdv } from '../../types';
+import type { Icdv, UserRecord } from '../../types';
 
 // Modal layer must sit above the app header (z-99999) — see AppHeader.tsx
 const MODAL_BACKDROP_CLS = 'fixed inset-0 z-[100000] flex items-center justify-center bg-black/50 p-4';
@@ -38,7 +38,10 @@ function InfoRow({ label, value }: { label: string; value?: string | number | nu
 function CreateUserModal({ icdvId, onClose, onCreated }: {
   icdvId: number; onClose: () => void; onCreated: () => void;
 }) {
-  const [form, setForm] = useState({ full_name: '', username: '', email: '', mobile: '', password: '', role: 'admin' });
+  const [form, setForm] = useState<{
+    full_name: string; username: string; email: string; mobile: string;
+    password: string; role: UserRecord['role'];
+  }>({ full_name: '', username: '', email: '', mobile: '', password: '', role: 'admin' });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
 
@@ -63,7 +66,7 @@ function CreateUserModal({ icdvId, onClose, onCreated }: {
         {err && <div className="mb-4 p-2.5 rounded-lg bg-red-50 text-red-700 text-sm dark:bg-red-500/10 dark:text-red-400">{err}</div>}
         <div className="space-y-4">
           <div><label className={LabelCls}>Role *</label>
-            <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))} className={InputCls}>
+            <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value as UserRecord['role'] }))} className={InputCls}>
               {ROLE_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </select>
           </div>
@@ -280,7 +283,7 @@ export default function IcdvDetail() {
           <InfoRow label="Country" value={icdv.country} />
           <InfoRow label="TIN"     value={icdv.tin} />
           <InfoRow label="VRN"     value={icdv.vrn} />
-          <InfoRow label="Batch Capacity" value={`${(icdv as any).batch_capacity ?? 20} vehicles`} />
+          <InfoRow label="Batch Capacity" value={`${icdv.batch_capacity ?? 20} vehicles`} />
           <InfoRow label="Status"  value={icdv.is_active ? 'Active' : 'Inactive'} />
         </div>
 

@@ -4,8 +4,8 @@
 
 -- ── 1. Add TIN/VRN to icdvs (invoice recipient fields) ─────
 ALTER TABLE `icdvs`
-  ADD COLUMN IF NOT EXISTS `tin`         VARCHAR(50)  NULL COMMENT 'Tax Identification Number'   AFTER `email`,
-  ADD COLUMN IF NOT EXISTS `vrn`         VARCHAR(50)  NULL COMMENT 'VAT Registration Number'      AFTER `tin`;
+  ADD COLUMN  `tin`         VARCHAR(50)  NULL COMMENT 'Tax Identification Number'   AFTER `email`,
+  ADD COLUMN  `vrn`         VARCHAR(50)  NULL COMMENT 'VAT Registration Number'      AFTER `tin`;
 
 -- ── 2. Add cashier role ─────────────────────────────────────
 -- (No schema change — role is a VARCHAR in users table, enforced in app)
@@ -28,7 +28,7 @@ INSERT IGNORE INTO `system_settings` (setting_key, setting_value, updated_by, up
   ('operator_bank_branch',  '',                                1, NOW());
 
 -- ── 4. Invoice items catalog ─────────────────────────────────
-CREATE TABLE IF NOT EXISTS `invoice_items` (
+CREATE TABLE  `invoice_items` (
   `item_id`       INT UNSIGNED    NOT NULL AUTO_INCREMENT,
   `name`          VARCHAR(200)    NOT NULL,
   `description`   TEXT                NULL,
@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS `invoice_items` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ── 5. Invoices ───────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS `invoices` (
+CREATE TABLE  `invoices` (
   `invoice_id`             INT UNSIGNED    NOT NULL AUTO_INCREMENT,
   `invoice_number`         VARCHAR(30)     NOT NULL UNIQUE COMMENT 'DDMMYYYY-NN format',
   `icdv_id`                INT UNSIGNED    NOT NULL COMMENT 'Recipient ICDV (billed party)',
@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS `invoices` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ── 6. Invoice line items ─────────────────────────────────────
-CREATE TABLE IF NOT EXISTS `invoice_line_items` (
+CREATE TABLE  `invoice_line_items` (
   `line_id`       INT UNSIGNED    NOT NULL AUTO_INCREMENT,
   `invoice_id`    INT UNSIGNED    NOT NULL,
   `item_id`       INT UNSIGNED        NULL COMMENT 'NULL = free-text line item',
@@ -97,7 +97,7 @@ CREATE TABLE IF NOT EXISTS `invoice_line_items` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ── 7. Invoice payments / evidence ───────────────────────────
-CREATE TABLE IF NOT EXISTS `invoice_payments` (
+CREATE TABLE  `invoice_payments` (
   `payment_id`      INT UNSIGNED    NOT NULL AUTO_INCREMENT,
   `invoice_id`      INT UNSIGNED    NOT NULL,
   `paid_at`         DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -118,5 +118,5 @@ ALTER TABLE `manifests`
     NOT NULL DEFAULT 'pending';
 
 ALTER TABLE `manifests`
-  ADD COLUMN IF NOT EXISTS `closed_at`  DATETIME     NULL AFTER `status`,
-  ADD COLUMN IF NOT EXISTS `closed_by`  INT UNSIGNED NULL AFTER `closed_at`;
+  ADD COLUMN  `closed_at`  DATETIME     NULL AFTER `status`,
+  ADD COLUMN  `closed_by`  INT UNSIGNED NULL AFTER `closed_at`;

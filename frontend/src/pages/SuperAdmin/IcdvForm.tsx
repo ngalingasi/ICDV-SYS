@@ -53,7 +53,7 @@ export default function IcdvForm() {
         address:   r.data.address   ?? '',
         tin:       r.data.tin       ?? '',
         vrn:       r.data.vrn       ?? '',
-        batch_capacity: String((r.data as any).batch_capacity ?? 20),
+        batch_capacity: String(r.data.batch_capacity ?? 20),
         is_active: String(r.data.is_active ?? 1),
       }))
       .catch(() => setApiError('Failed to load ICDV'))
