@@ -31,6 +31,7 @@ const ROLE_STYLES: Record<string, string> = {
   transfer_officer:   'bg-cyan-100 text-cyan-700 dark:bg-cyan-500/20 dark:text-cyan-400',
   yard_officer:       'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400',
   fuel_officer:       'bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-400',
+  cashier:            'bg-pink-100 text-pink-700 dark:bg-pink-500/20 dark:text-pink-400',
 };
 
 const SKILL_CATEGORIES = ['Technical','Managerial','Field','Finance','IT','Legal'];
@@ -119,6 +120,7 @@ function UserForm({ user, allSkills, isSuperAdmin: superAdmin, onSaved, onClose 
         ['transfer_officer',   'Transfer Officer'],
         ['yard_officer',       'Yard Officer'],
         ['fuel_officer',        'Fuel Officer'],
+        ['cashier',             'Cashier'],
       ]
     : [
         ['operator',           'Operator'],
@@ -129,6 +131,7 @@ function UserForm({ user, allSkills, isSuperAdmin: superAdmin, onSaved, onClose 
         ['transfer_officer',   'Transfer Officer'],
         ['yard_officer',       'Yard Officer'],
         ['fuel_officer',        'Fuel Officer'],
+        ['cashier',             'Cashier'],
       ];
 
   return (
@@ -270,6 +273,7 @@ export default function UsersPage() {
           <option value="transfer_officer">Transfer Officer</option>
           <option value="yard_officer">Yard Officer</option>
           <option value="fuel_officer">Fuel Officer</option>
+          <option value="cashier">Cashier</option>
           {isSuperAdmin && <option value="system_admin">System Admin</option>}
           {isSuperAdmin && <option value="super_admin">Super Admin</option>}
         </select>

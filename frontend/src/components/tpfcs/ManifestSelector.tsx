@@ -28,10 +28,15 @@ interface ManifestSelectorProps {
   statusFilter?: 'active' | 'completed' | 'pending';   // undefined = all statuses
   placeholder?:  string;
   allLabel?:     string;
+  disabled?:     boolean;   // prevents opening (e.g. prerequisite not yet selected)
 }
 
-const fmtDate = (d: string) =>
-  new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+const fmtDate = (d: string) => {
+  if (!d) return '—';
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return '—';
+  return dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+};
 
 export default function ManifestSelector({
   value,
@@ -40,6 +45,7 @@ export default function ManifestSelector({
   statusFilter,
   placeholder = 'Select a manifest…',
   allLabel    = 'All manifests',
+  disabled    = false,
 }: ManifestSelectorProps) {
   const [open,    setOpen]    = useState(false);
   const [search,  setSearch]  = useState('');
@@ -76,8 +82,13 @@ export default function ManifestSelector({
     <div ref={ref} className="relative w-full">
       {/* Trigger */}
       <button
-        onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm text-left hover:border-brand-300 dark:hover:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors"
+        onClick={() => !disabled && setOpen(o => !o)}
+        disabled={disabled}
+        className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm text-left transition-colors ${
+          disabled
+            ? 'opacity-60 cursor-not-allowed'
+            : 'hover:border-brand-300 dark:hover:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500'
+        }`}
       >
         <span className={value ? 'text-gray-800 dark:text-white font-medium' : 'text-gray-400 dark:text-gray-500'}>
           {value ? `${value.manifest_number} · ${fmtDate(value.arrival_date)}` : placeholder}

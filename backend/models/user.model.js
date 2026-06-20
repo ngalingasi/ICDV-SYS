@@ -90,7 +90,7 @@ const updateUserSkills = async (userId, skillIds = []) => {
 };
 
 const updateUser = async (id, body) => {
-  const allowed = ['full_name', 'email', 'mobile', 'gender', 'avatar', 'role', 'status', 'must_change_password'];
+  const allowed = ['full_name', 'email', 'mobile', 'gender', 'avatar', 'role', 'status', 'must_change_password', 'icdv_id'];
   const fields = Object.keys(body).filter((k) => allowed.includes(k));
   if (!fields.length) throw new ApiError(httpStatus.BAD_REQUEST, 'No valid fields to update');
   const setClauses = fields.map((f) => `${f} = ?`).join(', ');

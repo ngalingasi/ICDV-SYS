@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { invoicesApi } from '../../api';
+import { invoicesApi, icdvsApi } from '../../api';
 import BackButton from '../../components/tpfcs/BackButton';
 import { FormDateInput } from '../../components/tpfcs/FormField';
 import ManifestSelector from '../../components/tpfcs/ManifestSelector';
@@ -32,19 +32,33 @@ export default function InvoiceForm() {
   const [issuedDate,  setIssuedDate]  = useState(new Date().toISOString().slice(0,10));
   const [dueDate,     setDueDate]     = useState('');
   const [notes,       setNotes]       = useState('');
+  const [notesTouched, setNotesTouched] = useState(false); // user manually edited notes
   const [whtRate,     setWhtRate]     = useState(5);
   const [saving,      setSaving]      = useState(false);
   const [error,       setError]       = useState<string|null>(null);
+  const [loadError,   setLoadError]   = useState<string|null>(null);
 
   useEffect(() => {
-    // Load ICDVs and catalog items
+    // Load ICDVs, catalog items, and operator config (for notes prefill)
     Promise.all([
-      fetch('/api/v1/icdvs', { headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` } }).then(r => r.json()),
+      icdvsApi.list({ limit: 200, is_active: 1 }),
       invoicesApi.listItems({ status: 'active' }),
-    ]).then(([icdvRes, itemRes]) => {
-      setIcdvList(icdvRes.results ?? []);
+      invoicesApi.getOperatorConfig(),
+    ]).then(([icdvRes, itemRes, opRes]) => {
+      setIcdvList(icdvRes.data.results ?? []);
       setCatalogItems(itemRes.data ?? []);
-    }).catch(() => {});
+
+      // Prefill notes with bank details from operator config, only if user
+      // hasn't already typed something
+      const op = opRes.data;
+      const bankLines = [
+        op.bank_name && op.bank_account
+          ? `Deposit the amount in TSHS A/C No. ${op.bank_account} at ${op.bank_name}${op.bank_branch ? ` (${op.bank_branch})` : ''}, this Invoice is due for payment on Presentation.`
+          : null,
+        op.email ? `In case of any problem with this invoice, contact us on ${op.email}` : null,
+      ].filter(Boolean).join('\n');
+      if (bankLines) setNotes(prev => (prev ? prev : bankLines));
+    }).catch(() => setLoadError('Failed to load form data. Please refresh the page.'));
   }, []);
 
   // Totals
@@ -123,6 +137,13 @@ export default function InvoiceForm() {
         <h1 className="text-xl font-bold text-gray-800 dark:text-white">New Invoice</h1>
       </div>
 
+      {loadError && (
+        <div className="rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 px-4 py-3 text-sm text-red-600 dark:text-red-400 flex items-center justify-between">
+          <span>{loadError}</span>
+          <button onClick={() => window.location.reload()} className="text-xs underline font-medium">Retry</button>
+        </div>
+      )}
+
       {/* Header fields */}
       <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5 space-y-4">
         <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Invoice Details</h2>
@@ -182,11 +203,16 @@ export default function InvoiceForm() {
 
             {/* Manifest linker */}
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Link to Manifest (optional — auto-fills description & quantity)</label>
+              <label className="block text-xs text-gray-500 mb-1">
+                Link to Manifest (optional — auto-fills description & quantity)
+                {!icdvId && <span className="text-amber-500"> — select recipient ICDV first</span>}
+              </label>
               <ManifestSelector
                 value={line.manifest_id ? ({ manifest_id: line.manifest_id, manifest_number: line.manifest_number } as any) : null}
                 onChange={(m) => pickManifest(line._key, m)}
-                placeholder="Select manifest to link…"
+                icdvId={icdvId ? Number(icdvId) : null}
+                disabled={!icdvId}
+                placeholder={icdvId ? 'Select manifest to link…' : 'Select recipient ICDV first…'}
                 allLabel="No manifest (free-text)"
               />
             </div>
@@ -245,7 +271,7 @@ export default function InvoiceForm() {
       <div className="flex gap-3">
         <button onClick={handleSubmit} disabled={saving}
           className="px-6 py-2 bg-brand-500 hover:bg-brand-600 disabled:opacity-60 text-white rounded-lg text-sm font-medium transition-colors">
-          {saving ? 'Creating…' : 'Create Invoice (Draft)'}
+          {saving ? 'Creating…' : 'Create Invoice'}
         </button>
         <button onClick={() => navigate('/invoices')}
           className="px-6 py-2 border border-gray-200 dark:border-gray-700 text-sm rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">

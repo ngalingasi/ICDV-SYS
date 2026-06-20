@@ -8,6 +8,7 @@ const createIcdv = async (body, creatorId) => {
     name, code, address = null, phone = null, email = null,
     logo_path = null, country = 'Tanzania', city = null,
     is_active = 1, settings = null,
+    tin = null, vrn = null,
   } = body;
 
   if (!name) throw new ApiError(httpStatus.BAD_REQUEST, 'ICDV name is required');
@@ -17,10 +18,10 @@ const createIcdv = async (body, creatorId) => {
   if (existing.length) throw new ApiError(httpStatus.CONFLICT, 'ICDV code already exists');
 
   const r = await query(
-    `INSERT INTO icdvs (name, code, address, phone, email, logo_path, country, city, is_active, settings, created_by)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+    `INSERT INTO icdvs (name, code, address, phone, email, logo_path, country, city, is_active, settings, tin, vrn, created_by)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [name, code.toUpperCase(), address, phone, email, logo_path, country, city, is_active,
-     settings ? JSON.stringify(settings) : null, creatorId]
+     settings ? JSON.stringify(settings) : null, tin, vrn, creatorId]
   );
   return getIcdvById(r.insertId);
 };
@@ -67,7 +68,7 @@ const getIcdvById = async (id) => {
 
 const updateIcdv = async (id, body) => {
   await getIcdvById(id);
-  const allowed = ['name','code','address','phone','email','logo_path','country','city','is_active','settings'];
+  const allowed = ['name','code','address','phone','email','logo_path','country','city','is_active','settings','tin','vrn'];
   const fields = []; const params = [];
   for (const key of allowed) {
     if (body[key] !== undefined) { fields.push(`${key}=?`); params.push(body[key]); }

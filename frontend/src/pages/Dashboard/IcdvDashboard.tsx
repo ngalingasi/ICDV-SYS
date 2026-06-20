@@ -222,6 +222,8 @@ function ManifestDashboardPanel({ manifest, icdvScoped }: { manifest: Manifest; 
 // ─── Global overview dashboard (no manifest selected) ─────────────────────────
 
 function GlobalDashboard() {
+  const { user, isSuperAdmin, isSystemAdmin } = useAuth();
+  const isCrossTenant = isSuperAdmin || isSystemAdmin;
   const [data,    setData]    = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);
@@ -342,25 +344,29 @@ function GlobalDashboard() {
           </div>
         </div>
 
-        {/* Quick Actions */}
+        {/* Quick Actions — filtered to what the current role is actually permitted to do */}
         <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5">
           <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Quick Actions</h2>
           <div className="flex flex-wrap gap-2.5">
             {[
-              { label: 'Add Vessel',        to: '/vessels/new',          color: 'bg-brand-500 hover:bg-brand-600 text-white' },
-              { label: 'Add Manifest',      to: '/manifests/new',        color: 'bg-indigo-500 hover:bg-indigo-600 text-white' },
-              { label: 'Discharge Vehicle', to: '/operations/discharge', color: 'bg-cyan-500 hover:bg-cyan-600 text-white' },
-              { label: 'Batch Vehicle',     to: '/operations/batch',     color: 'bg-violet-500 hover:bg-violet-600 text-white' },
-              { label: 'TPA Transfer',      to: '/operations/transfer',  color: 'bg-orange-500 hover:bg-orange-600 text-white' },
-              { label: 'Yard Receive',      to: '/operations/receive',   color: 'bg-emerald-500 hover:bg-emerald-600 text-white' },
-              { label: 'Fuel Dispense',     to: '/operations/fuel',      color: 'bg-amber-500 hover:bg-amber-600 text-white' },
-              { label: 'Search Chassis',    to: '/operations/search',    color: 'bg-gray-600 hover:bg-gray-700 text-white' },
-            ].map(a => (
-              <Link key={a.label} to={a.to}
-                className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${a.color}`}>
-                {a.label}
-              </Link>
-            ))}
+              // roles: who (besides cross-tenant admins) may perform this action,
+              // matching the backend auth() right required by each route.
+              { label: 'Add Vessel',        to: '/vessels/new',          color: 'bg-brand-500 hover:bg-brand-600 text-white',     roles: ['admin','system_admin','supervisor','backoffice_officer'] },
+              { label: 'Add Manifest',      to: '/manifests/new',        color: 'bg-indigo-500 hover:bg-indigo-600 text-white',   roles: ['admin','system_admin','supervisor','backoffice_officer'] },
+              { label: 'Discharge Vehicle', to: '/operations/discharge', color: 'bg-cyan-500 hover:bg-cyan-600 text-white',       roles: ['admin','system_admin','supervisor','operator','discharge_officer'] },
+              { label: 'Batch Vehicle',     to: '/operations/batch',     color: 'bg-violet-500 hover:bg-violet-600 text-white',   roles: ['admin','system_admin','supervisor','operator','discharge_officer'] },
+              { label: 'TPA Transfer',      to: '/operations/transfer',  color: 'bg-orange-500 hover:bg-orange-600 text-white',   roles: ['admin','system_admin','supervisor','operator','transfer_officer'] },
+              { label: 'Yard Receive',      to: '/operations/receive',   color: 'bg-emerald-500 hover:bg-emerald-600 text-white', roles: ['admin','system_admin','supervisor','operator','yard_officer'] },
+              { label: 'Fuel Dispense',     to: '/operations/fuel',      color: 'bg-amber-500 hover:bg-amber-600 text-white',     roles: ['admin','system_admin','supervisor','fuel_officer'] },
+              { label: 'Search Chassis',    to: '/operations/search',    color: 'bg-gray-600 hover:bg-gray-700 text-white',       roles: ['admin','system_admin','supervisor','operator','backoffice_officer','discharge_officer','transfer_officer','yard_officer','fuel_officer','cashier'] },
+            ]
+              .filter(a => isCrossTenant || a.roles.includes(user?.role ?? ''))
+              .map(a => (
+                <Link key={a.label} to={a.to}
+                  className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${a.color}`}>
+                  {a.label}
+                </Link>
+              ))}
           </div>
         </div>
 

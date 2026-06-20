@@ -9,13 +9,14 @@ const ctrl    = require('../../controllers/invoice.controller');
 
 const router = express.Router();
 
-// Multer for evidence uploads — reuse existing uploads folder
+// Multer for payment evidence/receipt uploads — reuse existing uploads folder
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, path.join(process.cwd(), 'uploads')),
   filename:    (req, file, cb) => {
-    const ts  = Date.now();
-    const ext = path.extname(file.originalname);
-    cb(null, `evidence_${ts}${ext}`);
+    const ts     = Date.now();
+    const ext    = path.extname(file.originalname);
+    const prefix = req.path.endsWith('/receipt') ? 'receipt' : 'evidence';
+    cb(null, `${prefix}_${ts}${ext}`);
   },
 });
 const upload = multer({
@@ -62,7 +63,7 @@ router.route('/:invoiceId')
 
 // Approve / Cancel (super_admin only)
 router.post('/:invoiceId/approve',
-  auth('manageInvoices'), tenant(), ctrl.approveInvoice);
+  auth('approveInvoice'), tenant(), ctrl.approveInvoice);
 
 router.post('/:invoiceId/cancel',
   auth('manageInvoices'), tenant(), ctrl.cancelInvoice);
@@ -75,9 +76,16 @@ router.get('/:invoiceId/print',
 router.post('/:invoiceId/mark-paid',
   auth('markInvoicePaid'), tenant(), ctrl.markAsPaid);
 
+// Cashier/admin: upload proof of payment (bank slip, transfer confirmation)
 router.post('/:invoiceId/evidence',
-  auth('viewInvoices'), tenant(),
+  auth('uploadPaymentEvidence'), tenant(),
   upload.single('evidence'),
   ctrl.uploadEvidence);
+
+// Super_admin: issue the official payment receipt back to the ICDV
+router.post('/:invoiceId/receipt',
+  auth('uploadPaymentReceipt'), tenant(),
+  upload.single('receipt'),
+  ctrl.uploadReceipt);
 
 module.exports = router;

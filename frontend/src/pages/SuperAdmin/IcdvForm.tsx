@@ -15,6 +15,8 @@ interface FormState {
   city:     string;
   country:  string;
   address:  string;
+  tin:      string;
+  vrn:      string;
   is_active: string;
 }
 
@@ -22,6 +24,7 @@ const EMPTY: FormState = {
   name: '', code: '', email: '', phone: '',
   city: 'Dar es Salaam', country: 'Tanzania',
   address: '', is_active: '1',
+  tin: '', vrn: '',
 };
 
 export default function IcdvForm() {
@@ -47,6 +50,8 @@ export default function IcdvForm() {
         city:      r.data.city      ?? '',
         country:   r.data.country   ?? 'Tanzania',
         address:   r.data.address   ?? '',
+        tin:       r.data.tin       ?? '',
+        vrn:       r.data.vrn       ?? '',
         is_active: String(r.data.is_active ?? 1),
       }))
       .catch(() => setApiError('Failed to load ICDV'))
@@ -148,6 +153,14 @@ export default function IcdvForm() {
               <div>
                 <label className={LabelCls}>Country</label>
                 <input type="text" value={form.country} onChange={set('country')} className={InputCls} />
+              </div>
+              <div>
+                <label className={LabelCls}>TIN <span className="text-gray-400 font-normal">(Tax ID)</span></label>
+                <input type="text" value={form.tin} onChange={set('tin')} className={InputCls} placeholder="100-237-350" />
+              </div>
+              <div>
+                <label className={LabelCls}>VRN <span className="text-gray-400 font-normal">(VAT Reg. No.)</span></label>
+                <input type="text" value={form.vrn} onChange={set('vrn')} className={InputCls} placeholder="10011831D" />
               </div>
               <div className="sm:col-span-2">
                 <label className={LabelCls}>Address</label>

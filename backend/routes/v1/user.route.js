@@ -47,6 +47,9 @@ const updateUserSchema = {
     role:                 Joi.string().valid(...VALID_ROLES).optional(),
     status:               Joi.string().valid('active', 'inactive').optional(),
     must_change_password: Joi.number().valid(0, 1).optional(),
+    // icdv_id: transfer a user to a different ICDV. Controller restricts
+    // this to super_admin / system_admin only.
+    icdv_id:              Joi.number().integer().optional().allow(null),
   }).min(1),
 };
 

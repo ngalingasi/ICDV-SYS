@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { invoicesApi } from '../../api';
 import { useAuth } from '../../store/authStore';
+import { FormDateInput } from '../../components/tpfcs/FormField';
 
 const STATUS_STYLES: Record<string, string> = {
-  draft:     'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300',
+  invoiced:  'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300',
   approved:  'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400',
   paid:      'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400',
   cancelled: 'bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400',
@@ -58,20 +59,16 @@ export default function InvoicesPage() {
         <select value={status} onChange={e => setStatus(e.target.value)}
           className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300">
           <option value="">All Statuses</option>
-          <option value="draft">Draft</option>
+          <option value="invoiced">Invoiced</option>
           <option value="approved">Approved</option>
           <option value="paid">Paid</option>
           <option value="cancelled">Cancelled</option>
         </select>
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">From</label>
-          <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-            className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200" />
+        <div className="w-40">
+          <FormDateInput label="From" id="invoices-date-from" value={dateFrom} onChange={setDateFrom} placeholder="Any" />
         </div>
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">To</label>
-          <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-            className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200" />
+        <div className="w-40">
+          <FormDateInput label="To" id="invoices-date-to" value={dateTo} onChange={setDateTo} placeholder="Any" />
         </div>
         <button onClick={applyFilters} className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-sm">Apply</button>
       </div>

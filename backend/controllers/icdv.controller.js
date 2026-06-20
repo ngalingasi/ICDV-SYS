@@ -24,7 +24,7 @@ const createIcdvAdmin = catchAsync(async (req, res) => {
 // GET /icdvs/:icdvId/users
 const getIcdvUsers = catchAsync(async (req, res) => {
   await icdvModel.getIcdvById(Number(req.params.icdvId));
-  res.json(await userModel.getUsers({ ...req.query, icdv_id: Number(req.params.icdvId) }));
+  res.json(await userModel.getUsers(req.query, Number(req.params.icdvId)));
 });
 
 module.exports = { createIcdv, getIcdvs, getIcdv, updateIcdv, deleteIcdv, getPlatformStats, createIcdvAdmin, getIcdvUsers };

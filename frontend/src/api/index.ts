@@ -427,8 +427,14 @@ export const invoicesApi = {
   printData:  (id: number)        => client.get(`/invoices/${id}/print`),
   // Billing
   markPaid:   (id: number)        => client.post(`/invoices/${id}/mark-paid`),
+  // Cashier/admin: proof of payment (bank slip, transfer confirmation)
   uploadEvidence: (id: number, formData: FormData) =>
     client.post(`/invoices/${id}/evidence`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+  // Super_admin: official receipt issued back to the ICDV
+  uploadReceipt: (id: number, formData: FormData) =>
+    client.post(`/invoices/${id}/receipt`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
 };

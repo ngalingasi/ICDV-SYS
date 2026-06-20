@@ -282,14 +282,14 @@ const createInvoice = async (body, createdBy) => {
       );
     }
 
-    return getInvoiceById(invoiceId);
-  });
+    return invoiceId;
+  }).then(invoiceId => getInvoiceById(invoiceId));
 };
 
 const updateInvoice = async (id, body, updatedBy, icdvId = null) => {
   const inv = await getInvoiceById(id, icdvId);
-  if (inv.status !== 'draft')
-    throw new ApiError(httpStatus.CONFLICT, 'Only draft invoices can be edited');
+  if (inv.status !== 'invoiced')
+    throw new ApiError(httpStatus.CONFLICT, 'Only invoiced (unapproved) invoices can be edited');
 
   const whtRate = body.withholding_tax_rate !== undefined
     ? parseFloat(body.withholding_tax_rate)
@@ -328,19 +328,19 @@ const updateInvoice = async (id, body, updatedBy, icdvId = null) => {
     hParams.push(subtotal, withholding_tax_amount, total_amount, updatedBy, id);
     await connQuery(conn, `UPDATE invoices SET ${hFields.join(',')} WHERE invoice_id=?`, hParams);
 
-    return getInvoiceById(id);
-  });
+    return id;
+  }).then(invoiceId => getInvoiceById(invoiceId));
 };
 
-const approveInvoice = async (id, approvedBy) => {
-  const inv = await getInvoiceById(id);
-  if (inv.status !== 'draft')
-    throw new ApiError(httpStatus.CONFLICT, `Invoice is ${inv.status} — only draft invoices can be approved`);
+const approveInvoice = async (id, approvedBy, icdvId = null) => {
+  const inv = await getInvoiceById(id, icdvId);
+  if (inv.status !== 'invoiced')
+    throw new ApiError(httpStatus.CONFLICT, `Invoice is ${inv.status} — only invoiced (unapproved) invoices can be approved`);
   await query(
     `UPDATE invoices SET status='approved', approved_by=?, approved_at=NOW() WHERE invoice_id=?`,
     [approvedBy, id]
   );
-  return getInvoiceById(id);
+  return getInvoiceById(id, icdvId);
 };
 
 const cancelInvoice = async (id, cancelledBy, reason = null) => {
@@ -369,18 +369,42 @@ const markAsPaid = async (id, paidBy, icdvId = null) => {
   return getInvoiceById(id);
 };
 
-const addPaymentEvidence = async (invoiceId, { filePath, fileName, notes = null }, uploadedBy, icdvId = null) => {
+/**
+ * Adds a payment document to an invoice — either:
+ *   - 'evidence': cashier-side proof of payment (bank slip etc.), uploadable
+ *                 only while the invoice is 'approved' (about to be paid) or
+ *                 already 'paid'.
+ *   - 'receipt':  super_admin-issued official receipt, uploadable only once
+ *                 the invoice is 'paid' (confirming the cashier's payment).
+ */
+const addPaymentDocument = async (
+  invoiceId,
+  { filePath, fileName, notes = null, documentType = 'evidence' },
+  uploadedBy,
+  icdvId = null
+) => {
+  if (!['evidence', 'receipt'].includes(documentType))
+    throw new ApiError(httpStatus.BAD_REQUEST, 'documentType must be "evidence" or "receipt"');
+
   const inv = await getInvoiceById(invoiceId, icdvId);
-  if (!['approved', 'paid'].includes(inv.status))
-    throw new ApiError(httpStatus.CONFLICT, 'Evidence can only be attached to approved or paid invoices');
+
+  if (documentType === 'evidence' && !['approved', 'paid'].includes(inv.status))
+    throw new ApiError(httpStatus.CONFLICT, 'Payment evidence can only be attached to approved or paid invoices');
+  if (documentType === 'receipt' && inv.status !== 'paid')
+    throw new ApiError(httpStatus.CONFLICT, 'A payment receipt can only be issued once the invoice is paid');
+
   const r = await query(
-    `INSERT INTO invoice_payments (invoice_id, paid_by, evidence_path, evidence_name, notes)
-     VALUES (?,?,?,?,?)`,
-    [invoiceId, uploadedBy, filePath, fileName, notes]
+    `INSERT INTO invoice_payments (invoice_id, document_type, paid_by, evidence_path, evidence_name, notes)
+     VALUES (?,?,?,?,?,?)`,
+    [invoiceId, documentType, uploadedBy, filePath, fileName, notes]
   );
   const [row] = await query('SELECT * FROM invoice_payments WHERE payment_id=?', [r.insertId]);
   return row;
 };
+
+// Backward-compatible alias (was cashier-only "evidence" upload)
+const addPaymentEvidence = (invoiceId, data, uploadedBy, icdvId = null) =>
+  addPaymentDocument(invoiceId, { ...data, documentType: 'evidence' }, uploadedBy, icdvId);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MANIFEST CLOSE OPERATION
@@ -446,7 +470,7 @@ module.exports = {
   createInvoice, getInvoices, getInvoiceById, updateInvoice,
   approveInvoice, cancelInvoice,
   // Billing
-  markAsPaid, addPaymentEvidence,
+  markAsPaid, addPaymentEvidence, addPaymentDocument,
   // Manifest
   closeManifestOperation,
   getManifestVehicleCount,

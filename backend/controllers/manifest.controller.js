@@ -136,7 +136,16 @@ const ApiError = require('../utils/ApiError');
 
 const createManifest     = catchAsync(async (req, res) => { res.status(httpStatus.CREATED).json(await manifestModel.createManifest(req.body, req.user.user_id, req.icdvId)); });
 const getNextNumber      = catchAsync(async (req, res) => { res.json({ manifest_number: await manifestModel.generateManifestNumber(req.icdvId) }); });
-const getManifests       = catchAsync(async (req, res) => { res.json(await manifestModel.getManifests(req.query, req.icdvId)); });
+const getManifests       = catchAsync(async (req, res) => {
+  // Tenant-scoped users (req.icdvId set) are always restricted to their own ICDV.
+  // Cross-tenant users (super_admin/system_admin, req.icdvId === null) may pass
+  // an explicit icdv_id query param to filter to a specific ICDV — used by
+  // ManifestSelector when linking manifests to an invoice recipient.
+  const effectiveIcdvId = req.icdvId !== null
+    ? req.icdvId
+    : (req.query.icdv_id ? Number(req.query.icdv_id) : null);
+  res.json(await manifestModel.getManifests(req.query, effectiveIcdvId));
+});
 const getManifest        = catchAsync(async (req, res) => { res.json(await manifestModel.getManifestById(Number(req.params.manifestId), req.icdvId)); });
 const updateManifest     = catchAsync(async (req, res) => { res.json(await manifestModel.updateManifest(Number(req.params.manifestId), req.body, req.user.user_id, req.icdvId)); });
 const deleteManifest     = catchAsync(async (req, res) => { await manifestModel.deleteManifest(Number(req.params.manifestId), req.icdvId); res.status(httpStatus.NO_CONTENT).send(); });

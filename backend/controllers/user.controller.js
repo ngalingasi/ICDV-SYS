@@ -44,6 +44,12 @@ const getUser = catchAsync(async (req, res) => {
 });
 
 const updateUser = catchAsync(async (req, res) => {
+  // icdv_id (transferring a user to a different ICDV) is a cross-tenant
+  // action — only super_admin / system_admin may perform it. Regular ICDV
+  // admins cannot move users into or out of their own ICDV via this field.
+  if (req.body.icdv_id !== undefined && !req.isSuperAdmin && !req.isSystemAdmin) {
+    delete req.body.icdv_id;
+  }
   const user = await userModel.updateUser(req.params.userId, req.body);
   res.send(user);
 });

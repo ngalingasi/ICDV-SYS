@@ -59,7 +59,8 @@ const updateInvoice = catchAsync(async (req, res) => {
 });
 
 const approveInvoice = catchAsync(async (req, res) => {
-  res.json(await invoiceModel.approveInvoice(req.params.invoiceId, req.user.user_id));
+  const scopeIcdvId = req.isSuperAdmin ? null : (req.icdvId ?? null);
+  res.json(await invoiceModel.approveInvoice(req.params.invoiceId, req.user.user_id, scopeIcdvId));
 });
 
 const cancelInvoice = catchAsync(async (req, res) => {
@@ -79,20 +80,41 @@ const markAsPaid = catchAsync(async (req, res) => {
   res.json(await invoiceModel.markAsPaid(req.params.invoiceId, req.user.user_id, scopeIcdvId));
 });
 
+// Cashier (or ICDV admin) uploads proof of payment when marking an invoice paid
 const uploadEvidence = catchAsync(async (req, res) => {
   if (!req.file)
     return res.status(httpStatus.BAD_REQUEST).json({ message: 'No file uploaded' });
 
   const scopeIcdvId = req.isSuperAdmin ? null : (req.icdvId ?? null);
-  const payment = await invoiceModel.addPaymentEvidence(
+  const payment = await invoiceModel.addPaymentDocument(
     req.params.invoiceId,
     {
       filePath: req.file.path,
       fileName: req.file.originalname,
       notes:    req.body.notes || null,
+      documentType: 'evidence',
     },
     req.user.user_id,
     scopeIcdvId
+  );
+  res.status(httpStatus.CREATED).json(payment);
+});
+
+// Super_admin issues the official payment receipt back to the ICDV
+const uploadReceipt = catchAsync(async (req, res) => {
+  if (!req.file)
+    return res.status(httpStatus.BAD_REQUEST).json({ message: 'No file uploaded' });
+
+  const payment = await invoiceModel.addPaymentDocument(
+    req.params.invoiceId,
+    {
+      filePath: req.file.path,
+      fileName: req.file.originalname,
+      notes:    req.body.notes || null,
+      documentType: 'receipt',
+    },
+    req.user.user_id,
+    null // super_admin is not ICDV-scoped
   );
   res.status(httpStatus.CREATED).json(payment);
 });
@@ -115,7 +137,7 @@ module.exports = {
   createInvoiceItem, getInvoiceItems, getInvoiceItem, updateInvoiceItem, deleteInvoiceItem,
   createInvoice, getInvoices, getInvoice, updateInvoice,
   approveInvoice, cancelInvoice, getInvoicePrintData,
-  markAsPaid, uploadEvidence,
+  markAsPaid, uploadEvidence, uploadReceipt,
   getManifestVehicleCount,
   closeManifestOperation,
 };

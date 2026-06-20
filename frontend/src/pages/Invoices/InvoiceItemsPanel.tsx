@@ -47,8 +47,8 @@ export default function InvoiceItemsPanel() {
 
       {/* Modal */}
       {editing !== null && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-6 space-y-4 relative z-[201]">
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-6 space-y-4 relative z-[100001]">
             <h2 className="text-base font-bold text-gray-800 dark:text-white">{editing?.item_id ? 'Edit Item' : 'New Invoice Item'}</h2>
             <div className="space-y-3">
               <div>

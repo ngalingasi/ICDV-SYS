@@ -8,21 +8,22 @@ const fmtDate  = (d: string) => d ? new Date(d).toLocaleDateString('en-GB', { da
 const fmtMoney = (n: any) => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2 });
 
 const STATUS_STYLES: Record<string, string> = {
-  draft:     'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300',
+  invoiced:  'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300',
   approved:  'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400',
-  paid:      'bg-green-100 dark:bg-green-500/20 text-greenald-700 dark:text-green-400',
+  paid:      'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400',
   cancelled: 'bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400',
 };
 
 export default function InvoiceDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { isSuperAdmin } = useAuth();
+  const { isSuperAdmin, isCashier } = useAuth();
   const [inv,     setInv]     = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [acting,  setActing]  = useState(false);
   const [error,   setError]   = useState<string|null>(null);
   const evidenceRef = useRef<HTMLInputElement>(null);
+  const receiptRef  = useRef<HTMLInputElement>(null);
 
   const load = () => {
     setLoading(true);
@@ -57,6 +58,20 @@ export default function InvoiceDetail() {
     try {
       await invoicesApi.uploadEvidence(Number(id), fd);
       load(); // reload to show updated evidence
+    } catch (ex: any) {
+      setError(ex?.response?.data?.message ?? 'Upload failed');
+    } finally { setActing(false); }
+  };
+
+  const handleUploadReceipt = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const fd = new FormData();
+    fd.append('receipt', file);
+    setActing(true); setError(null);
+    try {
+      await invoicesApi.uploadReceipt(Number(id), fd);
+      load(); // reload to show updated receipt
     } catch (ex: any) {
       setError(ex?.response?.data?.message ?? 'Upload failed');
     } finally { setActing(false); }
@@ -157,7 +172,7 @@ export default function InvoiceDetail() {
         <div className="flex items-center gap-2 flex-wrap">
           <span className={`px-3 py-1 rounded-full text-xs font-semibold capitalize ${STATUS_STYLES[inv.status] ?? ''}`}>{inv.status}</span>
           <button onClick={handlePrint} className="px-3 py-1.5 border border-gray-200 dark:border-gray-700 rounded-lg text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">Print / PDF</button>
-          {isSuperAdmin && inv.status === 'draft'    && <button onClick={handleApprove} disabled={acting} className="px-3 py-1.5 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-xs font-medium disabled:opacity-60">Approve</button>}
+          {!isSuperAdmin && !isCashier && inv.status === 'invoiced'  && <button onClick={handleApprove} disabled={acting} className="px-3 py-1.5 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-xs font-medium disabled:opacity-60">Approve</button>}
           {isSuperAdmin && inv.status !== 'paid' && inv.status !== 'cancelled' && <button onClick={handleCancel} disabled={acting} className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-xs font-medium disabled:opacity-60">Cancel</button>}
           {!isSuperAdmin && inv.status === 'approved' && <button onClick={handleMarkPaid} disabled={acting} className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-medium disabled:opacity-60">Mark as Paid</button>}
         </div>
@@ -215,25 +230,61 @@ export default function InvoiceDetail() {
         </div>
       )}
 
-      {/* Evidence uploads */}
+      {/* Payment Evidence — uploaded by cashier/admin as proof of payment */}
       <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5 space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Payment Evidence</h2>
-          {['approved','paid'].includes(inv.status) && (
+          <div>
+            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Payment Evidence</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Uploaded by the ICDV when marking the invoice as paid</p>
+          </div>
+          {!isSuperAdmin && ['approved','paid'].includes(inv.status) && (
             <>
               <button onClick={() => evidenceRef.current?.click()} disabled={acting}
-                className="text-xs text-brand-600 dark:text-brand-400 hover:underline font-medium">
-                + Upload Receipt
+                className="text-xs text-brand-600 dark:text-brand-400 hover:underline font-medium whitespace-nowrap">
+                + Upload Evidence
               </button>
               <input ref={evidenceRef} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onChange={handleUploadEvidence} />
             </>
           )}
         </div>
-        {inv.payments?.length === 0
-          ? <p className="text-xs text-gray-400">No evidence uploaded yet.</p>
-          : inv.payments?.map((p: any) => (
+        {(inv.payments?.filter((p: any) => p.document_type !== 'receipt').length ?? 0) === 0
+          ? <p className="text-xs text-gray-400">No payment evidence uploaded yet.</p>
+          : inv.payments?.filter((p: any) => p.document_type !== 'receipt').map((p: any) => (
               <div key={p.payment_id} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
                 <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">{p.evidence_name}</p>
+                  <p className="text-xs text-gray-400">{fmtDate(p.created_at)} · {p.paid_by_name}</p>
+                </div>
+                <a href={`/uploads/${p.evidence_path?.split('/').pop() ?? p.evidence_path}`} target="_blank" rel="noopener noreferrer"
+                  className="text-xs text-brand-600 dark:text-brand-400 hover:underline flex-shrink-0">View</a>
+              </div>
+            ))
+        }
+      </div>
+
+      {/* Payment Receipt — official receipt issued by super_admin (operator) */}
+      <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5 space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Payment Receipt</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Official receipt issued back to the ICDV once paid</p>
+          </div>
+          {isSuperAdmin && inv.status === 'paid' && (
+            <>
+              <button onClick={() => receiptRef.current?.click()} disabled={acting}
+                className="text-xs text-brand-600 dark:text-brand-400 hover:underline font-medium whitespace-nowrap">
+                + Upload Receipt
+              </button>
+              <input ref={receiptRef} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onChange={handleUploadReceipt} />
+            </>
+          )}
+        </div>
+        {(inv.payments?.filter((p: any) => p.document_type === 'receipt').length ?? 0) === 0
+          ? <p className="text-xs text-gray-400">No receipt issued yet.</p>
+          : inv.payments?.filter((p: any) => p.document_type === 'receipt').map((p: any) => (
+              <div key={p.payment_id} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">{p.evidence_name}</p>
                   <p className="text-xs text-gray-400">{fmtDate(p.created_at)} · {p.paid_by_name}</p>

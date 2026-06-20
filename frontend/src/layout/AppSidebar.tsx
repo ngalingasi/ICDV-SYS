@@ -220,6 +220,13 @@ export default function AppSidebar() {
     NAV        = [
       { name: "Dashboard", icon: <Icon.Dashboard />, path: "/" },
       { name: "Billing",   icon: <Icon.Lookups />,   path: "/billing" },
+      {
+        name: "Operations", icon: <Icon.Operation />, subItems: [
+          { name: "Batches",        path: "/operations/batches" },
+          { name: "Live Transfers", path: "/operations/live-transfers" },
+          { name: "Chassis Search", path: "/operations/search" },
+        ],
+      },
     ];
     BOTTOM_NAV = [{ name: "Profile", icon: <Icon.Profile />, path: "/profile" }];
   } else {
@@ -256,6 +263,21 @@ export default function AppSidebar() {
   const isActive = (path: string) =>
     path === "/" ? location.pathname === "/" : location.pathname.startsWith(path);
 
+  // Sub-items need exact-or-deeper matching that doesn't false-positive on
+  // sibling paths (e.g. "/invoices" vs "/invoices/new" — both would match
+  // a naive startsWith). We require the next char after the prefix to be
+  // "/" or end-of-string, AND we pick the *longest* matching sibling so
+  // only the most specific path is highlighted when several could match.
+  const isSubItemActive = (path: string, siblings: { path: string }[]) => {
+    const current = location.pathname;
+    if (current !== path && !current.startsWith(path + '/')) return false;
+    // Find the longest sibling path that also matches — only that one wins
+    const longestMatch = siblings
+      .filter(s => current === s.path || current.startsWith(s.path + '/'))
+      .sort((a, b) => b.path.length - a.path.length)[0];
+    return longestMatch?.path === path;
+  };
+
   const linkCls = (active: boolean) =>
     `flex items-center gap-3 w-full px-3 py-2 rounded-lg text-[13px] transition-colors ${
       expanded ? "" : "justify-center px-0"
@@ -282,7 +304,7 @@ export default function AppSidebar() {
                   <Link to={s.path}
                     onClick={() => { if (isMobileOpen) toggleMobileSidebar(); }}
                     className={`block px-2 py-1.5 rounded text-xs transition-colors ${
-                    isActive(s.path)
+                    isSubItemActive(s.path, item.subItems!)
                       ? "text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-500/10 font-medium"
                       : "text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
                   }`}>{s.name}</Link>
