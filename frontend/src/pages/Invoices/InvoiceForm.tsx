@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { invoicesApi, icdvsApi } from '../../api';
 import BackButton from '../../components/tpfcs/BackButton';
@@ -28,6 +28,8 @@ export default function InvoiceForm() {
   const [icdvList,    setIcdvList]    = useState<any[]>([]);
   const [catalogItems, setCatalogItems] = useState<any[]>([]);
   const [lines,       setLines]       = useState<LineItem[]>([{ _key: newKey(), description: '', unit: 'vehicle', quantity: 1, unit_price: 0, line_total: 0 }]);
+  const lineRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const scrollToKeyRef = useRef<number | null>(null);
   const [icdvId,      setIcdvId]      = useState('');
   const [issuedDate,  setIssuedDate]  = useState(new Date().toISOString().slice(0,10));
   const [dueDate,     setDueDate]     = useState('');
@@ -75,7 +77,18 @@ export default function InvoiceForm() {
     }));
   };
 
-  const addLine = () => setLines(prev => [...prev, { _key: newKey(), description: '', unit: 'vehicle', quantity: 1, unit_price: 0, line_total: 0 }]);
+  const addLine = () => {
+    const key = newKey();
+    scrollToKeyRef.current = key;
+    setLines(prev => [...prev, { _key: key, description: '', unit: 'vehicle', quantity: 1, unit_price: 0, line_total: 0 }]);
+  };
+
+  useEffect(() => {
+    if (scrollToKeyRef.current === null) return;
+    const el = lineRefs.current.get(scrollToKeyRef.current);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    scrollToKeyRef.current = null;
+  }, [lines]);
   const removeLine = (key: number) => setLines(prev => prev.filter(l => l._key !== key));
 
   const pickCatalogItem = (key: number, itemId: string) => {
@@ -183,7 +196,9 @@ export default function InvoiceForm() {
         </div>
 
         {lines.map((line, idx) => (
-          <div key={line._key} className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 space-y-3">
+          <div key={line._key}
+            ref={el => { if (el) lineRefs.current.set(line._key, el); else lineRefs.current.delete(line._key); }}
+            className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Line {idx + 1}</span>
               {lines.length > 1 && (
@@ -250,6 +265,11 @@ export default function InvoiceForm() {
             </div>
           </div>
         ))}
+
+        <button onClick={addLine}
+          className="w-full py-2.5 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-sm text-brand-600 dark:text-brand-400 hover:border-brand-500 hover:bg-brand-50 dark:hover:bg-brand-500/10 font-medium transition-colors">
+          + Add Line
+        </button>
 
         {/* Totals summary */}
         <div className="border-t border-gray-200 dark:border-gray-700 pt-4 space-y-2 text-sm">

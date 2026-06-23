@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router';
-import { dashboardApi } from '../../api';
+import { dashboardApi, insightsApi } from '../../api';
 import type { DashboardData, Manifest } from '../../types';
 import { useAuth } from '../../store/authStore';
 import ManifestSelector from '../../components/tpfcs/ManifestSelector';
@@ -370,7 +370,72 @@ function GlobalDashboard() {
           </div>
         </div>
 
+        {isSuperAdmin && <InsightsPreviewCard />}
+
       </div>
+    </div>
+  );
+}
+
+// ─── Insights preview card ──────────────────────────────────────────────────
+// Compact "Profit & Loss" snapshot, shown only to super_admin, linking into
+// the full Insights dashboard. "Insights" is the umbrella for BI dashboards;
+// Profit & Loss is the first one, more can be added later.
+
+const fmtMoneyCompact = (n: number) => {
+  const v = Number(n) || 0;
+  const sign = v < 0 ? '-' : '';
+  const abs = Math.abs(v);
+  if (abs >= 1_000_000) return `${sign}${(abs / 1_000_000).toFixed(1)}M`;
+  if (abs >= 1_000)     return `${sign}${(abs / 1_000).toFixed(0)}K`;
+  return `${sign}${abs.toFixed(0)}`;
+};
+
+function InsightsPreviewCard() {
+  const [summary, setSummary] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [failed,  setFailed]  = useState(false);
+
+  useEffect(() => {
+    insightsApi.profitSummary({})
+      .then(r => setSummary(r.data))
+      .catch(() => setFailed(true))
+      .finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Insights · Profit &amp; Loss</h2>
+        <Link to="/insights/profit-loss" className="text-xs text-brand-600 dark:text-brand-400 hover:underline font-medium">
+          View full report →
+        </Link>
+      </div>
+
+      {loading ? (
+        <div className="grid grid-cols-3 gap-3">
+          {Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-14 rounded-lg bg-gray-100 dark:bg-gray-800 animate-pulse" />)}
+        </div>
+      ) : failed || !summary ? (
+        <p className="text-xs text-gray-400">Unable to load Profit &amp; Loss summary right now.</p>
+      ) : (
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Paid Revenue</p>
+            <p className="text-lg font-bold text-gray-800 dark:text-white">TZS {fmtMoneyCompact(summary.paid_revenue)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Expenses</p>
+            <p className="text-lg font-bold text-gray-800 dark:text-white">TZS {fmtMoneyCompact(summary.total_expenses)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Paid Profit</p>
+            <p className={`text-lg font-bold ${summary.paid_profit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+              TZS {fmtMoneyCompact(summary.paid_profit)}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

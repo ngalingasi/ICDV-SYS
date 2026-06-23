@@ -180,7 +180,7 @@ function DriverIdCard({ driver }: { driver: any }) {
       {/* Photo lightbox */}
       {zoomed && photoUrl && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+          className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/80 backdrop-blur-sm"
           onClick={() => setZoomed(false)}
         >
           <div className="relative max-w-sm w-full mx-4" onClick={e => e.stopPropagation()}>

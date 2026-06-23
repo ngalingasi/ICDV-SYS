@@ -22,6 +22,9 @@ import BackButton from '../../components/tpfcs/BackButton';
 import ManifestSelector from '../../components/tpfcs/ManifestSelector';
 import type { Manifest } from '../../types';
 
+const RAW_API     = (import.meta as any).env?.VITE_API_URL ?? 'http://localhost:3000/api';
+const SERVER_BASE = RAW_API.replace(/\/api(\/v\d+)?$/, '');
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface LiveVehicle {
@@ -40,6 +43,7 @@ interface LiveVehicle {
   driver_phone?:      string;
   driver_license?:    string;
   driver_id_card?:    string;
+  driver_photo?:      string | null;
   transfer_id:        number;
   transferred_at:     string;
   elapsed_minutes:    number;
@@ -87,6 +91,8 @@ const STATUS_CONFIG = {
 function VehicleCard({ v, isFS }: { v: LiveVehicle; isFS: boolean }) {
   const cfg = STATUS_CONFIG[v.delay_status];
   const [showDriver, setShowDriver] = useState(false);
+  const [zoomed,     setZoomed]     = useState(false);
+  const photoUrl = v.driver_photo ? `${SERVER_BASE}${v.driver_photo}` : null;
 
   return (
     <div className={`relative rounded-xl border p-4 space-y-3 transition-all ${cfg.card}`}>
@@ -146,14 +152,33 @@ function VehicleCard({ v, isFS }: { v: LiveVehicle; isFS: boolean }) {
       >
         {showDriver ? 'Hide driver' : 'Show driver'}
       </button>
-      {showDriver && (
-        <div className="rounded-lg bg-white/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700 px-3 py-2.5 mt-1 space-y-1.5">
-          {/* Driver name */}
-          <p className="text-xs font-semibold text-gray-800 dark:text-white">
-            {v.driver_name ?? '—'}
-          </p>
 
-          {/* Licence number */}
+      {showDriver && (
+        <div className="rounded-lg bg-white/70 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700 p-3 mt-1 space-y-2">
+
+          {/* Photo + name row */}
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => photoUrl && setZoomed(true)}
+              className={`flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden border bg-gray-100 dark:bg-gray-800
+                ${photoUrl ? 'border-brand-200 dark:border-brand-500/30 cursor-zoom-in hover:border-brand-400 transition-colors' : 'border-gray-200 dark:border-gray-700 cursor-default'}`}
+              title={photoUrl ? 'Click to zoom' : undefined}
+            >
+              {photoUrl ? (
+                <img src={photoUrl} alt={v.driver_name ?? ''} className="w-full h-full object-cover"
+                  onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-gray-300 dark:text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </div>
+              )}
+            </button>
+            <p className="text-xs font-semibold text-gray-800 dark:text-white leading-tight">{v.driver_name ?? '—'}</p>
+          </div>
+
           {v.driver_license && (
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] text-gray-400 uppercase tracking-wide w-14 flex-shrink-0">Licence</span>
@@ -161,15 +186,11 @@ function VehicleCard({ v, isFS }: { v: LiveVehicle; isFS: boolean }) {
             </div>
           )}
 
-          {/* ID card — click to copy */}
           {v.driver_id_card && (
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] text-gray-400 uppercase tracking-wide w-14 flex-shrink-0">ID Card</span>
               <button
-                onClick={() => {
-                  navigator.clipboard.writeText(v.driver_id_card!);
-                  // Brief visual feedback via title tooltip
-                }}
+                onClick={() => navigator.clipboard.writeText(v.driver_id_card!)}
                 title="Click to copy"
                 className="text-xs font-mono text-brand-600 dark:text-brand-400 hover:underline cursor-copy"
               >
@@ -179,19 +200,41 @@ function VehicleCard({ v, isFS }: { v: LiveVehicle; isFS: boolean }) {
             </div>
           )}
 
-          {/* Phone — click to call */}
           {v.driver_phone && (
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] text-gray-400 uppercase tracking-wide w-14 flex-shrink-0">Phone</span>
-              <a
-                href={`tel:${v.driver_phone}`}
-                className="text-xs text-green-600 dark:text-green-400 hover:underline font-medium flex items-center gap-1"
-              >
+              <a href={`tel:${v.driver_phone}`}
+                className="text-xs text-green-600 dark:text-green-400 hover:underline font-medium flex items-center gap-1">
                 <PhoneIcon />
                 {v.driver_phone}
               </a>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Photo lightbox */}
+      {zoomed && photoUrl && (
+        <div
+          className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/80 backdrop-blur-sm"
+          onClick={() => setZoomed(false)}
+        >
+          <div className="relative max-w-sm w-full mx-4" onClick={e => e.stopPropagation()}>
+            <img src={photoUrl} alt={v.driver_name ?? ''}
+              className="w-full rounded-2xl shadow-2xl object-contain max-h-[80vh]" />
+            <div className="mt-3 text-center">
+              <p className="text-white font-semibold text-sm">{v.driver_name}</p>
+              <p className="text-white/60 text-xs mt-0.5">{v.driver_id_card}</p>
+            </div>
+            <button
+              onClick={() => setZoomed(false)}
+              className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white text-gray-800 flex items-center justify-center shadow-lg hover:bg-gray-100 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
       )}
     </div>

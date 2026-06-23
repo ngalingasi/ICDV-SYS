@@ -6,7 +6,7 @@ import { FormInput } from '../../components/tpfcs/FormField';
 import { toast } from '../../components/tpfcs/Toast';
 import { useAuth } from '../../store/authStore';
 
-type LookupTab = 'regions' | 'transfer_rate' | 'incident_types' | 'transit_times' | 'invoice_items' | 'operator_config';
+type LookupTab = 'regions' | 'transfer_rate' | 'incident_types' | 'transit_times' | 'invoice_items' | 'expense_items' | 'operator_config';
 
 function DeleteConfirm({ name, onConfirm, onCancel, loading }: {
   name: string; onConfirm: () => void; onCancel: () => void; loading: boolean;
@@ -716,15 +716,17 @@ function TransitTimesPanel() {
 
 export default function LookupsPage() {
   const [tab, setTab] = useState<LookupTab>('regions');
+  const { isSuperAdmin } = useAuth();
 
-  const TABS: { key: LookupTab; label: string }[] = [
+  const TABS = ([
     { key: 'regions',        label: 'Regions' },
     { key: 'incident_types', label: 'Incident Types' },
     { key: 'transfer_rate',  label: 'Transfer Rate' },
     { key: 'transit_times',  label: 'Transit Times' },
     { key: 'invoice_items',  label: 'Invoice Items' },
+    { key: 'expense_items',  label: 'Expense Items' },
     { key: 'operator_config',label: 'Operator Details' },
-  ];
+  ] as { key: LookupTab; label: string }[]).filter(t => t.key !== 'expense_items' || isSuperAdmin);
 
   return (
     <div className="space-y-5">
@@ -748,6 +750,7 @@ export default function LookupsPage() {
       {tab === 'transfer_rate'  && <TransferRatePanel />}
       {tab === 'transit_times'  && <TransitTimesPanel />}
       {tab === 'invoice_items'  && <InvoiceItemsPanelWrapper />}
+      {tab === 'expense_items'  && <ExpenseItemsPanelWrapper />}
       {tab === 'operator_config'&& <OperatorConfigPanel />}
     </div>
   );
@@ -758,6 +761,13 @@ import InvoiceItemsPanelExternal from '../Invoices/InvoiceItemsPanel';
 
 function InvoiceItemsPanelWrapper() {
   return <InvoiceItemsPanelExternal />;
+}
+
+// ── Expense Items wrapper (lazy import to keep file light) ──────────────────
+import ExpenseItemsPanelExternal from '../Expenses/ExpenseItemsPanel';
+
+function ExpenseItemsPanelWrapper() {
+  return <ExpenseItemsPanelExternal />;
 }
 
 // ── Operator Config Panel ────────────────────────────────────────────────────

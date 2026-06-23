@@ -4,6 +4,9 @@ import { driversApi } from '../../api';
 import { toast } from '../../components/tpfcs/Toast';
 import BackButton from '../../components/tpfcs/BackButton';
 
+const RAW_API     = (import.meta as any).env?.VITE_API_URL ?? 'http://localhost:3000/api';
+const SERVER_BASE = RAW_API.replace(/\/api(\/v\d+)?$/, '');
+
 const DRIVER_STATUSES = ['active', 'inactive', 'suspended'];
 
 interface FormData {
@@ -14,6 +17,9 @@ const empty: FormData = {
   full_name: '', license_number: '', id_number: '',
   phone: '', email: '', status: 'active', notes: '',
 };
+
+const INPUT_CLS = 'w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 placeholder-gray-400 dark:placeholder-gray-500';
+const LABEL_CLS = 'block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1';
 
 export default function DriverForm() {
   const { id } = useParams();
@@ -71,7 +77,6 @@ export default function DriverForm() {
     if (Object.keys(e).length) { setErrors(e); return; }
     setSaving(true);
     try {
-      // Use FormData to support file upload
       const fd = new FormData();
       fd.append('full_name',      form.full_name);
       fd.append('license_number', form.license_number);
@@ -104,7 +109,7 @@ export default function DriverForm() {
     opts?: { required?: boolean; placeholder?: string; type?: string }
   ) => (
     <div>
-      <label className="block text-xs font-medium text-gray-600 mb-1">
+      <label className={LABEL_CLS}>
         {label}{opts?.required && <span className="text-red-500 ml-0.5">*</span>}
       </label>
       <input
@@ -112,53 +117,49 @@ export default function DriverForm() {
         value={form[key]}
         onChange={e => set(key, e.target.value)}
         placeholder={opts?.placeholder}
-        className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-          errors[key] ? 'border-red-400' : 'border-gray-300'
-        }`}
+        className={`${INPUT_CLS} ${errors[key] ? 'border-red-400 dark:border-red-500' : ''}`}
       />
       {errors[key] && <p className="text-xs text-red-500 mt-1">{errors[key]}</p>}
     </div>
   );
 
-  const RAW_API_FORM = (import.meta as any).env?.VITE_API_URL ?? 'http://localhost:3000/api';
-  const SERVER_BASE = RAW_API_FORM.replace(/\/api(\/v\d+)?$/, '');
   const currentPhoto = photoPreview ?? (existingPhoto ? `${SERVER_BASE}${existingPhoto}` : null);
 
-  if (loading) return <div className="p-6 text-sm text-gray-500 animate-pulse">Loading…</div>;
+  if (loading) return <div className="p-6 text-sm text-gray-500 dark:text-gray-400 animate-pulse">Loading…</div>;
 
   return (
     <div className="p-6 max-w-2xl mx-auto space-y-6">
       <div className="flex items-center gap-3">
         <BackButton />
-        <h1 className="text-xl font-bold text-gray-900">{isEdit ? 'Edit Driver' : 'Add Driver'}</h1>
+        <h1 className="text-xl font-bold text-gray-900 dark:text-white">{isEdit ? 'Edit Driver' : 'Add Driver'}</h1>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-5">
+      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-6 space-y-5">
 
         {/* Photo upload */}
         <div className="flex items-center gap-5">
           <div
             onClick={() => fileRef.current?.click()}
-            className="w-24 h-24 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer overflow-hidden hover:border-blue-400 transition-colors flex-shrink-0 bg-gray-50"
+            className="w-24 h-24 rounded-full border-2 border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center cursor-pointer overflow-hidden hover:border-brand-400 transition-colors flex-shrink-0 bg-gray-50 dark:bg-gray-800"
           >
             {currentPhoto ? (
               <img src={currentPhoto} alt="Driver" className="w-full h-full object-cover" />
             ) : (
               <div className="text-center p-2">
-                <svg className="w-8 h-8 text-gray-400 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-8 h-8 text-gray-400 dark:text-gray-500 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
                     d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
-                <span className="text-xs text-gray-400 mt-1 block">Photo</span>
+                <span className="text-xs text-gray-400 dark:text-gray-500 mt-1 block">Photo</span>
               </div>
             )}
           </div>
           <div>
             <button type="button" onClick={() => fileRef.current?.click()}
-              className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700">
+              className="px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300">
               {currentPhoto ? 'Change Photo' : 'Upload Photo'}
             </button>
-            <p className="text-xs text-gray-400 mt-1.5">JPG, PNG or WEBP. Max 10MB.</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5">JPG, PNG or WEBP. Max 10MB.</p>
           </div>
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
         </div>
@@ -170,11 +171,11 @@ export default function DriverForm() {
           {field('Phone',          'phone',          { type: 'tel', placeholder: 'Optional' })}
           {field('Email',          'email',          { type: 'email', placeholder: 'Optional' })}
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Status</label>
+            <label className={LABEL_CLS}>Status</label>
             <select
               value={form.status}
               onChange={e => set('status', e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={INPUT_CLS}
             >
               {DRIVER_STATUSES.map(s => (
                 <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
@@ -183,24 +184,24 @@ export default function DriverForm() {
           </div>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Notes</label>
+          <label className={LABEL_CLS}>Notes</label>
           <textarea
             value={form.notes}
             onChange={e => set('notes', e.target.value)}
             rows={3}
             placeholder="Optional notes…"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            className={`${INPUT_CLS} resize-none`}
           />
         </div>
       </div>
 
       <div className="flex gap-3 justify-end">
         <button onClick={() => navigate(-1)}
-          className="px-4 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50">
+          className="px-4 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">
           Cancel
         </button>
         <button onClick={handleSubmit} disabled={saving}
-          className="px-5 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
+          className="px-5 py-2 text-sm font-medium rounded-lg bg-brand-500 hover:bg-brand-600 text-white disabled:opacity-50">
           {saving ? 'Saving…' : (isEdit ? 'Update Driver' : 'Add Driver')}
         </button>
       </div>

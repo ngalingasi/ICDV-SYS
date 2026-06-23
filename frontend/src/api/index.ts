@@ -441,6 +441,41 @@ export const invoicesApi = {
     }),
 };
 
+// ── Expenses (super_admin only — no approval workflow) ─────────────────────
+export const expensesApi = {
+  // Expense items catalog
+  listItems:  (params?: any)      => client.get('/expenses/items', { params }),
+  getItem:    (id: number)        => client.get(`/expenses/items/${id}`),
+  createItem: (data: any)         => client.post('/expenses/items', data),
+  updateItem: (id: number, data: any) => client.patch(`/expenses/items/${id}`, data),
+  deleteItem: (id: number)        => client.delete(`/expenses/items/${id}`),
+  // Expenses
+  list:    (params?: any)         => client.get('/expenses', { params }),
+  get:     (id: number)           => client.get(`/expenses/${id}`),
+  create:  (data: any)            => client.post('/expenses', data),
+  update:  (id: number, data: any) => client.patch(`/expenses/${id}`, data),
+  delete:  (id: number)           => client.delete(`/expenses/${id}`),
+};
+
+// ── Insights (BI dashboards — super_admin only) ─────────────────────────────
+// "Profit & Loss" is the first dashboard under this umbrella; more can be
+// added later (each gets its own endpoint, no renaming needed).
+export const insightsApi = {
+  profitSummary:      (params?: any) => client.get('/insights/profit-summary', { params }),
+  profitByIcdv:        (params?: any) => client.get('/insights/profit-by-icdv', { params }),
+  profitTrend:         (params?: any) => client.get('/insights/profit-trend', { params }),
+  revenueByStatusTrend: (params?: any) => client.get('/insights/revenue-by-status', { params }),
+  profitByManifest:    (params?: any) => client.get('/insights/profit-by-manifest', { params }),
+};
+
+export const turnaroundApi = {
+  summary:  (params?: any) => client.get('/insights/turnaround/summary',   { params }),
+  trend:    (params?: any) => client.get('/insights/turnaround/trend',     { params }),
+  byIcdv:   (params?: any) => client.get('/insights/turnaround/by-icdv',   { params }),
+  byDriver: (params?: any) => client.get('/insights/turnaround/by-driver', { params }),
+  slowest:  (params?: any) => client.get('/insights/turnaround/slowest',   { params }),
+};
+
 // ── Manifest close operation ────────────────────────────────────────────────────
 export const closeManifestOperation = (manifestId: number) =>
   client.post(`/invoices/manifests/${manifestId}/close`);

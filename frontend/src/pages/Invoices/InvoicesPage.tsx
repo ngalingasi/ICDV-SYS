@@ -12,25 +12,59 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 const fmtDate  = (d: string) => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-const fmtMoney = (n: any)    => Number(n).toLocaleString('en-US', { minimumFractionDigits: 2 });
+const fmtMoney = (n: any)    => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2 });
+
+function GrandTotalBar({ subtotal, wht, total, count, loading }: { subtotal: number; wht: number; total: number; count: number; loading: boolean }) {
+  if (loading) return (
+    <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-3 flex gap-6 flex-wrap">
+      {[1,2,3].map(i => <div key={i} className="h-5 w-36 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />)}
+    </div>
+  );
+  return (
+    <div className="rounded-xl border border-brand-200 dark:border-brand-500/30 bg-brand-50 dark:bg-brand-500/5 px-5 py-3 flex items-center gap-6 flex-wrap text-sm">
+      <span className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wide">{count} invoices</span>
+      <div className="flex items-center gap-1.5">
+        <span className="text-xs text-gray-500 dark:text-gray-400">Subtotal:</span>
+        <span className="font-semibold text-gray-800 dark:text-white">TZS {fmtMoney(subtotal)}</span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <span className="text-xs text-gray-500 dark:text-gray-400">WHT:</span>
+        <span className="font-semibold text-red-600 dark:text-red-400">({fmtMoney(wht)})</span>
+      </div>
+      <div className="flex items-center gap-1.5 ml-auto">
+        <span className="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Grand Total:</span>
+        <span className="text-base font-bold text-brand-600 dark:text-brand-400">TZS {fmtMoney(total)}</span>
+      </div>
+    </div>
+  );
+}
 
 export default function InvoicesPage() {
   const { isSuperAdmin } = useAuth();
   const navigate = useNavigate();
-  const [invoices, setInvoices]     = useState<any[]>([]);
-  const [total,    setTotal]        = useState(0);
-  const [loading,  setLoading]      = useState(true);
-  const [page,     setPage]         = useState(1);
-  const [status,   setStatus]       = useState('');
-  const [dateFrom, setDateFrom]     = useState('');
-  const [dateTo,   setDateTo]       = useState('');
-  const [search,   setSearch]       = useState('');
+  const [invoices,      setInvoices]      = useState<any[]>([]);
+  const [total,         setTotal]         = useState(0);
+  const [grandSubtotal, setGrandSubtotal] = useState(0);
+  const [grandWht,      setGrandWht]      = useState(0);
+  const [grandTotal,    setGrandTotal]    = useState(0);
+  const [loading,  setLoading]  = useState(true);
+  const [page,     setPage]     = useState(1);
+  const [status,   setStatus]   = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo,   setDateTo]   = useState('');
+  const [search,   setSearch]   = useState('');
   const limit = 20;
 
   const load = () => {
     setLoading(true);
     invoicesApi.list({ page, limit, status: status || undefined, date_from: dateFrom || undefined, date_to: dateTo || undefined, search: search || undefined })
-      .then(r => { setInvoices(r.data.results); setTotal(r.data.totalResults); })
+      .then(r => {
+        setInvoices(r.data.results);
+        setTotal(r.data.totalResults);
+        setGrandSubtotal(r.data.grand_subtotal ?? 0);
+        setGrandWht(r.data.grand_wht ?? 0);
+        setGrandTotal(r.data.grand_total ?? 0);
+      })
       .finally(() => setLoading(false));
   };
 
@@ -73,14 +107,17 @@ export default function InvoicesPage() {
         <button onClick={applyFilters} className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-sm">Apply</button>
       </div>
 
+      {/* Grand total bar — top */}
+      <GrandTotalBar subtotal={grandSubtotal} wht={grandWht} total={grandTotal} count={total} loading={loading} />
+
       {/* Table */}
       <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200 dark:border-gray-700">
+              <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
                 {['Invoice #', 'Date', 'ICDV', 'Lines', 'Subtotal', 'WHT', 'Total', 'Status', ''].map(h => (
-                  <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                  <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -98,7 +135,7 @@ export default function InvoicesPage() {
                         <td className="px-4 py-3 font-mono text-xs font-semibold text-brand-600 dark:text-brand-400">{inv.invoice_number}</td>
                         <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">{fmtDate(inv.issued_date)}</td>
                         <td className="px-4 py-3 text-xs text-gray-800 dark:text-white">{inv.icdv_name}</td>
-                        <td className="px-4 py-3 text-xs text-center text-gray-500">{inv.line_count}</td>
+                        <td className="px-4 py-3 text-xs text-center text-gray-500 dark:text-gray-400">{inv.line_count}</td>
                         <td className="px-4 py-3 text-xs text-gray-700 dark:text-gray-300 text-right whitespace-nowrap">{fmtMoney(inv.subtotal)}</td>
                         <td className="px-4 py-3 text-xs text-red-600 dark:text-red-400 text-right whitespace-nowrap">({fmtMoney(inv.withholding_tax_amount)})</td>
                         <td className="px-4 py-3 text-xs font-bold text-gray-800 dark:text-white text-right whitespace-nowrap">{fmtMoney(inv.total_amount)}</td>
@@ -129,6 +166,9 @@ export default function InvoicesPage() {
           </div>
         )}
       </div>
+
+      {/* Grand total bar — bottom */}
+      <GrandTotalBar subtotal={grandSubtotal} wht={grandWht} total={grandTotal} count={total} loading={loading} />
     </div>
   );
 }

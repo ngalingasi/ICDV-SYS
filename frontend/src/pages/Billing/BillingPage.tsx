@@ -22,11 +22,14 @@ const STATUS_STYLES: Record<string, string> = {
 
 export default function BillingPage() {
   const navigate = useNavigate();
-  const [invoices, setInvoices] = useState<any[]>([]);
-  const [total,    setTotal]    = useState(0);
+  const [invoices, setInvoices]   = useState<any[]>([]);
+  const [total,    setTotal]      = useState(0);
+  const [grandSubtotal, setGrandSubtotal] = useState(0);
+  const [grandWht,      setGrandWht]      = useState(0);
+  const [grandTotal,    setGrandTotal]    = useState(0);
   const [loading,  setLoading]  = useState(true);
   const [page,     setPage]     = useState(1);
-  const [status,   setStatus]   = useState('approved'); // default: unpaid/approved
+  const [status,   setStatus]   = useState('invoiced,approved'); // default: awaiting action (newly invoiced + approved-but-unpaid)
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo,   setDateTo]   = useState('');
   const limit = 20;
@@ -39,7 +42,13 @@ export default function BillingPage() {
       date_from: dateFrom  || undefined,
       date_to:   dateTo    || undefined,
     })
-      .then(r => { setInvoices(r.data.results); setTotal(r.data.totalResults); })
+      .then(r => {
+        setInvoices(r.data.results);
+        setTotal(r.data.totalResults);
+        setGrandSubtotal(r.data.grand_subtotal ?? 0);
+        setGrandWht(r.data.grand_wht ?? 0);
+        setGrandTotal(r.data.grand_total ?? 0);
+      })
       .finally(() => setLoading(false));
   };
   useEffect(() => { load(); }, [page, status]); // eslint-disable-line
@@ -56,7 +65,9 @@ export default function BillingPage() {
       <div className="flex flex-wrap gap-2 items-end">
         <select value={status} onChange={e => { setStatus(e.target.value); setPage(1); }}
           className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300">
-          <option value="approved">Pending / Unpaid</option>
+          <option value="invoiced,approved">Pending / Unpaid</option>
+          <option value="invoiced">Invoiced (not yet approved)</option>
+          <option value="approved">Approved (awaiting payment)</option>
           <option value="paid">Paid</option>
           <option value="">All Statuses</option>
         </select>
@@ -67,6 +78,23 @@ export default function BillingPage() {
           <FormDateInput label="To" id="billing-date-to" value={dateTo} onChange={setDateTo} placeholder="Any" />
         </div>
         <button onClick={() => { setPage(1); load(); }} className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-sm">Apply</button>
+      </div>
+
+      {/* Grand total bar — top */}
+      <div className={`rounded-xl border border-brand-200 dark:border-brand-500/30 bg-brand-50 dark:bg-brand-500/5 px-5 py-3 flex items-center gap-6 flex-wrap text-sm ${loading ? 'opacity-60' : ''}`}>
+        <span className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wide">{total} invoices</span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-gray-500 dark:text-gray-400">Subtotal:</span>
+          <span className="font-semibold text-gray-800 dark:text-white">TZS {Number(grandSubtotal || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-gray-500 dark:text-gray-400">WHT:</span>
+          <span className="font-semibold text-red-600 dark:text-red-400">({Number(grandWht || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })})</span>
+        </div>
+        <div className="flex items-center gap-1.5 ml-auto">
+          <span className="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Grand Total:</span>
+          <span className="text-base font-bold text-brand-600 dark:text-brand-400">TZS {Number(grandTotal || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+        </div>
       </div>
 
       {/* Table */}
@@ -122,6 +150,23 @@ export default function BillingPage() {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Grand total bar — bottom */}
+      <div className={`rounded-xl border border-brand-200 dark:border-brand-500/30 bg-brand-50 dark:bg-brand-500/5 px-5 py-3 flex items-center gap-6 flex-wrap text-sm ${loading ? 'opacity-60' : ''}`}>
+        <span className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wide">{total} invoices</span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-gray-500 dark:text-gray-400">Subtotal:</span>
+          <span className="font-semibold text-gray-800 dark:text-white">TZS {Number(grandSubtotal || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-gray-500 dark:text-gray-400">WHT:</span>
+          <span className="font-semibold text-red-600 dark:text-red-400">({Number(grandWht || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })})</span>
+        </div>
+        <div className="flex items-center gap-1.5 ml-auto">
+          <span className="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Grand Total:</span>
+          <span className="text-base font-bold text-brand-600 dark:text-brand-400">TZS {Number(grandTotal || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+        </div>
       </div>
     </div>
   );

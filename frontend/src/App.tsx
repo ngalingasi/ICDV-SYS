@@ -76,10 +76,24 @@ import InvoicesPage    from "./pages/Invoices/InvoicesPage";
 import InvoiceForm     from "./pages/Invoices/InvoiceForm";
 import InvoiceDetail   from "./pages/Invoices/InvoiceDetail";
 import BillingPage     from "./pages/Billing/BillingPage";
+import ExpensesPage    from "./pages/Expenses/ExpensesPage";
+import ExpenseForm     from "./pages/Expenses/ExpenseForm";
+import ExpenseDetail   from "./pages/Expenses/ExpenseDetail";
+import ProfitLossPage  from "./pages/Insights/ProfitLossPage";
+import TurnaroundPage  from "./pages/Insights/TurnaroundPage";
 
 // ── Super Admin Route Guard ───────────────────────────────────────────────────
 function SuperAdminRoute() {
-  const { isAuthenticated, isSuperAdmin } = useAuth();
+  const { isAuthenticated, isSuperAdmin, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-900">
+        <div className="w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   if (!isAuthenticated) return <Navigate to="/signin" replace />;
   if (!isSuperAdmin)    return <Navigate to="/" replace />;
   return <Outlet />;
@@ -194,6 +208,24 @@ export default function App() {
               <Route path="/super-admin/icdvs/create"       element={<CreateIcdvWizard />} />
               <Route path="/super-admin/icdvs/:icdvId"      element={<IcdvDetail />} />
               <Route path="/super-admin/icdvs/:icdvId/edit" element={<IcdvForm />} />
+            </Route>
+          </Route>
+
+          {/* ── Expenses (super_admin only) ─────────────────────────────── */}
+          <Route element={<SuperAdminRoute />}>
+            <Route element={<AppLayout />}>
+              <Route path="/expenses"          element={<ExpensesPage />} />
+              <Route path="/expenses/new"      element={<ExpenseForm />} />
+              <Route path="/expenses/:id"      element={<ExpenseDetail />} />
+              <Route path="/expenses/:id/edit" element={<ExpenseForm />} />
+            </Route>
+          </Route>
+
+          {/* ── Insights (super_admin only) — BI dashboards, P&L is the first ── */}
+          <Route element={<SuperAdminRoute />}>
+            <Route element={<AppLayout />}>
+              <Route path="/insights/profit-loss"  element={<ProfitLossPage />} />
+              <Route path="/insights/turnaround"   element={<TurnaroundPage />} />
             </Route>
           </Route>
 

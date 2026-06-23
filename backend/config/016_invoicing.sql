@@ -4,8 +4,8 @@
 
 -- ── 1. Add TIN/VRN to icdvs (invoice recipient fields) ─────
 ALTER TABLE `icdvs`
-  ADD COLUMN  `tin`         VARCHAR(50)  NULL COMMENT 'Tax Identification Number'   AFTER `email`,
-  ADD COLUMN  `vrn`         VARCHAR(50)  NULL COMMENT 'VAT Registration Number'      AFTER `tin`;
+  ADD COLUMN IF NOT EXISTS `tin`         VARCHAR(50)  NULL COMMENT 'Tax Identification Number'   AFTER `email`,
+  ADD COLUMN IF NOT EXISTS `vrn`         VARCHAR(50)  NULL COMMENT 'VAT Registration Number'      AFTER `tin`;
 
 -- ── 2. Add cashier role ─────────────────────────────────────
 -- (No schema change — role is a VARCHAR in users table, enforced in app)
@@ -28,11 +28,11 @@ INSERT IGNORE INTO `system_settings` (setting_key, setting_value, updated_by, up
   ('operator_bank_branch',  '',                                1, NOW());
 
 -- ── 4. Invoice items catalog ─────────────────────────────────
-CREATE TABLE  `invoice_items` (
+CREATE TABLE IF NOT EXISTS `invoice_items` (
   `item_id`       INT UNSIGNED    NOT NULL AUTO_INCREMENT,
   `name`          VARCHAR(200)    NOT NULL,
   `description`   TEXT                NULL,
-  `default_rate`  DECIMAL(18,2)  NOT NULL DEFAULT 0,
+  `default_rate`  DECIMAL(15,2)  NOT NULL DEFAULT 0,
   `unit`          VARCHAR(50)    NOT NULL DEFAULT 'vehicle' COMMENT 'vehicle | fixed | trip | etc',
   `status`        ENUM('active','inactive') NOT NULL DEFAULT 'active',
   `created_by`    INT UNSIGNED        NULL,
@@ -43,18 +43,18 @@ CREATE TABLE  `invoice_items` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ── 5. Invoices ───────────────────────────────────────────────
-CREATE TABLE  `invoices` (
+CREATE TABLE IF NOT EXISTS `invoices` (
   `invoice_id`             INT UNSIGNED    NOT NULL AUTO_INCREMENT,
   `invoice_number`         VARCHAR(30)     NOT NULL UNIQUE COMMENT 'DDMMYYYY-NN format',
   `icdv_id`                INT UNSIGNED    NOT NULL COMMENT 'Recipient ICDV (billed party)',
   `issued_date`            DATE            NOT NULL,
   `due_date`               DATE                NULL,
-  `status`                 ENUM('draft','approved','paid','cancelled') NOT NULL DEFAULT 'draft',
+  `status`                 ENUM('invoiced','approved','paid','cancelled') NOT NULL DEFAULT 'invoiced',
   `notes`                  TEXT                NULL COMMENT 'Bank details, payment instructions etc',
   `withholding_tax_rate`   DECIMAL(5,2)   NOT NULL DEFAULT 5.00 COMMENT 'WHT percentage',
-  `subtotal`               DECIMAL(18,2)  NOT NULL DEFAULT 0,
-  `withholding_tax_amount` DECIMAL(18,2)  NOT NULL DEFAULT 0,
-  `total_amount`           DECIMAL(18,2)  NOT NULL DEFAULT 0,
+  `subtotal`               DECIMAL(15,2)  NOT NULL DEFAULT 0,
+  `withholding_tax_amount` DECIMAL(15,2)  NOT NULL DEFAULT 0,
+  `total_amount`           DECIMAL(15,2)  NOT NULL DEFAULT 0,
   `approved_by`            INT UNSIGNED        NULL,
   `approved_at`            DATETIME            NULL,
   `paid_at`                DATETIME            NULL,
@@ -75,16 +75,16 @@ CREATE TABLE  `invoices` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ── 6. Invoice line items ─────────────────────────────────────
-CREATE TABLE  `invoice_line_items` (
+CREATE TABLE IF NOT EXISTS `invoice_line_items` (
   `line_id`       INT UNSIGNED    NOT NULL AUTO_INCREMENT,
   `invoice_id`    INT UNSIGNED    NOT NULL,
   `item_id`       INT UNSIGNED        NULL COMMENT 'NULL = free-text line item',
   `manifest_id`   INT UNSIGNED        NULL COMMENT 'NULL = not linked to a manifest',
   `description`   TEXT            NOT NULL,
   `unit`          VARCHAR(50)    NOT NULL DEFAULT 'vehicle',
-  `quantity`      DECIMAL(18,2)  NOT NULL DEFAULT 1,
-  `unit_price`    DECIMAL(18,2)  NOT NULL DEFAULT 0,
-  `line_total`    DECIMAL(18,2)  NOT NULL DEFAULT 0,
+  `quantity`      DECIMAL(10,2)  NOT NULL DEFAULT 1,
+  `unit_price`    DECIMAL(15,2)  NOT NULL DEFAULT 0,
+  `line_total`    DECIMAL(15,2)  NOT NULL DEFAULT 0,
   `sort_order`    SMALLINT       NOT NULL DEFAULT 0,
   `created_at`    DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`line_id`),
@@ -97,7 +97,7 @@ CREATE TABLE  `invoice_line_items` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ── 7. Invoice payments / evidence ───────────────────────────
-CREATE TABLE  `invoice_payments` (
+CREATE TABLE IF NOT EXISTS `invoice_payments` (
   `payment_id`      INT UNSIGNED    NOT NULL AUTO_INCREMENT,
   `invoice_id`      INT UNSIGNED    NOT NULL,
   `paid_at`         DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -118,5 +118,5 @@ ALTER TABLE `manifests`
     NOT NULL DEFAULT 'pending';
 
 ALTER TABLE `manifests`
-  ADD COLUMN  `closed_at`  DATETIME     NULL AFTER `status`,
-  ADD COLUMN  `closed_by`  INT UNSIGNED NULL AFTER `closed_at`;
+  ADD COLUMN IF NOT EXISTS `closed_at`  DATETIME     NULL AFTER `status`,
+  ADD COLUMN IF NOT EXISTS `closed_by`  INT UNSIGNED NULL AFTER `closed_at`;

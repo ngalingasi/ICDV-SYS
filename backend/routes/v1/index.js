@@ -35,6 +35,8 @@ const defaultRoutes = [
   { path: '/incidents',  route: incidentRoute },
   { path: '/erp',        route: erp },
   { path: '/invoices',   route: require('./invoice.route') },
+  { path: '/expenses',   route: require('./expense.route') },
+  { path: '/insights',   route: require('./insights.route') },
 ];
 
 defaultRoutes.forEach(({ path, route }) => router.use(path, route));

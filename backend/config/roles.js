@@ -93,9 +93,12 @@ const allRoles = {
     'dispenseFuel',
     'createFuelOrders',
     'manageIncidents',
-    // Billing — ICDV admin can view invoices + mark as paid
+    // Billing — ICDV admin can view invoices, approve, mark as paid,
+    // and upload payment evidence (proof of payment) when marking paid
     'viewInvoices',
+    'approveInvoice',
     'markInvoicePaid',
+    'uploadPaymentEvidence',
   ],
 
   // system_admin: full workflow + cross-ICDV read — NO platform management
@@ -144,10 +147,20 @@ const allRoles = {
     'approveFuelOrders',
     'dispenseFuel',
     'createFuelOrders',
-    // Invoicing — super_admin has full control
-    'manageInvoices',     // create/edit/approve/cancel
+    // Invoicing — super_admin issues/edits/cancels invoices, and issues the
+    // official payment RECEIPT back to the ICDV once paid. Approval is
+    // intentionally NOT here — that belongs to the ICDV admin (see admin role).
+    // Uploading payment EVIDENCE (proof of payment) belongs to the
+    // cashier/admin side, not super_admin — see those roles below.
+    'manageInvoices',        // create / edit / cancel
     'viewInvoices',
     'markInvoicePaid',
+    'uploadPaymentReceipt',  // super_admin only — issue the official receipt
+    // Expenses — super_admin only, simple create/edit/delete, no workflow
+    'manageExpenses',
+    // Insights — BI dashboards (Profit & Loss etc.), super_admin only since
+    // it cross-references invoices + expenses across all ICDVs
+    'viewInsights',
   ],
 
   // ── New operational roles ────────────────────────────────────────────────────
@@ -204,8 +217,9 @@ const allRoles = {
   // ICDV-scoped. Can view approved/paid invoices and mark as paid.
   // Cannot approve, create, or cancel invoices.
   cashier: [
-    'viewInvoices',       // view billing list (approved + paid)
-    'markInvoicePaid',    // mark approved invoices as paid
+    'viewInvoices',          // view billing list (approved + paid)
+    'markInvoicePaid',       // mark approved invoices as paid
+    'uploadPaymentEvidence', // upload proof of payment (bank slip etc.)
     // Read-only access to vehicles/manifests for reference
     'getManifests',
     'getVehicles',

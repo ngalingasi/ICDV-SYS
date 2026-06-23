@@ -198,7 +198,11 @@ const getInvoices = async ({ page, limit, icdv_id, status, date_from, date_to, s
   // Scope: ICDV users see only their invoices
   if (scopeIcdvId !== null) { where += ' AND inv.icdv_id=?'; params.push(scopeIcdvId); }
   else if (icdv_id)         { where += ' AND inv.icdv_id=?'; params.push(icdv_id); }
-  if (status)    { where += ' AND inv.status=?';                    params.push(status); }
+  if (status) {
+    const statuses = String(status).split(',').map(s => s.trim()).filter(Boolean);
+    if (statuses.length === 1) { where += ' AND inv.status=?'; params.push(statuses[0]); }
+    else if (statuses.length > 1) { where += ` AND inv.status IN (${statuses.map(() => '?').join(',')})`; params.push(...statuses); }
+  }
   if (date_from) { where += ' AND DATE(inv.issued_date)>=?';        params.push(date_from); }
   if (date_to)   { where += ' AND DATE(inv.issued_date)<=?';        params.push(date_to); }
   if (search)    {
@@ -208,6 +212,15 @@ const getInvoices = async ({ page, limit, icdv_id, status, date_from, date_to, s
 
   const [{ total }] = await query(
     `SELECT COUNT(*) AS total FROM invoices inv JOIN icdvs i ON i.icdv_id=inv.icdv_id WHERE ${where}`,
+    params
+  );
+
+  const [sums] = await query(
+    `SELECT
+       COALESCE(SUM(inv.subtotal), 0)               AS grand_subtotal,
+       COALESCE(SUM(inv.withholding_tax_amount), 0)  AS grand_wht,
+       COALESCE(SUM(inv.total_amount), 0)            AS grand_total
+     FROM invoices inv JOIN icdvs i ON i.icdv_id=inv.icdv_id WHERE ${where}`,
     params
   );
 
@@ -225,7 +238,11 @@ const getInvoices = async ({ page, limit, icdv_id, status, date_from, date_to, s
     [...params, l, offset]
   );
 
-  return paginate(rows, total);
+  const result = paginate(rows, total);
+  result.grand_subtotal = Number(sums.grand_subtotal);
+  result.grand_wht      = Number(sums.grand_wht);
+  result.grand_total    = Number(sums.grand_total);
+  return result;
 };
 
 const createInvoice = async (body, createdBy) => {

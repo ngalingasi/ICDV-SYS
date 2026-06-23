@@ -21,6 +21,7 @@ const Icon = {
   Lookups:   () => <svg className="w-[18px] h-[18px] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>,
   Profile:   () => <svg className="w-[18px] h-[18px] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>,
   Icdv:      () => <svg className="w-[18px] h-[18px] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>,
+  Insights:  () => <svg className="w-[18px] h-[18px] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 3v18h18M7 16l4-6 3 3 5-7" /></svg>,
   Chevron:   ({ open }: { open: boolean }) => <svg className={`w-3.5 h-3.5 flex-shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>,
 };
 
@@ -169,6 +170,18 @@ const SUPER_ADMIN_NAV: NavItem[] = [
       { name: "New Invoice",   path: "/invoices/new" },
     ],
   },
+  {
+    name: "Expenses", icon: <Icon.Lookups />, subItems: [
+      { name: "All Expenses",  path: "/expenses" },
+      { name: "New Expense",   path: "/expenses/new" },
+    ],
+  },
+  {
+    name: "Insights", icon: <Icon.Insights />, subItems: [
+      { name: "Profit & Loss",        path: "/insights/profit-loss" },
+      { name: "Transfer Turnaround",  path: "/insights/turnaround" },
+    ],
+  },
 ];
 
 const SUPER_ADMIN_BOTTOM_NAV: NavItem[] = [
@@ -229,6 +242,17 @@ export default function AppSidebar() {
       },
     ];
     BOTTOM_NAV = [{ name: "Profile", icon: <Icon.Profile />, path: "/profile" }];
+  } else if (user?.role === 'admin') {
+    // ICDV admin approves invoices and marks them paid (see roles.js:
+    // viewInvoices, approveInvoice, markInvoicePaid) but TENANT_NAV — the
+    // generic fallback below, also used by supervisor (who has none of
+    // those rights) — never had a Billing link added.
+    NAV = [
+      ...TENANT_NAV.slice(0, 1), // Dashboard
+      { name: "Billing", icon: <Icon.Lookups />, path: "/billing" },
+      ...TENANT_NAV.slice(1),
+    ];
+    BOTTOM_NAV = TENANT_BOTTOM_NAV;
   } else {
     NAV        = TENANT_NAV;
     BOTTOM_NAV = TENANT_BOTTOM_NAV;

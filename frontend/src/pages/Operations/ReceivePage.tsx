@@ -36,7 +36,7 @@ export default function ReceivePage() {
     setLoading(true); setError('');
     try {
       await workflowApi.receiveConfirm(data.driver.driver_id, data.assignment.vehicle_id, notes);
-      toast.success(`Vehicle ${data.assignment.chassis_number} received at ICDV Yard`);
+      toast.success(`Vehicle ${data.assignment.chassis_number} has been received at the ICDV Yard.`);
       setStep('done');
     } catch (e: any) {
       setError(e?.response?.data?.message ?? 'Receive confirmation failed');
@@ -128,7 +128,7 @@ export default function ReceivePage() {
 
       {step === 'done' && (
         <SuccessBanner
-          message={`Vehicle ${assignment?.chassis_number} received at ICDV Yard. Driver assignment closed.`}
+          message={`Vehicle ${assignment?.chassis_number} has been received at the ICDV Yard. Driver assignment closed.`}
           onReset={reset}
         />
       )}

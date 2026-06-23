@@ -44,7 +44,7 @@ export default function InvoiceDetail() {
   const handleApprove  = () => doAction(() => invoicesApi.approve(Number(id)));
   const handleCancel   = () => {
     const reason = prompt('Cancellation reason (optional):');
-    if (reason === null) return; // user clicked Cancel on prompt
+    if (reason === null) return;
     doAction(() => invoicesApi.cancel(Number(id), reason));
   };
   const handleMarkPaid = () => doAction(() => invoicesApi.markPaid(Number(id)));
@@ -55,12 +55,9 @@ export default function InvoiceDetail() {
     const fd = new FormData();
     fd.append('evidence', file);
     setActing(true); setError(null);
-    try {
-      await invoicesApi.uploadEvidence(Number(id), fd);
-      load(); // reload to show updated evidence
-    } catch (ex: any) {
-      setError(ex?.response?.data?.message ?? 'Upload failed');
-    } finally { setActing(false); }
+    try { await invoicesApi.uploadEvidence(Number(id), fd); load(); }
+    catch (ex: any) { setError(ex?.response?.data?.message ?? 'Upload failed'); }
+    finally { setActing(false); }
   };
 
   const handleUploadReceipt = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -69,12 +66,9 @@ export default function InvoiceDetail() {
     const fd = new FormData();
     fd.append('receipt', file);
     setActing(true); setError(null);
-    try {
-      await invoicesApi.uploadReceipt(Number(id), fd);
-      load(); // reload to show updated receipt
-    } catch (ex: any) {
-      setError(ex?.response?.data?.message ?? 'Upload failed');
-    } finally { setActing(false); }
+    try { await invoicesApi.uploadReceipt(Number(id), fd); load(); }
+    catch (ex: any) { setError(ex?.response?.data?.message ?? 'Upload failed'); }
+    finally { setActing(false); }
   };
 
   const handlePrint = async () => {
@@ -182,7 +176,7 @@ export default function InvoiceDetail() {
 
       {/* Recipient */}
       <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5">
-        <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Recipient</h2>
+        <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Recipient</h2>
         <p className="font-bold text-gray-800 dark:text-white">{inv.icdv_name}</p>
         {inv.icdv_tin && <p className="text-sm text-gray-600 dark:text-gray-400">TIN: {inv.icdv_tin}</p>}
         {inv.icdv_vrn && <p className="text-sm text-gray-600 dark:text-gray-400">VRN: {inv.icdv_vrn}</p>}
@@ -193,49 +187,58 @@ export default function InvoiceDetail() {
       <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-gray-200 dark:border-gray-700">
+            <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
               {['S/N','Description','Units','Unit Price','Total'].map(h => (
-                <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
+                <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
             {(inv.line_items || []).map((l: any, i: number) => (
-              <tr key={l.line_id}>
-                <td className="px-4 py-3 text-xs text-gray-500">{i + 1}</td>
+              <tr key={l.line_id} className="hover:bg-gray-50 dark:hover:bg-gray-800/40">
+                <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{i + 1}</td>
                 <td className="px-4 py-3 text-sm text-gray-800 dark:text-white max-w-xs">
                   <p>{l.description}</p>
                   {l.manifest_number && <p className="text-xs text-brand-500 mt-0.5">Manifest: {l.manifest_number}</p>}
                 </td>
-                <td className="px-4 py-3 text-sm text-center">{Number(l.quantity).toFixed(0)}</td>
-                <td className="px-4 py-3 text-sm text-right">{fmtMoney(l.unit_price)}</td>
-                <td className="px-4 py-3 text-sm font-semibold text-right">{fmtMoney(l.line_total)}</td>
+                <td className="px-4 py-3 text-sm text-center text-gray-700 dark:text-white">{Number(l.quantity).toFixed(0)}</td>
+                <td className="px-4 py-3 text-sm text-right text-gray-700 dark:text-white">{fmtMoney(l.unit_price)}</td>
+                <td className="px-4 py-3 text-sm font-semibold text-right text-gray-800 dark:text-white">{fmtMoney(l.line_total)}</td>
               </tr>
             ))}
           </tbody>
         </table>
         {/* Totals */}
         <div className="px-4 py-4 border-t border-gray-200 dark:border-gray-700 space-y-1 text-sm">
-          <div className="flex justify-end gap-8"><span className="text-gray-500">SUB TOTAL</span><span className="font-semibold w-32 text-right">{fmtMoney(inv.subtotal)}</span></div>
-          <div className="flex justify-end gap-8"><span className="text-red-500">WITHHOLDING TAX ({Number(inv.withholding_tax_rate).toFixed(0)}%)</span><span className="text-red-500 w-32 text-right">({fmtMoney(inv.withholding_tax_amount)})</span></div>
-          <div className="flex justify-end gap-8 font-bold text-base border-t border-gray-200 dark:border-gray-700 pt-2"><span>TOTAL</span><span className="w-32 text-right">{fmtMoney(inv.total_amount)}</span></div>
+          <div className="flex justify-end gap-8">
+            <span className="text-gray-500 dark:text-gray-400">SUB TOTAL</span>
+            <span className="font-semibold w-32 text-right text-gray-800 dark:text-white">{fmtMoney(inv.subtotal)}</span>
+          </div>
+          <div className="flex justify-end gap-8">
+            <span className="text-red-500 dark:text-red-400">WITHHOLDING TAX ({Number(inv.withholding_tax_rate).toFixed(0)}%)</span>
+            <span className="text-red-500 dark:text-red-400 w-32 text-right">({fmtMoney(inv.withholding_tax_amount)})</span>
+          </div>
+          <div className="flex justify-end gap-8 font-bold text-base border-t border-gray-200 dark:border-gray-700 pt-2">
+            <span className="text-gray-800 dark:text-white">TOTAL</span>
+            <span className="w-32 text-right text-gray-800 dark:text-white">{fmtMoney(inv.total_amount)}</span>
+          </div>
         </div>
       </div>
 
       {/* Notes */}
       {inv.notes && (
         <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5">
-          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Notes / Payment Instructions</h2>
+          <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Notes / Payment Instructions</h2>
           <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{inv.notes}</p>
         </div>
       )}
 
-      {/* Payment Evidence — uploaded by cashier/admin as proof of payment */}
+      {/* Payment Evidence */}
       <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5 space-y-3">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Payment Evidence</h2>
-            <p className="text-xs text-gray-400 mt-0.5">Uploaded by the ICDV when marking the invoice as paid</p>
+            <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Payment Evidence</h2>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Uploaded by the ICDV when marking the invoice as paid</p>
           </div>
           {!isSuperAdmin && ['approved','paid'].includes(inv.status) && (
             <>
@@ -248,13 +251,13 @@ export default function InvoiceDetail() {
           )}
         </div>
         {(inv.payments?.filter((p: any) => p.document_type !== 'receipt').length ?? 0) === 0
-          ? <p className="text-xs text-gray-400">No payment evidence uploaded yet.</p>
+          ? <p className="text-xs text-gray-400 dark:text-gray-500">No payment evidence uploaded yet.</p>
           : inv.payments?.filter((p: any) => p.document_type !== 'receipt').map((p: any) => (
               <div key={p.payment_id} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
                 <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">{p.evidence_name}</p>
-                  <p className="text-xs text-gray-400">{fmtDate(p.created_at)} · {p.paid_by_name}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">{fmtDate(p.created_at)} · {p.paid_by_name}</p>
                 </div>
                 <a href={`/uploads/${p.evidence_path?.split('/').pop() ?? p.evidence_path}`} target="_blank" rel="noopener noreferrer"
                   className="text-xs text-brand-600 dark:text-brand-400 hover:underline flex-shrink-0">View</a>
@@ -263,12 +266,12 @@ export default function InvoiceDetail() {
         }
       </div>
 
-      {/* Payment Receipt — official receipt issued by super_admin (operator) */}
+      {/* Payment Receipt */}
       <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5 space-y-3">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Payment Receipt</h2>
-            <p className="text-xs text-gray-400 mt-0.5">Official receipt issued back to the ICDV once paid</p>
+            <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Payment Receipt</h2>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Official receipt issued back to the ICDV once paid</p>
           </div>
           {isSuperAdmin && inv.status === 'paid' && (
             <>
@@ -281,13 +284,13 @@ export default function InvoiceDetail() {
           )}
         </div>
         {(inv.payments?.filter((p: any) => p.document_type === 'receipt').length ?? 0) === 0
-          ? <p className="text-xs text-gray-400">No receipt issued yet.</p>
+          ? <p className="text-xs text-gray-400 dark:text-gray-500">No receipt issued yet.</p>
           : inv.payments?.filter((p: any) => p.document_type === 'receipt').map((p: any) => (
               <div key={p.payment_id} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
                 <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">{p.evidence_name}</p>
-                  <p className="text-xs text-gray-400">{fmtDate(p.created_at)} · {p.paid_by_name}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">{fmtDate(p.created_at)} · {p.paid_by_name}</p>
                 </div>
                 <a href={`/uploads/${p.evidence_path?.split('/').pop() ?? p.evidence_path}`} target="_blank" rel="noopener noreferrer"
                   className="text-xs text-brand-600 dark:text-brand-400 hover:underline flex-shrink-0">View</a>

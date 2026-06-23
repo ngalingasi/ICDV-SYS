@@ -79,6 +79,21 @@ const findByChassisLast4 = async (last4, icdvId) => {
   );
 };
 
+/**
+ * Returns a plain-language description of where a vehicle currently is
+ * in the workflow, suitable for showing directly to an operator.
+ */
+const statusDescription = (status) => {
+  switch (status) {
+    case 'manifested':  return 'It is under a manifest and has not yet been discharged from the vessel';
+    case 'discharged':  return 'It has been discharged and is in the port holding area, awaiting batching';
+    case 'batched':     return 'It has been batched and is awaiting transfer to the ICDV yard';
+    case 'in_transit':  return 'It is currently in transit to the ICDV yard';
+    case 'received':    return 'It has been received at the ICDV yard';
+    default:            return `Its current status is "${status}"`;
+  }
+};
+
 const resolveVehicle = async (last4, icdvId) => {
   const matches = await findByChassisLast4(last4, icdvId);
   if (!matches.length)
@@ -93,8 +108,8 @@ const assertTransition = (currentStatus, nextStatus) => {
   if (!allowed.includes(nextStatus))
     throw new ApiError(
       httpStatus.CONFLICT,
-      `Vehicle is ${currentStatus.toUpperCase()}. Cannot transition to ${nextStatus.toUpperCase()}. ` +
-      `Allowed: ${allowed.length ? allowed.join(', ') : 'none'}.`
+      `Cannot perform this action. ${statusDescription(currentStatus)}. ` +
+      `Allowed next steps: ${allowed.length ? allowed.map(s => s.replace(/_/g, ' ')).join(', ') : 'none'}.`
     );
 };
 
@@ -187,7 +202,9 @@ const lookupForDischarge = async (last4, icdvId) => {
   const vehicle = await resolveVehicle(last4, icdvId);
   if (vehicle.workflow_status !== WORKFLOW_STATUSES.MANIFESTED)
     throw new ApiError(httpStatus.CONFLICT,
-      `Vehicle ${vehicle.chassis_number} is already ${vehicle.workflow_status.toUpperCase()}. Only MANIFESTED vehicles can be discharged.`);
+      vehicle.workflow_status === 'received'
+        ? `Vehicle ${vehicle.chassis_number} has been received at the ICDV yard.`
+        : `Vehicle ${vehicle.chassis_number} cannot be discharged. ${statusDescription(vehicle.workflow_status)}.`);
   return vehicle;
 };
 
@@ -266,7 +283,9 @@ const lookupForBatch = async (last4, icdvId) => {
   const allowed = [WORKFLOW_STATUSES.MANIFESTED, WORKFLOW_STATUSES.DISCHARGED];
   if (!allowed.includes(vehicle.workflow_status))
     throw new ApiError(httpStatus.CONFLICT,
-      `Vehicle ${vehicle.chassis_number} is ${vehicle.workflow_status.toUpperCase()}. Only DISCHARGED vehicles can be batched.`);
+      vehicle.workflow_status === 'received'
+        ? `Vehicle ${vehicle.chassis_number} has been received at the ICDV yard.`
+        : `Vehicle ${vehicle.chassis_number} cannot be batched. ${statusDescription(vehicle.workflow_status)}.`);
   if (vehicle.batch_id)
     throw new ApiError(httpStatus.CONFLICT, `Vehicle ${vehicle.chassis_number} is already in a batch.`);
   return vehicle;
@@ -630,7 +649,9 @@ const lookupForTransfer = async (last4, icdvId) => {
   const vehicle = await resolveVehicle(last4, icdvId);
   if (vehicle.workflow_status !== WORKFLOW_STATUSES.BATCHED)
     throw new ApiError(httpStatus.CONFLICT,
-      `Vehicle ${vehicle.chassis_number} is ${vehicle.workflow_status.toUpperCase()}. Only BATCHED vehicles can be transferred.`);
+      vehicle.workflow_status === 'received'
+        ? `Vehicle ${vehicle.chassis_number} has been received at the ICDV yard.`
+        : `Vehicle ${vehicle.chassis_number} cannot be transferred. ${statusDescription(vehicle.workflow_status)}.`);
   return vehicle;
 };
 
@@ -644,7 +665,7 @@ const lookupDriverByIdCard = async (idCard, icdvId) => {
     throw new ApiError(httpStatus.NOT_FOUND, `No driver found with ID card '${idCard}'`);
   if (driver.status !== 'active')
     throw new ApiError(httpStatus.CONFLICT,
-      `Driver ${driver.full_name} is ${driver.status.toUpperCase()}. Only active drivers can perform transfers.`);
+      `Driver ${driver.full_name} cannot perform transfers — their status is "${driver.status}". Only active drivers can be assigned to transfers.`);
 
   // Check globally — driver must not have ANY active assignment regardless of ICDV
   const [activeAssign] = await query(
@@ -856,7 +877,7 @@ const lookupForReceive = async (idCard, icdvId) => {
     throw new ApiError(httpStatus.NOT_FOUND, `Driver ${driver.full_name} has no active vehicle assignment`);
   if (assignment.workflow_status !== WORKFLOW_STATUSES.IN_TRANSIT)
     throw new ApiError(httpStatus.CONFLICT,
-      `Vehicle ${assignment.chassis_number} is ${assignment.workflow_status.toUpperCase()}, not IN_TRANSIT`);
+      `Vehicle ${assignment.chassis_number} cannot be received. ${statusDescription(assignment.workflow_status)}.`);
 
   return { driver, assignment };
 };
@@ -1071,6 +1092,8 @@ const getLiveTransfers = async (icdvId = null) => {
        d.full_name       AS driver_name,
        d.phone           AS driver_phone,
        d.id_number       AS driver_id_card,
+       d.license_number  AS driver_license,
+       d.photo           AS driver_photo,
        t.transfer_id,
        t.transferred_at,
        t.transfer_notes,

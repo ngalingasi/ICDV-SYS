@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { ReactNode } from 'react';
 import StatusBadge from './StatusBadge';
 
@@ -56,56 +57,90 @@ function Row({ label, value }: { label: string; value: string }) {
 // ── Driver info card ──────────────────────────────────────────────────────────
 export function DriverCard({ d }: { d: any }) {
   const photoUrl = buildPhotoUrl(d.photo);
+  const [zoomed, setZoomed] = useState(false);
 
   return (
-    <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-4">
-      <div className="flex items-center gap-3 sm:gap-4">
-        {/* Photo scales down on mobile */}
-        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full flex-shrink-0 overflow-hidden bg-gray-200 dark:bg-gray-700 border-2 border-white dark:border-gray-600 shadow-sm">
-          {photoUrl ? (
-            <img
-              src={photoUrl}
-              alt={d.full_name}
-              className="w-full h-full object-cover"
-              onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-brand-100 dark:bg-brand-500/20">
-              <svg className="w-6 h-6 sm:w-7 sm:h-7 text-brand-500 dark:text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-            </div>
-          )}
-        </div>
+    <>
+      <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-4">
+        <div className="flex items-center gap-3 sm:gap-4">
+          {/* Photo — clickable to zoom if available */}
+          <button
+            type="button"
+            onClick={() => photoUrl && setZoomed(true)}
+            className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex-shrink-0 overflow-hidden bg-gray-200 dark:bg-gray-700 border-2 border-white dark:border-gray-600 shadow-sm
+              ${photoUrl ? 'cursor-zoom-in hover:ring-2 hover:ring-brand-400 transition-all' : 'cursor-default'}`}
+            title={photoUrl ? 'Click to zoom' : undefined}
+          >
+            {photoUrl ? (
+              <img
+                src={photoUrl}
+                alt={d.full_name}
+                className="w-full h-full object-cover"
+                onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-brand-100 dark:bg-brand-500/20">
+                <svg className="w-6 h-6 sm:w-7 sm:h-7 text-brand-500 dark:text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              </div>
+            )}
+          </button>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <p className="font-semibold text-gray-900 dark:text-white truncate text-sm sm:text-base">
-              {d.full_name}
-            </p>
-            <StatusBadge status={d.status} />
-          </div>
-          <div className="mt-1 space-y-0.5 text-xs sm:text-sm">
-            <p className="text-gray-500 dark:text-gray-400">
-              <span className="text-gray-400 dark:text-gray-500">License: </span>
-              <span className="font-medium text-gray-700 dark:text-gray-200">{d.license_number}</span>
-            </p>
-            {d.id_number && (
-              <p className="text-gray-500 dark:text-gray-400">
-                <span className="text-gray-400 dark:text-gray-500">ID Card: </span>
-                <span className="font-medium text-gray-700 dark:text-gray-200">{d.id_number}</span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <p className="font-semibold text-gray-900 dark:text-white truncate text-sm sm:text-base">
+                {d.full_name}
               </p>
-            )}
-            {d.phone && (
+              <StatusBadge status={d.status} />
+            </div>
+            <div className="mt-1 space-y-0.5 text-xs sm:text-sm">
               <p className="text-gray-500 dark:text-gray-400">
-                <span className="text-gray-400 dark:text-gray-500">Phone: </span>
-                <span className="font-medium text-gray-700 dark:text-gray-200">{d.phone}</span>
+                <span className="text-gray-400 dark:text-gray-500">License: </span>
+                <span className="font-medium text-gray-700 dark:text-gray-200">{d.license_number}</span>
               </p>
-            )}
+              {d.id_number && (
+                <p className="text-gray-500 dark:text-gray-400">
+                  <span className="text-gray-400 dark:text-gray-500">ID Card: </span>
+                  <span className="font-medium text-gray-700 dark:text-gray-200">{d.id_number}</span>
+                </p>
+              )}
+              {d.phone && (
+                <p className="text-gray-500 dark:text-gray-400">
+                  <span className="text-gray-400 dark:text-gray-500">Phone: </span>
+                  <span className="font-medium text-gray-700 dark:text-gray-200">{d.phone}</span>
+                </p>
+              )}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+
+      {/* Photo lightbox */}
+      {zoomed && photoUrl && (
+        <div
+          className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/80 backdrop-blur-sm"
+          onClick={() => setZoomed(false)}
+        >
+          <div className="relative max-w-sm w-full mx-4" onClick={e => e.stopPropagation()}>
+            <img src={photoUrl} alt={d.full_name}
+              className="w-full rounded-2xl shadow-2xl object-contain max-h-[80vh]" />
+            <div className="mt-3 text-center">
+              <p className="text-white font-semibold text-sm">{d.full_name}</p>
+              {d.id_number && <p className="text-white/60 text-xs mt-0.5">{d.id_number}</p>}
+            </div>
+            <button
+              onClick={() => setZoomed(false)}
+              className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white text-gray-800 flex items-center justify-center shadow-lg hover:bg-gray-100 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

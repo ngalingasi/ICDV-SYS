@@ -5,5 +5,5 @@
 -- ============================================================
 
 ALTER TABLE vehicle_operations
-  ADD COLUMN IF NOT EXISTS operator_role VARCHAR(30) NULL DEFAULT NULL
+  ADD COLUMN  operator_role VARCHAR(30) NULL DEFAULT NULL
   AFTER performed_by;

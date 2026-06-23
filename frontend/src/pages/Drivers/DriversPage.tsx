@@ -6,6 +6,9 @@ import StatusBadge from '../../components/tpfcs/StatusBadge';
 import { toast } from '../../components/tpfcs/Toast';
 import { useAuth } from '../../store/authStore';
 
+const RAW_API    = (import.meta as any).env?.VITE_API_URL ?? 'http://localhost:3000/api';
+const SERVER_BASE = RAW_API.replace(/\/api(\/v\d+)?$/, '');
+
 // ── Print CSS — injected on mount, hides screen UI during print ───────────────
 const PRINT_CSS = `
   .driver-print-hidden { display: none; }
@@ -306,7 +309,7 @@ export default function DriversPage() {
                     <div className="flex items-center gap-2.5">
                       <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-100 flex-shrink-0 flex items-center justify-center">
                         {(d as any).photo
-                          ? <img src={`http://localhost:3000${(d as any).photo}`} alt="" className="w-full h-full object-cover" />
+                          ? <img src={`${SERVER_BASE}${(d as any).photo}`} alt="" className="w-full h-full object-cover" />
                           : <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                             </svg>

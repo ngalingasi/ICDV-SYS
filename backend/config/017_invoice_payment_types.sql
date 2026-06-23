@@ -11,11 +11,11 @@
 -- ============================================================
 
 ALTER TABLE `invoice_payments`
-  ADD COLUMN  `document_type` ENUM('evidence','receipt') NOT NULL DEFAULT 'evidence'
+  ADD COLUMN IF NOT EXISTS `document_type` ENUM('evidence','receipt') NOT NULL DEFAULT 'evidence'
     COMMENT 'evidence = cashier-uploaded proof of payment, receipt = super_admin-issued receipt'
     AFTER `invoice_id`;
 
 -- Backfill existing rows (all prior uploads were the cashier-side "evidence")
 UPDATE `invoice_payments` SET `document_type` = 'evidence' WHERE `document_type` IS NULL;
 
-CREATE INDEX  `idx_invoice_payments_type` ON `invoice_payments` (`document_type`);
+CREATE INDEX IF NOT EXISTS `idx_invoice_payments_type` ON `invoice_payments` (`document_type`);
