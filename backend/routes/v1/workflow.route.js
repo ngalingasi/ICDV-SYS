@@ -44,6 +44,7 @@ router.get('/batches/:batchId/print', auth('printBatches'), tenant(), ctrl.getBa
 router.get( '/transfer/lookup',        auth('getVehicles'),      tenant(), ctrl.transferLookup);
 router.get( '/transfer/driver-lookup', auth('getVehicles'),      tenant(), ctrl.driverLookup);
 router.post('/transfer/confirm',       auth('transferVehicles'), tenant(), ctrl.transferConfirm);
+router.post('/transfer/release-driver', auth('transferVehicles'), tenant(), ctrl.releaseDriverConfirm);
 
 // ── 3b. TPA STATS (migration 008) — transfer_officer ─────────────────────────
 router.get('/transfer/tpa-stats', auth('viewTpaStats'), tenant(), ctrl.getTpaStats);

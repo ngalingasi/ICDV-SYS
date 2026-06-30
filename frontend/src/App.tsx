@@ -81,6 +81,9 @@ import ExpenseForm     from "./pages/Expenses/ExpenseForm";
 import ExpenseDetail   from "./pages/Expenses/ExpenseDetail";
 import ProfitLossPage  from "./pages/Insights/ProfitLossPage";
 import TurnaroundPage  from "./pages/Insights/TurnaroundPage";
+import PaymentPage     from "./pages/Insights/PaymentPage";
+import FleetPipelinePage from "./pages/Insights/FleetPipelinePage";
+import VesselProductivityPage from "./pages/Insights/VesselProductivityPage";
 
 // ── Super Admin Route Guard ───────────────────────────────────────────────────
 function SuperAdminRoute() {
@@ -224,8 +227,11 @@ export default function App() {
           {/* ── Insights (super_admin only) — BI dashboards, P&L is the first ── */}
           <Route element={<SuperAdminRoute />}>
             <Route element={<AppLayout />}>
-              <Route path="/insights/profit-loss"  element={<ProfitLossPage />} />
-              <Route path="/insights/turnaround"   element={<TurnaroundPage />} />
+              <Route path="/insights/profit-loss"         element={<ProfitLossPage />} />
+              <Route path="/insights/turnaround"          element={<TurnaroundPage />} />
+              <Route path="/insights/payment"             element={<PaymentPage />} />
+              <Route path="/insights/fleet"               element={<FleetPipelinePage />} />
+              <Route path="/insights/vessels"             element={<VesselProductivityPage />} />
             </Route>
           </Route>
 
@@ -235,6 +241,7 @@ export default function App() {
               <Route path="/invoices"     element={<InvoicesPage />} />
               <Route path="/invoices/new" element={<InvoiceForm />} />
               <Route path="/invoices/:id" element={<InvoiceDetail />} />
+              <Route path="/invoices/:id/edit" element={<InvoiceForm />} />
               <Route path="/billing"      element={<BillingPage />} />
               <Route path="/billing/:id"  element={<InvoiceDetail />} />
             </Route>

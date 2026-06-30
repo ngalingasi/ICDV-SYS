@@ -136,6 +136,8 @@ export const workflowApi = {
     client.get('/workflow/transfer/driver-lookup', { params: { id_card } }),
   transferConfirm: (data: { vehicle_id: number; driver_id?: number; driver_id_card?: string; notes?: string }) =>
     client.post('/workflow/transfer/confirm', data),
+  releaseDriver: (vehicle_id: number, reason: string) =>
+    client.post('/workflow/transfer/release-driver', { vehicle_id, reason }),
 
   // 4. Receive (Yard)
   receiveLookup:  (id_card: string) =>
@@ -474,6 +476,24 @@ export const turnaroundApi = {
   byIcdv:   (params?: any) => client.get('/insights/turnaround/by-icdv',   { params }),
   byDriver: (params?: any) => client.get('/insights/turnaround/by-driver', { params }),
   slowest:  (params?: any) => client.get('/insights/turnaround/slowest',   { params }),
+};
+
+export const paymentApi = {
+  summary: (params?: any) => client.get('/insights/payment/summary', { params }),
+  byIcdv:  (params?: any) => client.get('/insights/payment/by-icdv', { params }),
+  overdue: (params?: any) => client.get('/insights/payment/overdue',  { params }),
+};
+
+export const fleetApi = {
+  summary: () => client.get('/insights/fleet/summary'),
+  byIcdv:  () => client.get('/insights/fleet/by-icdv'),
+  stale:   (params?: any) => client.get('/insights/fleet/stale', { params }),
+};
+
+export const vesselsInsightsApi = {
+  summary: () => client.get('/insights/vessels/summary'),
+  list:    (params?: any) => client.get('/insights/vessels/list',  { params }),
+  trend:   (params?: any) => client.get('/insights/vessels/trend', { params }),
 };
 
 // ── Manifest close operation ────────────────────────────────────────────────────

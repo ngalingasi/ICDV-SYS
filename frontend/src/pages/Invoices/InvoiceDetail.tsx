@@ -77,7 +77,7 @@ export default function InvoiceDetail() {
     const lineRows = (i.line_items || []).map((l: any, idx: number) => `
       <tr style="background:${idx % 2 === 0 ? '#fff' : '#f9f9f9'}">
         <td style="text-align:center">${idx + 1}</td>
-        <td>${l.description}</td>
+        <td>${l.description}${l.manifest_number ? `<div style="font-size:7.5pt;color:#3B82F6;margin-top:2px">Manifest: ${l.manifest_number}</div>` : ''}</td>
         <td style="text-align:center">${Number(l.quantity).toFixed(0)}</td>
         <td style="text-align:right">${fmtMoney(l.unit_price)}</td>
         <td style="text-align:right;font-weight:700">${fmtMoney(l.line_total)}</td>
@@ -166,6 +166,12 @@ export default function InvoiceDetail() {
         <div className="flex items-center gap-2 flex-wrap">
           <span className={`px-3 py-1 rounded-full text-xs font-semibold capitalize ${STATUS_STYLES[inv.status] ?? ''}`}>{inv.status}</span>
           <button onClick={handlePrint} className="px-3 py-1.5 border border-gray-200 dark:border-gray-700 rounded-lg text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">Print / PDF</button>
+          {isSuperAdmin && inv.status === 'invoiced' && (
+            <button onClick={() => navigate(`/invoices/${id}/edit`)}
+              className="px-3 py-1.5 border border-gray-200 dark:border-gray-700 rounded-lg text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+              Edit
+            </button>
+          )}
           {!isSuperAdmin && !isCashier && inv.status === 'invoiced'  && <button onClick={handleApprove} disabled={acting} className="px-3 py-1.5 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-xs font-medium disabled:opacity-60">Approve</button>}
           {isSuperAdmin && inv.status !== 'paid' && inv.status !== 'cancelled' && <button onClick={handleCancel} disabled={acting} className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-xs font-medium disabled:opacity-60">Cancel</button>}
           {!isSuperAdmin && inv.status === 'approved' && <button onClick={handleMarkPaid} disabled={acting} className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-medium disabled:opacity-60">Mark as Paid</button>}

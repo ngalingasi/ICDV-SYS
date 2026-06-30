@@ -309,7 +309,7 @@ const getProfitByManifest = async ({ page, limit, icdv_id, search, date_from, da
   return paginate(mapped, total);
 };
 
-// ═════════════════════════════════════════════════════════════════════════════
+// ================================================================================
 // TRANSFER TURNAROUND
 //
 // Duration = TIMESTAMPDIFF(MINUTE, t.transferred_at, t.completed_at)
@@ -320,7 +320,7 @@ const getProfitByManifest = async ({ page, limit, icdv_id, search, date_from, da
 //   <= normal_minutes  → on_time
 //   <= max_minutes     → delayed
 //   >  max_minutes     → very_late
-// ═════════════════════════════════════════════════════════════════════════════
+// ================================================================================
 
 const DEFAULT_NORMAL_MIN = 30;
 const DEFAULT_MAX_MIN    = 60;
@@ -554,9 +554,337 @@ const getSlowestTransfers = async ({ page, limit, date_from, date_to, icdv_id } 
   })), total);
 };
 
+// ================================================================================
+// PAYMENT / RECEIVABLES
+// ================================================================================
+
+const getPaymentSummary = async ({ date_from, date_to } = {}) => {
+  const params = [];
+  let dc = '';
+  if (date_from) { dc += ' AND DATE(inv.issued_date) >= ?'; params.push(date_from); }
+  if (date_to)   { dc += ' AND DATE(inv.issued_date) <= ?'; params.push(date_to); }
+
+  const [row] = await query(
+    `SELECT
+       COUNT(*) AS total_invoices,
+       COUNT(CASE WHEN inv.status != 'cancelled' THEN 1 END) AS active_invoices,
+       COUNT(CASE WHEN inv.status = 'paid' THEN 1 END) AS paid_count,
+       COUNT(CASE WHEN inv.status IN ('invoiced','approved') THEN 1 END) AS outstanding_count,
+       COUNT(CASE WHEN inv.status IN ('invoiced','approved')
+         AND inv.due_date IS NOT NULL AND inv.due_date < CURDATE() THEN 1 END) AS overdue_count,
+       COALESCE(SUM(CASE WHEN inv.status != 'cancelled' THEN inv.total_amount END), 0) AS total_billed,
+       COALESCE(SUM(CASE WHEN inv.status = 'paid' THEN inv.total_amount END), 0) AS total_collected,
+       COALESCE(SUM(CASE WHEN inv.status IN ('invoiced','approved') THEN inv.total_amount END), 0) AS total_outstanding,
+       COALESCE(SUM(CASE WHEN inv.status IN ('invoiced','approved')
+         AND inv.due_date IS NOT NULL AND inv.due_date < CURDATE() THEN inv.total_amount END), 0) AS total_overdue,
+       ROUND(AVG(CASE WHEN inv.approved_at IS NOT NULL
+         THEN DATEDIFF(inv.approved_at, inv.issued_date) END), 1) AS avg_days_to_approval,
+       ROUND(AVG(CASE WHEN inv.paid_at IS NOT NULL
+         THEN DATEDIFF(inv.paid_at, inv.issued_date) END), 1) AS avg_days_to_payment
+     FROM invoices inv WHERE 1=1 ${dc}`,
+    params
+  );
+
+  const billed    = Number(row.total_billed);
+  const collected = Number(row.total_collected);
+  return {
+    total_invoices:       Number(row.total_invoices),
+    active_invoices:      Number(row.active_invoices),
+    paid_count:           Number(row.paid_count),
+    outstanding_count:    Number(row.outstanding_count),
+    overdue_count:        Number(row.overdue_count),
+    total_billed:         billed,
+    total_collected:      collected,
+    total_outstanding:    Number(row.total_outstanding),
+    total_overdue:        Number(row.total_overdue),
+    collection_rate_pct:  billed ? parseFloat(((collected / billed) * 100).toFixed(1)) : 0,
+    avg_days_to_approval: row.avg_days_to_approval !== null ? Number(row.avg_days_to_approval) : null,
+    avg_days_to_payment:  row.avg_days_to_payment  !== null ? Number(row.avg_days_to_payment)  : null,
+  };
+};
+
+const getPaymentByIcdv = async ({ date_from, date_to } = {}) => {
+  const params = [];
+  let dc = '';
+  if (date_from) { dc += ' AND DATE(inv.issued_date) >= ?'; params.push(date_from); }
+  if (date_to)   { dc += ' AND DATE(inv.issued_date) <= ?'; params.push(date_to); }
+
+  const rows = await query(
+    `SELECT
+       i.icdv_id, i.name AS icdv_name,
+       COUNT(CASE WHEN inv.status != 'cancelled' THEN 1 END)                  AS active_invoices,
+       COUNT(CASE WHEN inv.status = 'paid' THEN 1 END)                        AS paid_count,
+       COUNT(CASE WHEN inv.status IN ('invoiced','approved') THEN 1 END)      AS outstanding_count,
+       COUNT(CASE WHEN inv.status IN ('invoiced','approved')
+         AND inv.due_date IS NOT NULL AND inv.due_date < CURDATE() THEN 1 END) AS overdue_count,
+       COALESCE(SUM(CASE WHEN inv.status != 'cancelled' THEN inv.total_amount END), 0) AS total_billed,
+       COALESCE(SUM(CASE WHEN inv.status = 'paid' THEN inv.total_amount END), 0)       AS total_collected,
+       COALESCE(SUM(CASE WHEN inv.status IN ('invoiced','approved') THEN inv.total_amount END), 0) AS total_outstanding,
+       ROUND(AVG(CASE WHEN inv.paid_at IS NOT NULL
+         THEN DATEDIFF(inv.paid_at, inv.issued_date) END), 1) AS avg_days_to_payment
+     FROM icdvs i
+     JOIN invoices inv ON inv.icdv_id = i.icdv_id
+     WHERE 1=1 ${dc}
+     GROUP BY i.icdv_id, i.name
+     HAVING active_invoices > 0
+     ORDER BY total_outstanding DESC`,
+    params
+  );
+
+  return rows.map(r => {
+    const billed    = Number(r.total_billed);
+    const collected = Number(r.total_collected);
+    return {
+      icdv_id: r.icdv_id, icdv_name: r.icdv_name,
+      active_invoices:   Number(r.active_invoices),
+      paid_count:        Number(r.paid_count),
+      outstanding_count: Number(r.outstanding_count),
+      overdue_count:     Number(r.overdue_count),
+      total_billed:      billed,
+      total_collected:   collected,
+      total_outstanding: Number(r.total_outstanding),
+      avg_days_to_payment: r.avg_days_to_payment !== null ? Number(r.avg_days_to_payment) : null,
+      collection_rate_pct: billed ? parseFloat(((collected / billed) * 100).toFixed(1)) : 0,
+    };
+  });
+};
+
+const getOverdueInvoices = async ({ page, limit } = {}) => {
+  const { limit: l, offset, paginate } = buildPagination(page, limit);
+
+  const [{ total }] = await query(
+    `SELECT COUNT(*) AS total FROM invoices inv
+     JOIN icdvs i ON i.icdv_id = inv.icdv_id
+     WHERE inv.status IN ('invoiced','approved')
+       AND inv.due_date IS NOT NULL AND inv.due_date < CURDATE()`
+  );
+
+  const rows = await query(
+    `SELECT inv.invoice_id, inv.invoice_number, inv.issued_date, inv.due_date,
+       inv.total_amount, inv.status,
+       DATEDIFF(CURDATE(), inv.due_date) AS days_overdue,
+       i.name AS icdv_name
+     FROM invoices inv
+     JOIN icdvs i ON i.icdv_id = inv.icdv_id
+     WHERE inv.status IN ('invoiced','approved')
+       AND inv.due_date IS NOT NULL AND inv.due_date < CURDATE()
+     ORDER BY days_overdue DESC
+     LIMIT ? OFFSET ?`,
+    [l, offset]
+  );
+
+  return paginate(rows.map(r => ({ ...r, days_overdue: Number(r.days_overdue), total_amount: Number(r.total_amount) })), total);
+};
+
+// ================================================================================
+// FLEET PIPELINE
+// ================================================================================
+
+const getFleetPipelineSummary = async () => {
+  const [row] = await query(
+    `SELECT
+       COUNT(*) AS total,
+       SUM(workflow_status = 'manifested')  AS cnt_manifested,
+       SUM(workflow_status = 'discharged')  AS cnt_discharged,
+       SUM(workflow_status = 'batched')     AS cnt_batched,
+       SUM(workflow_status = 'in_transit')  AS cnt_in_transit,
+       SUM(workflow_status = 'received')    AS cnt_received
+     FROM vehicles`
+  );
+
+  // Stale: vehicles that have been in the same non-terminal step > 3 days
+  // We use vehicles.updated_at as a proxy (last time the workflow status changed)
+  const staleRows = await query(
+    `SELECT workflow_status, COUNT(*) AS cnt
+     FROM vehicles
+     WHERE workflow_status IN ('discharged','batched')
+       AND DATEDIFF(NOW(), updated_at) > 3
+     GROUP BY workflow_status`
+  );
+  const stale = {};
+  staleRows.forEach(r => { stale[r.workflow_status] = Number(r.cnt); });
+
+  return {
+    total:           Number(row.total),
+    manifested:      Number(row.cnt_manifested),
+    discharged:      Number(row.cnt_discharged),
+    batched:         Number(row.cnt_batched),
+    in_transit:      Number(row.cnt_in_transit),
+    received:        Number(row.cnt_received),
+    stale_discharged: stale.discharged  || 0,
+    stale_batched:    stale.batched     || 0,
+  };
+};
+
+const getFleetPipelineByIcdv = async () => {
+  const rows = await query(
+    `SELECT
+       i.icdv_id, i.name AS icdv_name,
+       COUNT(v.vehicle_id) AS total,
+       SUM(v.workflow_status = 'manifested')  AS cnt_manifested,
+       SUM(v.workflow_status = 'discharged')  AS cnt_discharged,
+       SUM(v.workflow_status = 'batched')     AS cnt_batched,
+       SUM(v.workflow_status = 'in_transit')  AS cnt_in_transit,
+       SUM(v.workflow_status = 'received')    AS cnt_received
+     FROM icdvs i
+     JOIN vehicles v ON v.icdv_id = i.icdv_id
+     WHERE i.is_active = 1
+     GROUP BY i.icdv_id, i.name
+     HAVING total > 0
+     ORDER BY total DESC`
+  );
+
+  return rows.map(r => ({
+    icdv_id:    r.icdv_id,    icdv_name:  r.icdv_name,
+    total:      Number(r.total),
+    manifested: Number(r.cnt_manifested),
+    discharged: Number(r.cnt_discharged),
+    batched:    Number(r.cnt_batched),
+    in_transit: Number(r.cnt_in_transit),
+    received:   Number(r.cnt_received),
+  }));
+};
+
+const getStaleVehicles = async ({ page, limit, days = 3 } = {}) => {
+  const { limit: l, offset, paginate } = buildPagination(page, limit);
+  const d = Number(days) || 3;
+
+  const [{ total }] = await query(
+    `SELECT COUNT(*) AS total FROM vehicles v
+     JOIN manifests m ON m.manifest_id = v.manifest_id
+     JOIN icdvs i ON i.icdv_id = v.icdv_id
+     WHERE v.workflow_status IN ('discharged','batched')
+       AND DATEDIFF(NOW(), v.updated_at) > ?`,
+    [d]
+  );
+
+  const rows = await query(
+    `SELECT v.vehicle_id, v.chassis_number, v.brand, v.model, v.color,
+       v.workflow_status, DATEDIFF(NOW(), v.updated_at) AS days_stale,
+       m.manifest_number, i.name AS icdv_name
+     FROM vehicles v
+     JOIN manifests m ON m.manifest_id = v.manifest_id
+     JOIN icdvs i ON i.icdv_id = v.icdv_id
+     WHERE v.workflow_status IN ('discharged','batched')
+       AND DATEDIFF(NOW(), v.updated_at) > ?
+     ORDER BY days_stale DESC
+     LIMIT ? OFFSET ?`,
+    [d, l, offset]
+  );
+
+  return paginate(rows.map(r => ({ ...r, days_stale: Number(r.days_stale) })), total);
+};
+
+// ================================================================================
+// VESSEL PRODUCTIVITY
+// ================================================================================
+
+const getVesselProductivitySummary = async () => {
+  const [row] = await query(
+    `SELECT
+       COUNT(*) AS total_vessels,
+       SUM(status = 'expected')   AS cnt_expected,
+       SUM(status = 'arrived')    AS cnt_arrived,
+       SUM(status = 'processing') AS cnt_processing,
+       SUM(status = 'completed')  AS cnt_completed,
+       SUM(status = 'departed')   AS cnt_departed
+     FROM vessels v`
+  );
+
+  const [vrow] = await query(
+    `SELECT
+       COUNT(DISTINCT v.vessel_id) AS vessels_with_vehicles,
+       COUNT(vh.vehicle_id)        AS total_vehicles,
+       ROUND(COUNT(vh.vehicle_id) / NULLIF(COUNT(DISTINCT v.vessel_id), 0), 1) AS avg_vehicles_per_vessel
+     FROM vessels v
+     JOIN manifests m  ON m.vessel_id   = v.vessel_id
+     JOIN vehicles  vh ON vh.manifest_id = m.manifest_id`
+  );
+
+  return {
+    total_vessels:         Number(row.total_vessels),
+    expected:              Number(row.cnt_expected),
+    arrived:               Number(row.cnt_arrived),
+    processing:            Number(row.cnt_processing),
+    completed:             Number(row.cnt_completed),
+    departed:              Number(row.cnt_departed),
+    active_now:            Number(row.cnt_arrived) + Number(row.cnt_processing),
+    total_vehicles:        Number(vrow.total_vehicles),
+    avg_vehicles_per_vessel: vrow.avg_vehicles_per_vessel !== null ? Number(vrow.avg_vehicles_per_vessel) : 0,
+  };
+};
+
+const getVesselList = async ({ page, limit, status } = {}) => {
+  const { limit: l, offset, paginate } = buildPagination(page, limit);
+  const params = [];
+  let where = '1=1';
+  if (status) { where += ' AND v.status = ?'; params.push(status); }
+
+  const [{ total }] = await query(`SELECT COUNT(*) AS total FROM vessels v WHERE ${where}`, params);
+
+  const rows = await query(
+    `SELECT v.*,
+       COUNT(DISTINCT m.manifest_id)  AS manifest_count,
+       COUNT(DISTINCT vh.vehicle_id)  AS vehicle_count,
+       SUM(vh.workflow_status = 'received') AS received_count
+     FROM vessels v
+     LEFT JOIN manifests m  ON m.vessel_id  = v.vessel_id
+     LEFT JOIN vehicles  vh ON vh.manifest_id = m.manifest_id
+     WHERE ${where}
+     GROUP BY v.vessel_id
+     ORDER BY v.arrival_date DESC
+     LIMIT ? OFFSET ?`,
+    [...params, l, offset]
+  );
+
+  return paginate(rows.map(r => ({
+    ...r,
+    manifest_count: Number(r.manifest_count),
+    vehicle_count:  Number(r.vehicle_count),
+    received_count: Number(r.received_count),
+    completion_pct: r.vehicle_count > 0
+      ? parseFloat(((r.received_count / r.vehicle_count) * 100).toFixed(1)) : 0,
+  })), total);
+};
+
+const getMonthlyVesselTrend = async ({ months = 6 } = {}) => {
+  const m = Math.min(Math.max(parseInt(months, 10) || 6, 1), 24);
+
+  const rows = await query(
+    `SELECT DATE_FORMAT(v.arrival_date, '%Y-%m') AS month,
+       COUNT(DISTINCT v.vessel_id)    AS vessels,
+       COUNT(DISTINCT m.manifest_id)  AS manifests,
+       COUNT(DISTINCT vh.vehicle_id)  AS vehicles
+     FROM vessels v
+     LEFT JOIN manifests m  ON m.vessel_id  = v.vessel_id
+     LEFT JOIN vehicles  vh ON vh.manifest_id = m.manifest_id
+     WHERE v.arrival_date >= DATE_SUB(CURDATE(), INTERVAL ? MONTH)
+     GROUP BY month ORDER BY month`,
+    [m]
+  );
+
+  const map = {};
+  rows.forEach(r => { map[r.month] = { vessels: Number(r.vessels), manifests: Number(r.manifests), vehicles: Number(r.vehicles) }; });
+
+  const out = [];
+  const now = new Date();
+  for (let i = m - 1; i >= 0; i--) {
+    const d   = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    out.push({ month: key, ...(map[key] || { vessels: 0, manifests: 0, vehicles: 0 }) });
+  }
+  return out;
+};
+
 module.exports = {
   // Profit & Loss
   getProfitSummary, getProfitByIcdv, getProfitTrend, getRevenueByStatusTrend, getProfitByManifest,
   // Transfer Turnaround
   getTurnaroundSummary, getTurnaroundTrend, getTurnaroundByIcdv, getTurnaroundByDriver, getSlowestTransfers,
+  // Payment / Receivables
+  getPaymentSummary, getPaymentByIcdv, getOverdueInvoices,
+  // Fleet Pipeline
+  getFleetPipelineSummary, getFleetPipelineByIcdv, getStaleVehicles,
+  // Vessel Productivity
+  getVesselProductivitySummary, getVesselList, getMonthlyVesselTrend,
 };

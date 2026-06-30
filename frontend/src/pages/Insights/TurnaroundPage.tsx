@@ -65,6 +65,8 @@ export default function TurnaroundPage() {
 
   // View toggles — 'chart' | 'list' for sections that offer both
   const [driverView, setDriverView] = useState<'chart' | 'list'>('chart');
+  const [showAllDrivers, setShowAllDrivers] = useState(false);
+  const DRIVER_CHART_LIMIT = 10;
   const [icdvView,   setIcdvView]   = useState<'chart' | 'list'>('chart');
 
   const [summary,  setSummary]  = useState<any>(null);
@@ -158,25 +160,27 @@ export default function TurnaroundPage() {
     { name: 'Max Threshold',    data: byIcdv.map(i => i.max_minutes) },
   ];
 
-  // Driver avg turnaround bar chart
+  // Driver avg turnaround — horizontal bar, sorted by trip volume, capped to
+  // a top-N slice by default so the page never grows tall regardless of how
+  // many drivers exist. "Show all" expands to the full list.
+  const driverSortedByVolume = [...byDriver].sort((a, b) => b.completed - a.completed);
+  const driverChartData = showAllDrivers ? driverSortedByVolume : driverSortedByVolume.slice(0, DRIVER_CHART_LIMIT);
+
   const driverBarOptions: ApexOptions = {
     chart: { type: 'bar', toolbar: { show: false }, fontFamily: 'Outfit, sans-serif' },
-    colors: ['#3B82F6', '#12B76A'],
-    plotOptions: { bar: { horizontal: false, columnWidth: '60%', borderRadius: 3 } },
+    colors: ['#3B82F6'],
+    plotOptions: { bar: { horizontal: true, barHeight: '65%', borderRadius: 3 } },
     dataLabels: { enabled: false },
-    xaxis: { categories: byDriver.map(d => d.driver_name.split(' ')[0]), labels: { style: { fontSize: '10px' }, rotate: -35 } },
-    yaxis: [
-      { seriesName: 'Avg Turnaround', labels: { formatter: (v) => `${v}m` } },
-      { seriesName: 'On-Time %', opposite: true, min: 0, max: 100, labels: { formatter: (v) => `${v}%` } },
-    ],
-    legend: { position: 'top' },
+    xaxis: { categories: driverChartData.map(d => d.driver_name), labels: { formatter: (v) => `${v}m` } },
     grid: { borderColor: '#e5e7eb' },
-    tooltip: { y: { formatter: (v: number, { seriesIndex }: any) => seriesIndex === 0 ? `${v} min avg` : `${v}% on-time` } },
+    tooltip: {
+      y: { formatter: (v: number, opts: any) => {
+        const d = driverChartData[opts?.dataPointIndex ?? 0];
+        return d ? `${v} min avg · ${d.on_time_pct}% on-time · ${d.completed} trips` : `${v} min avg`;
+      } },
+    },
   };
-  const driverBarSeries = [
-    { name: 'Avg Turnaround', type: 'column', data: byDriver.map(d => d.avg_minutes ?? 0) },
-    { name: 'On-Time %',      type: 'line',   data: byDriver.map(d => d.on_time_pct) },
-  ];
+  const driverBarSeries = [{ name: 'Avg Turnaround', data: driverChartData.map(d => d.avg_minutes ?? 0) }];
 
   const slowestTotalPages = Math.max(1, Math.ceil(slowestTotal / limit));
 
@@ -330,8 +334,23 @@ export default function TurnaroundPage() {
           : driverView === 'chart'
             ? (
               <div className="p-5 pt-4">
-                <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">Bars = avg turnaround (left axis) · Line = on-time % (right axis)</p>
-                <Chart options={driverBarOptions} series={driverBarSeries} type="line" height={Math.max(280, byDriver.length * 28)} />
+                <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                  <p className="text-xs text-gray-400 dark:text-gray-500">
+                    {showAllDrivers
+                      ? `Showing all ${driverSortedByVolume.length} drivers, sorted by trip volume.`
+                      : `Top ${Math.min(DRIVER_CHART_LIMIT, driverSortedByVolume.length)} of ${driverSortedByVolume.length} drivers by trip volume.`}
+                  </p>
+                  {driverSortedByVolume.length > DRIVER_CHART_LIMIT && (
+                    <button onClick={() => setShowAllDrivers(s => !s)}
+                      className="text-xs text-brand-600 dark:text-brand-400 hover:underline font-medium">
+                      {showAllDrivers ? 'Show top 10 only' : `Show all ${driverSortedByVolume.length}`}
+                    </button>
+                  )}
+                </div>
+                <div className={showAllDrivers ? 'max-h-[480px] overflow-y-auto pr-1' : ''}>
+                  <Chart options={driverBarOptions} series={driverBarSeries} type="bar"
+                    height={Math.max(240, driverChartData.length * 32)} />
+                </div>
               </div>
             )
             : (

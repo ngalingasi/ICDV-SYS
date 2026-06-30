@@ -78,7 +78,7 @@ export function ToastContainer() {
   if (items.length === 0) return null;
 
   return createPortal(
-    <div className="fixed top-4 right-4 z-[99999] flex flex-col gap-3">
+    <div className="fixed top-4 right-4 z-[100001] flex flex-col gap-3">
       {items.map(t => (
         <ToastItem key={t.id} toast={t}
           onRemove={() => {

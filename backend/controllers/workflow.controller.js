@@ -170,6 +170,24 @@ const transferConfirm = catchAsync(async (req, res) => {
   res.json(result);
 });
 
+/**
+ * POST /workflow/transfer/release-driver
+ * Right: transferVehicles (same right that confirms a transfer in the
+ * first place — releasing is the undo side of that same action)
+ *
+ * Releases a driver from an active (in_transit) assignment — e.g. driver
+ * became sick/unavailable after being assigned at the TPA gate. Vehicle
+ * reverts to 'batched' so it can be transferred again with a new driver.
+ */
+const releaseDriverConfirm = catchAsync(async (req, res) => {
+  const { vehicle_id, reason } = req.body;
+  if (!vehicle_id) return res.status(400).json({ message: 'vehicle_id is required' });
+  if (!reason || !reason.trim()) return res.status(400).json({ message: 'A reason is required to release a driver' });
+  const effectiveIcdvId = await resolveEffectiveIcdvId(req.icdvId, Number(vehicle_id));
+  const result = await wf.releaseDriver(Number(vehicle_id), reason.trim(), req.user.user_id, effectiveIcdvId);
+  res.json(result);
+});
+
 // ─── 3b. TPA STATS (migration 008) ────────────────────────────────────────────
 
 /**
@@ -276,7 +294,7 @@ module.exports = {
   // Batch status + print (migration 008)
   updateBatchStatus, getBatchPrint,
   // Transfer
-  transferLookup, driverLookup, transferConfirm,
+  transferLookup, driverLookup, transferConfirm, releaseDriverConfirm,
   // TPA stats (migration 008)
   getTpaStats,
   // Receive

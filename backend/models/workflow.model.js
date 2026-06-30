@@ -767,6 +767,99 @@ const confirmTransfer = async (vehicleId, driverId, driverIdCard, notes, operato
     return { transfer_id: transferId, vehicle_id: vehicleId, driver_id: driverId };
   });
 
+/**
+ * releaseDriver — undo an active transfer assignment (e.g. driver became
+ * sick/unavailable after being assigned at the TPA gate, before the
+ * vehicle reached the ICDV yard).
+ *
+ * Because transfers.vehicle_id is UNIQUE, the original transfer row can't
+ * just be marked 'cancelled' and left in place — a fresh transfer for the
+ * same vehicle would later collide with that unique key. So this function:
+ *   1. Records full audit detail in driver_releases (who, why, when, which
+ *      driver/transfer) before anything is removed.
+ *   2. Closes the driver's active assignment.
+ *   3. Deletes the original transfer row (its data now lives in the audit
+ *      log above, plus a 'driver_released' entry in vehicle_operations).
+ *   4. Reverts the vehicle to 'batched' so it can be transferred again
+ *      with a different driver through the normal TPA gate flow.
+ *
+ * @param {number} vehicleId
+ * @param {string} reason — required, why the driver is being released
+ * @param {number} operatorId — who performed the release
+ * @param {number|null} icdvId — null bypasses ICDV scoping (super_admin/system_admin)
+ */
+const releaseDriver = async (vehicleId, reason, operatorId, icdvId = null) =>
+  transaction(async (conn) => {
+    if (!reason || !reason.trim())
+      throw new ApiError(httpStatus.BAD_REQUEST, 'A reason is required to release a driver');
+
+    const [vehicle] = await connQuery(conn,
+      `SELECT v.vehicle_id, v.icdv_id, v.chassis_number, v.workflow_status,
+              v.batch_id, v.current_location, v.manifest_id
+       FROM vehicles v WHERE v.vehicle_id=? FOR UPDATE`,
+      [vehicleId]
+    );
+    if (!vehicle) throw new ApiError(httpStatus.NOT_FOUND, 'Vehicle not found');
+    if (icdvId !== null && vehicle.icdv_id !== icdvId)
+      throw new ApiError(httpStatus.FORBIDDEN, 'Vehicle does not belong to your ICDV');
+    if (vehicle.workflow_status !== WORKFLOW_STATUSES.IN_TRANSIT)
+      throw new ApiError(httpStatus.CONFLICT,
+        `Vehicle ${vehicle.chassis_number} is not currently in transit — only an in-transit assignment can be released. ${statusDescription(vehicle.workflow_status)}.`);
+
+    const [transfer] = await connQuery(conn,
+      `SELECT transfer_id, driver_id, driver_id_card FROM transfers
+       WHERE vehicle_id=? AND status='active' FOR UPDATE`,
+      [vehicleId]
+    );
+    if (!transfer)
+      throw new ApiError(httpStatus.NOT_FOUND, 'No active transfer found for this vehicle');
+
+    const [driver] = await connQuery(conn,
+      'SELECT driver_id, full_name FROM drivers WHERE driver_id=?',
+      [transfer.driver_id]
+    );
+
+    // 1. Audit trail — preserved before the transfer row is removed
+    await connQuery(conn,
+      `INSERT INTO driver_releases
+         (icdv_id, vehicle_id, chassis_number, original_driver_id, original_transfer_id, reason, released_by)
+       VALUES (?,?,?,?,?,?,?)`,
+      [vehicle.icdv_id, vehicleId, vehicle.chassis_number, transfer.driver_id, transfer.transfer_id, reason.trim(), operatorId]
+    );
+
+    // 2. Close the driver's active assignment
+    await connQuery(conn,
+      `UPDATE driver_assignments SET status='closed', closed_at=NOW()
+       WHERE vehicle_id=? AND driver_id=? AND status='active'`,
+      [vehicleId, transfer.driver_id]
+    );
+
+    // 3. Remove the original transfer row — required so a fresh transfer
+    // can later be created for this same vehicle (unique key on vehicle_id)
+    await connQuery(conn, 'DELETE FROM transfers WHERE transfer_id=?', [transfer.transfer_id]);
+
+    // 4. Revert vehicle to batched — back into the normal transfer flow
+    await applyVehicleStatus(conn, vehicleId, WORKFLOW_STATUSES.BATCHED, operatorId);
+    await syncManifestStatus(conn, vehicle.manifest_id);
+
+    await logOperation(conn, {
+      icdvId: vehicle.icdv_id, vehicleId, chassisNumber: vehicle.chassis_number,
+      operationType: 'driver_released',
+      fromStatus: vehicle.workflow_status, toStatus: WORKFLOW_STATUSES.BATCHED,
+      fromLocation: vehicle.current_location, toLocation: WORKFLOW_TO_LOCATION.batched,
+      batchId: vehicle.batch_id, transferId: null,
+      notes: `Released driver ${driver?.full_name ?? transfer.driver_id}: ${reason.trim()}`,
+      performedBy: operatorId,
+    });
+
+    return {
+      vehicle_id: vehicleId,
+      chassis_number: vehicle.chassis_number,
+      released_driver: driver?.full_name ?? null,
+      new_workflow_status: WORKFLOW_STATUSES.BATCHED,
+    };
+  });
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 3b. TPA STATS (migration 008)
 // Transfer officer view: count of vehicles currently at TPA gate / in_transit
@@ -1274,7 +1367,7 @@ module.exports = {
   // Batch status (migration 008)
   updateBatchStatus, getBatchPrintData,
   // Transfer
-  lookupForTransfer, lookupDriverByIdCard, confirmTransfer,
+  lookupForTransfer, lookupDriverByIdCard, confirmTransfer, releaseDriver,
   // TPA stats (migration 008)
   getTpaStats,
   // Receive

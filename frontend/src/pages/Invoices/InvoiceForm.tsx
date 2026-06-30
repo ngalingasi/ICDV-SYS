@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useParams } from 'react-router';
 import { invoicesApi, icdvsApi } from '../../api';
 import BackButton from '../../components/tpfcs/BackButton';
 import { FormDateInput } from '../../components/tpfcs/FormField';
@@ -25,6 +25,9 @@ const newKey = () => ++_keySeq;
 
 export default function InvoiceForm() {
   const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const isEdit = Boolean(id);
+
   const [icdvList,    setIcdvList]    = useState<any[]>([]);
   const [catalogItems, setCatalogItems] = useState<any[]>([]);
   const [lines,       setLines]       = useState<LineItem[]>([{ _key: newKey(), description: '', unit: 'vehicle', quantity: 1, unit_price: 0, line_total: 0 }]);
@@ -37,8 +40,10 @@ export default function InvoiceForm() {
   const [notesTouched, setNotesTouched] = useState(false); // user manually edited notes
   const [whtRate,     setWhtRate]     = useState(5);
   const [saving,      setSaving]      = useState(false);
+  const [loading,     setLoading]     = useState(isEdit);
   const [error,       setError]       = useState<string|null>(null);
   const [loadError,   setLoadError]   = useState<string|null>(null);
+  const [locked,      setLocked]      = useState(false); // invoice exists but status no longer allows editing
 
   useEffect(() => {
     // Load ICDVs, catalog items, and operator config (for notes prefill)
@@ -62,6 +67,45 @@ export default function InvoiceForm() {
       if (bankLines) setNotes(prev => (prev ? prev : bankLines));
     }).catch(() => setLoadError('Failed to load form data. Please refresh the page.'));
   }, []);
+
+  // Edit mode: load the existing invoice and prefill the form. Only
+  // 'invoiced' (not yet approved) invoices are editable — guarded both
+  // here (so the form can't even render stale data for a locked invoice)
+  // and again server-side in updateInvoice().
+  useEffect(() => {
+    if (!isEdit) return;
+    invoicesApi.get(Number(id))
+      .then(r => {
+        const inv = r.data;
+        if (inv.status !== 'invoiced') {
+          setLocked(true);
+          setLoadError(`This invoice is "${inv.status}" and can no longer be edited. Only invoices awaiting approval can be changed.`);
+          setLoading(false);
+          return;
+        }
+        setIcdvId(String(inv.icdv_id));
+        setIssuedDate((inv.issued_date || '').slice(0, 10));
+        setDueDate((inv.due_date || '').slice(0, 10));
+        setNotes(inv.notes ?? '');
+        setNotesTouched(true); // don't let the bank-details prefill clobber saved notes
+        setWhtRate(Number(inv.withholding_tax_rate));
+        setLines(
+          (inv.line_items || []).map((l: any) => ({
+            _key: newKey(),
+            item_id: l.item_id ?? null,
+            manifest_id: l.manifest_id ?? null,
+            manifest_number: l.manifest_number,
+            description: l.description,
+            unit: l.unit,
+            quantity: Number(l.quantity),
+            unit_price: Number(l.unit_price),
+            line_total: Number(l.line_total),
+          }))
+        );
+      })
+      .catch(() => setLoadError('Failed to load invoice. Please go back and try again.'))
+      .finally(() => setLoading(false));
+  }, [id, isEdit]); // eslint-disable-line
 
   // Totals
   const subtotal  = lines.reduce((s, l) => s + l.line_total, 0);
@@ -123,34 +167,76 @@ export default function InvoiceForm() {
     if (!lines.length) { setError('Add at least one line item'); return; }
     setSaving(true); setError(null);
     try {
-      const inv = await invoicesApi.create({
-        icdv_id: Number(icdvId),
-        issued_date: issuedDate,
-        due_date: dueDate || null,
-        notes: notes || null,
-        withholding_tax_rate: whtRate,
-        line_items: lines.map((l, idx) => ({
-          item_id:     l.item_id     || null,
-          manifest_id: l.manifest_id || null,
-          description: l.description,
-          unit:        l.unit,
-          quantity:    l.quantity,
-          unit_price:  l.unit_price,
-          sort_order:  idx,
-        })),
-      });
-      navigate(`/invoices/${inv.data.invoice_id}`);
+      if (isEdit) {
+        // updateInvoice() does not accept icdv_id — the recipient is fixed
+        // once an invoice exists, so it's intentionally left out here.
+        const inv = await invoicesApi.update(Number(id), {
+          due_date: dueDate || null,
+          notes: notes || null,
+          withholding_tax_rate: whtRate,
+          line_items: lines.map((l, idx) => ({
+            item_id:     l.item_id     || null,
+            manifest_id: l.manifest_id || null,
+            description: l.description,
+            unit:        l.unit,
+            quantity:    l.quantity,
+            unit_price:  l.unit_price,
+            sort_order:  idx,
+          })),
+        });
+        navigate(`/invoices/${inv.data.invoice_id}`);
+      } else {
+        const inv = await invoicesApi.create({
+          icdv_id: Number(icdvId),
+          issued_date: issuedDate,
+          due_date: dueDate || null,
+          notes: notes || null,
+          withholding_tax_rate: whtRate,
+          line_items: lines.map((l, idx) => ({
+            item_id:     l.item_id     || null,
+            manifest_id: l.manifest_id || null,
+            description: l.description,
+            unit:        l.unit,
+            quantity:    l.quantity,
+            unit_price:  l.unit_price,
+            sort_order:  idx,
+          })),
+        });
+        navigate(`/invoices/${inv.data.invoice_id}`);
+      }
     } catch (e: any) {
-      setError(e?.response?.data?.message ?? 'Failed to create invoice');
+      setError(e?.response?.data?.message ?? `Failed to ${isEdit ? 'update' : 'create'} invoice`);
     } finally { setSaving(false); }
   };
+
+  if (locked) {
+    return (
+      <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6">
+        <div className="flex items-center gap-3">
+          <BackButton />
+          <h1 className="text-xl font-bold text-gray-800 dark:text-white">Edit Invoice</h1>
+        </div>
+        <div className="rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 px-4 py-3 text-sm text-red-600 dark:text-red-400">
+          {loadError}
+        </div>
+        <button onClick={() => navigate(`/invoices/${id}`)}
+          className="px-4 py-2 border border-gray-200 dark:border-gray-700 text-sm rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+          View Invoice
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6">
       <div className="flex items-center gap-3">
         <BackButton />
-        <h1 className="text-xl font-bold text-gray-800 dark:text-white">New Invoice</h1>
+        <h1 className="text-xl font-bold text-gray-800 dark:text-white">{isEdit ? 'Edit Invoice' : 'New Invoice'}</h1>
       </div>
+
+      {loading && (
+        <div className="rounded-lg bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm text-gray-500 dark:text-gray-400">Loading…</div>
+      )}
 
       {loadError && (
         <div className="rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 px-4 py-3 text-sm text-red-600 dark:text-red-400 flex items-center justify-between">
@@ -165,13 +251,17 @@ export default function InvoiceForm() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Recipient ICDV *</label>
-            <select value={icdvId} onChange={e => setIcdvId(e.target.value)}
-              className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200">
+            <select value={icdvId} onChange={e => setIcdvId(e.target.value)} disabled={isEdit}
+              className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 disabled:opacity-60 disabled:cursor-not-allowed">
               <option value="">Select ICDV…</option>
               {icdvList.map(i => <option key={i.icdv_id} value={i.icdv_id}>{i.name}</option>)}
             </select>
+            {isEdit && <p className="mt-1 text-xs text-gray-400">Recipient can't be changed after the invoice is created.</p>}
           </div>
-          <FormDateInput label="Invoice Date *" id="issued-date" value={issuedDate} onChange={setIssuedDate} />
+          <div>
+            <FormDateInput label="Invoice Date *" id="issued-date" value={issuedDate} onChange={setIssuedDate} />
+            {isEdit && <p className="mt-1 text-xs text-gray-400">Invoice date can't be changed after creation.</p>}
+          </div>
           <FormDateInput label="Due Date" id="due-date" value={dueDate} onChange={setDueDate} placeholder="Optional" />
           <div>
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Withholding Tax %</label>
@@ -293,7 +383,7 @@ export default function InvoiceForm() {
       <div className="flex gap-3">
         <button onClick={handleSubmit} disabled={saving}
           className="px-6 py-2 bg-brand-500 hover:bg-brand-600 disabled:opacity-60 text-white rounded-lg text-sm font-medium transition-colors">
-          {saving ? 'Creating…' : 'Create Invoice'}
+          {saving ? (isEdit ? 'Saving…' : 'Creating…') : (isEdit ? 'Save Changes' : 'Create Invoice')}
         </button>
         <button onClick={() => navigate('/invoices')}
           className="px-6 py-2 border border-gray-200 dark:border-gray-700 text-sm rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">

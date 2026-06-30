@@ -18,6 +18,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { workflowApi } from '../../api';
+import { toast } from '../../components/tpfcs/Toast';
 import BackButton from '../../components/tpfcs/BackButton';
 import ManifestSelector from '../../components/tpfcs/ManifestSelector';
 import type { Manifest } from '../../types';
@@ -88,11 +89,30 @@ const STATUS_CONFIG = {
 
 // ─── Vehicle Card ─────────────────────────────────────────────────────────────
 
-function VehicleCard({ v, isFS }: { v: LiveVehicle; isFS: boolean }) {
+function VehicleCard({ v, isFS, onReleased }: { v: LiveVehicle; isFS: boolean; onReleased: () => void }) {
   const cfg = STATUS_CONFIG[v.delay_status];
   const [showDriver, setShowDriver] = useState(false);
   const [zoomed,     setZoomed]     = useState(false);
+  const [releasing,  setReleasing]  = useState(false);     // modal open
+  const [reason,     setReason]     = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const photoUrl = v.driver_photo ? `${SERVER_BASE}${v.driver_photo}` : null;
+
+  const handleRelease = async () => {
+    if (!reason.trim()) { toast.error('A reason is required to release the driver'); return; }
+    setSubmitting(true);
+    try {
+      await workflowApi.releaseDriver(v.vehicle_id, reason.trim());
+      toast.success(`Driver released from ${v.chassis_number}. Vehicle is back in Batched — ready for a new driver.`);
+      setReleasing(false);
+      setReason('');
+      onReleased();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? 'Failed to release driver');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className={`relative rounded-xl border p-4 space-y-3 transition-all ${cfg.card}`}>
@@ -210,6 +230,56 @@ function VehicleCard({ v, isFS }: { v: LiveVehicle; isFS: boolean }) {
               </a>
             </div>
           )}
+
+          <button
+            onClick={() => setReleasing(true)}
+            className="w-full mt-1 text-xs font-medium text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/30 rounded-lg py-1.5 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+          >
+            Release Driver
+          </button>
+        </div>
+      )}
+
+      {/* Release driver — reason modal */}
+      {releasing && (
+        <div
+          className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
+          onClick={() => !submitting && setReleasing(false)}
+        >
+          <div className="w-full max-w-sm bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-5 space-y-4" onClick={e => e.stopPropagation()}>
+            <div>
+              <h3 className="text-sm font-bold text-gray-800 dark:text-white">Release Driver</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                {v.driver_name ?? 'This driver'} will be unassigned from {v.chassis_number}. The vehicle returns to <strong>Batched</strong> so it can be transferred again with a different driver.
+              </p>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Reason *</label>
+              <textarea
+                rows={3}
+                value={reason}
+                onChange={e => setReason(e.target.value)}
+                placeholder="e.g. Driver became unwell and cannot continue the trip"
+                className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 resize-none focus:outline-none focus:ring-2 focus:ring-red-400"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleRelease}
+                disabled={submitting}
+                className="flex-1 py-2 bg-red-500 hover:bg-red-600 disabled:opacity-60 text-white rounded-lg text-sm font-medium"
+              >
+                {submitting ? 'Releasing…' : 'Confirm Release'}
+              </button>
+              <button
+                onClick={() => { setReleasing(false); setReason(''); }}
+                disabled={submitting}
+                className="flex-1 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -481,7 +551,7 @@ export default function LiveTransferMonitoringPage() {
           </div>
         ) : (
           <div className={`grid gap-4 grid-cols-1 sm:grid-cols-2 ${isFS ? 'lg:grid-cols-4 xl:grid-cols-5' : 'lg:grid-cols-3 xl:grid-cols-4'}`}>
-            {filtered.map(v => <VehicleCard key={v.vehicle_id} v={v} isFS={isFS} />)}
+            {filtered.map(v => <VehicleCard key={v.vehicle_id} v={v} isFS={isFS} onReleased={load} />)}
           </div>
         )}
 

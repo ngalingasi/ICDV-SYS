@@ -180,6 +180,9 @@ const SUPER_ADMIN_NAV: NavItem[] = [
     name: "Insights", icon: <Icon.Insights />, subItems: [
       { name: "Profit & Loss",        path: "/insights/profit-loss" },
       { name: "Transfer Turnaround",  path: "/insights/turnaround" },
+      { name: "Payment & Receivables",path: "/insights/payment" },
+      { name: "Fleet Pipeline",       path: "/insights/fleet" },
+      { name: "Vessel Productivity",  path: "/insights/vessels" },
     ],
   },
 ];
