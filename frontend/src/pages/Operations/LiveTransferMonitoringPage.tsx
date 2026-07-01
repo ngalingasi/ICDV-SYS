@@ -51,6 +51,9 @@ interface LiveVehicle {
   normal_minutes:     number;
   max_minutes:        number;
   delay_status:       'on_time' | 'warning' | 'delayed';
+  is_primary?:        number;
+  companion_transfer_id?: number | null;
+  companions?:        Array<{ vehicle_id: number; chassis_number: string; brand?: string; model?: string; color?: string }>;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -121,7 +124,20 @@ function VehicleCard({ v, isFS, onReleased }: { v: LiveVehicle; isFS: boolean; o
       <div>
         <p className={`font-bold font-mono tracking-wide ${isFS ? 'text-base' : 'text-sm'} text-gray-800 dark:text-white`}>
           {v.chassis_number}
+          {v.is_primary === 1 && (v.companions?.length ?? 0) > 0 && (
+            <span className="ml-2 text-[9px] font-sans font-semibold bg-brand-100 dark:bg-brand-500/20 text-brand-600 dark:text-brand-400 px-1.5 py-0.5 rounded uppercase tracking-wide">Primary</span>
+          )}
         </p>
+        {(v.companions?.length ?? 0) > 0 && (
+          <div className="mt-1 space-y-0.5">
+            {v.companions!.map(c => (
+              <p key={c.vehicle_id} className="text-xs font-mono text-gray-500 dark:text-gray-400">
+                + {c.chassis_number}
+                {(c.brand || c.model) && <span className="font-sans"> · {[c.brand, c.model].filter(Boolean).join(' ')}</span>}
+              </p>
+            ))}
+          </div>
+        )}
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
           {[v.brand, v.model, v.color].filter(Boolean).join(' · ') || 'Vehicle'}
         </p>

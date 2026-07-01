@@ -15,6 +15,7 @@ const API_BASE = RAW_API.replace(/\/api(\/v\d+)?$/, '');
 function TpaStatsPanel() {
   const [stats,   setStats]   = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [showBatches, setShowBatches] = useState(false);
 
   useEffect(() => {
     workflowApi.getTpaStats()
@@ -54,50 +55,62 @@ function TpaStatsPanel() {
         ))}
       </div>
 
-      {/* Per-batch breakdown */}
+      {/* Per-batch breakdown — collapsed by default */}
       {stats.by_batch?.length > 0 && (
         <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-gray-100 dark:border-gray-800">
+          <button
+            onClick={() => setShowBatches(s => !s)}
+            className="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors"
+          >
             <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">
               Active Batches — TPA Gate
+              <span className="ml-2 text-gray-400 dark:text-gray-500 font-normal normal-case tracking-normal">
+                ({stats.by_batch.length})
+              </span>
             </p>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[360px]">
-              <thead className="bg-gray-50 dark:bg-gray-800/50">
-                <tr>
-                  {['Batch', 'Vessel', 'In Transit', 'Received'].map(h => (
-                    <th key={h} className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                {stats.by_batch.map((b: any) => (
-                  <tr key={b.batch_id} className="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
-                    <td className="px-4 py-2.5 font-mono text-xs font-semibold text-gray-800 dark:text-white whitespace-nowrap">{b.batch_number}</td>
-                    <td className="px-4 py-2.5 text-xs text-gray-600 dark:text-gray-300 whitespace-nowrap">{b.vessel_name ?? '—'}</td>
-                    <td className="px-4 py-2.5 text-center">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300">
-                        {b.in_transit_count}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5 text-center">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-300">
-                        {b.received_count ?? 0}
-                      </span>
-                    </td>
+            <svg className={`w-4 h-4 text-gray-400 transition-transform ${showBatches ? 'rotate-180' : ''}`}
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          {showBatches && (
+            <div className="border-t border-gray-100 dark:border-gray-800 overflow-x-auto">
+              <table className="w-full text-sm min-w-[360px]">
+                <thead className="bg-gray-50 dark:bg-gray-800/50">
+                  <tr>
+                    {['Batch', 'Vessel', 'In Transit', 'Received'].map(h => (
+                      <th key={h} className="px-4 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                  {stats.by_batch.map((b: any) => (
+                    <tr key={b.batch_id} className="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+                      <td className="px-4 py-2.5 font-mono text-xs font-semibold text-gray-800 dark:text-white whitespace-nowrap">{b.batch_number}</td>
+                      <td className="px-4 py-2.5 text-xs text-gray-600 dark:text-gray-300 whitespace-nowrap">{b.vessel_name ?? '—'}</td>
+                      <td className="px-4 py-2.5 text-center">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300">
+                          {b.in_transit_count}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 text-center">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-300">
+                          {b.received_count ?? 0}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-type Step = 'vehicle' | 'driver' | 'confirm' | 'done';
+type Step = 'vehicle' | 'driver' | 'companions' | 'confirm' | 'done';
 
 function DriverIdCard({ driver }: { driver: any }) {
   const photoUrl = driver.photo ? `${API_BASE}${driver.photo}` : null;
@@ -216,6 +229,11 @@ export default function TransferPage() {
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState('');
 
+  // Companion vehicles (Trellas / additional chassis riding with the primary truck)
+  const [companions,       setCompanions]       = useState<any[]>([]);
+  const [companionChassis, setCompanionChassis] = useState('');
+  const [companionLoading, setCompanionLoading] = useState(false);
+
   // Show TPA stats for transfer_officer and admin+ roles
   const canViewTpaStats = user && [
     'transfer_officer', 'operator', 'supervisor', 'admin', 'system_admin', 'super_admin',
@@ -224,6 +242,23 @@ export default function TransferPage() {
   const reset = () => {
     setStep('vehicle'); setChassis(''); setIdCard('');
     setVehicle(null); setDriver(null); setNotes(''); setError('');
+    setCompanions([]); setCompanionChassis('');
+  };
+
+  const handleAddCompanion = async () => {
+    const q = companionChassis.trim();
+    if (q.length < 4) return;
+    if (companions.some(c => c.chassis_number === q) || vehicle?.chassis_number === q) {
+      setError('This chassis is already added'); return;
+    }
+    setCompanionLoading(true); setError('');
+    try {
+      const r = await workflowApi.transferLookup(q);
+      setCompanions(prev => [...prev, r.data]);
+      setCompanionChassis('');
+    } catch (e: any) {
+      setError(e?.response?.data?.message ?? 'Companion vehicle search failed');
+    } finally { setCompanionLoading(false); }
   };
 
   const handleVehicleSearch = async () => {
@@ -242,7 +277,7 @@ export default function TransferPage() {
     setLoading(true); setError('');
     try {
       const r = await workflowApi.driverLookup(idCard.trim());
-      setDriver(r.data); setStep('confirm');
+      setDriver(r.data); setStep('companions');
     } catch (e: any) {
       setError(e?.response?.data?.message ?? 'Driver lookup failed');
     } finally { setLoading(false); }
@@ -252,7 +287,7 @@ export default function TransferPage() {
   const handleSkipDriver = () => {
     setDriver(null);
     setIdCard('');
-    setStep('confirm');
+    setStep('companions');
   };
 
   const handleConfirm = async () => {
@@ -263,9 +298,11 @@ export default function TransferPage() {
         vehicle_id: vehicle.vehicle_id,
         ...(driver ? { driver_id: driver.driver_id, driver_id_card: idCard.trim() } : {}),
         notes,
+        companion_vehicle_ids: companions.map(c => c.vehicle_id),
       });
+      const allChassis = [vehicle.chassis_number, ...companions.map(c => c.chassis_number)].join(', ');
       const msg = driver
-        ? `Vehicle ${vehicle.chassis_number} transferred with driver ${driver.full_name}`
+        ? `${companions.length > 0 ? allChassis : `Vehicle ${vehicle.chassis_number}`} transferred with driver ${driver.full_name}`
         : `Vehicle ${vehicle.chassis_number} transferred (no driver assigned)`;
       toast.success(msg);
       setStep('done');
@@ -274,7 +311,7 @@ export default function TransferPage() {
     } finally { setLoading(false); }
   };
 
-  const stepLabels: Step[] = ['vehicle', 'driver', 'confirm'];
+  const stepLabels: Step[] = ['vehicle', 'driver', 'companions', 'confirm'];
 
   return (
     <div className="max-w-2xl mx-auto space-y-4 sm:space-y-5">
@@ -318,7 +355,7 @@ export default function TransferPage() {
         </Section>
       )}
 
-      {(step === 'driver' || step === 'confirm') && vehicle && (
+      {(step === 'driver' || step === 'companions' || step === 'confirm') && vehicle && (
         <Section title="Vehicle Confirmed"><VehicleCard v={vehicle} /></Section>
       )}
 
@@ -349,6 +386,74 @@ export default function TransferPage() {
         </Section>
       )}
 
+      {step === 'companions' && (
+        <>
+          {driver && (
+            <Section title="Driver Confirmed">
+              <DriverIdCard driver={driver} />
+            </Section>
+          )}
+          <Section title="Step 3 — Add Companion Vehicles (Optional)">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              If this truck is towing a Trella or carrying additional vehicles, add their chassis numbers here.
+              Each will be transferred together under the same driver in a single trip.
+            </p>
+
+            {/* Companion search */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={companionChassis}
+                onChange={e => setCompanionChassis(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleAddCompanion()}
+                placeholder="Enter companion chassis number..."
+                autoComplete="off"
+                className="flex-1 min-w-0 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+              <button onClick={handleAddCompanion} disabled={companionLoading || companionChassis.trim().length < 4}
+                className="flex-shrink-0 whitespace-nowrap px-4 py-2.5 rounded-lg bg-brand-500 text-white text-sm font-medium hover:bg-brand-600 disabled:opacity-50 transition-colors">
+                {companionLoading ? 'Searching…' : '+ Add'}
+              </button>
+            </div>
+
+            {/* Companions list */}
+            {companions.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                  {companions.length} companion vehicle{companions.length > 1 ? 's' : ''} added
+                </p>
+                {companions.map((c, i) => (
+                  <div key={c.vehicle_id} className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 px-3 py-2.5">
+                    <div>
+                      <p className="text-sm font-mono font-semibold text-gray-800 dark:text-white">{c.chassis_number}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{[c.brand, c.model, c.color].filter(Boolean).join(' · ')}</p>
+                    </div>
+                    <button
+                      onClick={() => setCompanions(prev => prev.filter((_, j) => j !== i))}
+                      className="ml-3 text-xs text-red-500 hover:underline flex-shrink-0">
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {error && <ErrorAlert message={error} />}
+
+            <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 pt-1">
+              <button onClick={() => setStep('driver')}
+                className="flex-1 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                ← Back
+              </button>
+              <button onClick={() => { setError(''); setStep('confirm'); }}
+                className="flex-1 sm:flex-[2] py-2.5 rounded-lg bg-brand-500 text-white text-sm font-semibold hover:bg-brand-600 transition-colors">
+                {companions.length > 0 ? `Continue with ${companions.length + 1} vehicles →` : 'Continue (no companions) →'}
+              </button>
+            </div>
+          </Section>
+        </>
+      )}
+
       {step === 'confirm' && (
         <>
           {driver && (
@@ -356,17 +461,29 @@ export default function TransferPage() {
               <DriverIdCard driver={driver} />
             </Section>
           )}
-          <Section title="Step 3 — Transfer Summary &amp; Confirm">
+          <Section title="Step 4 — Transfer Summary &amp; Confirm">
             <div className="rounded-lg bg-orange-50 dark:bg-orange-500/10 border border-orange-200 dark:border-orange-500/20 px-3 py-3 text-sm text-orange-700 dark:text-orange-400">
               <p className="font-semibold text-xs sm:text-sm">Transfer Summary</p>
-              <p className="mt-1 text-xs sm:text-sm leading-relaxed">
-                Vehicle <strong className="font-mono break-all">{vehicle?.chassis_number}</strong> will be{' '}
-                {driver
-                  ? <>assigned to driver <strong>{driver.full_name}</strong> — </>
-                  : <span className="italic">transferred without an assigned driver — </span>
-                }
-                status changes to IN_TRANSIT.
-              </p>
+              {companions.length === 0 ? (
+                <p className="mt-1 text-xs sm:text-sm leading-relaxed">
+                  Vehicle <strong className="font-mono break-all">{vehicle?.chassis_number}</strong> will be{' '}
+                  {driver
+                    ? <>assigned to driver <strong>{driver.full_name}</strong> — </>
+                    : <span className="italic">transferred without an assigned driver — </span>
+                  }
+                  status changes to IN_TRANSIT.
+                </p>
+              ) : (
+                <div className="mt-1 text-xs sm:text-sm leading-relaxed space-y-1">
+                  <p>{companions.length + 1} vehicles will be transferred together{driver ? <> with driver <strong>{driver.full_name}</strong></> : ' without a driver'}:</p>
+                  <ul className="mt-1 space-y-0.5 ml-3">
+                    <li className="font-mono break-all">• {vehicle?.chassis_number} <span className="font-sans font-normal opacity-70">(primary)</span></li>
+                    {companions.map(c => (
+                      <li key={c.vehicle_id} className="font-mono break-all">• {c.chassis_number}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
             <NotesInput value={notes} onChange={setNotes} />
             {error && <ErrorAlert message={error} />}

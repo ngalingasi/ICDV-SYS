@@ -155,17 +155,19 @@ const driverLookup = catchAsync(async (req, res) => {
  * Passes req.user to model so canBypassBatchGate() can be evaluated.
  */
 const transferConfirm = catchAsync(async (req, res) => {
-  const { vehicle_id, driver_id, driver_id_card, notes } = req.body;
+  const { vehicle_id, driver_id, driver_id_card, notes, companion_vehicle_ids } = req.body;
   if (!vehicle_id) return res.status(400).json({ message: 'vehicle_id is required' });
-  // driver_id and driver_id_card are now optional — a vehicle can be transferred
-  // without assigning a specific ICDV driver (e.g. external/unregistered driver)
   const effectiveIcdvId = await resolveEffectiveIcdvId(req.icdvId, Number(vehicle_id));
+  const companionIds = Array.isArray(companion_vehicle_ids)
+    ? companion_vehicle_ids.map(Number).filter(Boolean)
+    : [];
   const result = await wf.confirmTransfer(
     Number(vehicle_id),
     driver_id ? Number(driver_id) : null,
     driver_id_card ? driver_id_card.trim() : null,
     notes || null, req.user.user_id, effectiveIcdvId,
-    req.user  // passed for batch gate bypass check
+    req.user,    // batch gate bypass check
+    companionIds // companion vehicles (Trellas riding with the primary truck)
   );
   res.json(result);
 });
@@ -213,12 +215,19 @@ const receiveLookup = catchAsync(async (req, res) => {
 });
 
 const receiveConfirm = catchAsync(async (req, res) => {
-  const { driver_id, vehicle_id, notes } = req.body;
-  // vehicle_id is always required; driver_id is optional (may be null if no driver was assigned)
+  const { driver_id, vehicle_id, notes, companion_vehicle_ids } = req.body;
   if (!vehicle_id) return res.status(400).json({ message: 'vehicle_id is required' });
   const effectiveIcdvId = await resolveEffectiveIcdvId(req.icdvId, Number(vehicle_id));
+  const companionIds = Array.isArray(companion_vehicle_ids)
+    ? companion_vehicle_ids.map(Number).filter(Boolean)
+    : [];
   const result = await wf.confirmReceive(
-    driver_id ? Number(driver_id) : null, Number(vehicle_id), notes || null, req.user.user_id, effectiveIcdvId
+    driver_id ? Number(driver_id) : null,
+    Number(vehicle_id),
+    notes || null,
+    req.user.user_id,
+    effectiveIcdvId,
+    companionIds
   );
   res.json(result);
 });

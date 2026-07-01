@@ -134,7 +134,7 @@ export const workflowApi = {
     client.get('/workflow/transfer/lookup', { params: { chassis } }),
   driverLookup:    (id_card: string) =>
     client.get('/workflow/transfer/driver-lookup', { params: { id_card } }),
-  transferConfirm: (data: { vehicle_id: number; driver_id?: number; driver_id_card?: string; notes?: string }) =>
+  transferConfirm: (data: { vehicle_id: number; driver_id?: number; driver_id_card?: string; notes?: string; companion_vehicle_ids?: number[] }) =>
     client.post('/workflow/transfer/confirm', data),
   releaseDriver: (vehicle_id: number, reason: string) =>
     client.post('/workflow/transfer/release-driver', { vehicle_id, reason }),
@@ -142,8 +142,8 @@ export const workflowApi = {
   // 4. Receive (Yard)
   receiveLookup:  (id_card: string) =>
     client.get('/workflow/receive/lookup', { params: { id_card } }),
-  receiveConfirm: (driver_id: number, vehicle_id: number, notes?: string) =>
-    client.post('/workflow/receive/confirm', { driver_id, vehicle_id, notes }),
+  receiveConfirm: (driver_id: number, vehicle_id: number, notes?: string, companion_vehicle_ids?: number[]) =>
+    client.post('/workflow/receive/confirm', { driver_id, vehicle_id, notes, companion_vehicle_ids }),
 
   // 5. Search & history
   search:     (chassis: string) =>

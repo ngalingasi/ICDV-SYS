@@ -685,15 +685,16 @@ const lookupDriverByIdCard = async (idCard, icdvId) => {
  * confirmTransfer — now checks batch.operational_status = 'ready' before
  * allowing a transfer, unless the operator has admin/super_admin/system_admin role.
  *
- * @param {number} vehicleId
- * @param {number} driverId
- * @param {string} driverIdCard
+ * @param {number}   vehicleId           — the PRIMARY vehicle (truck)
+ * @param {number}   driverId
+ * @param {string}   driverIdCard
  * @param {string|null} notes
- * @param {number} operatorId
+ * @param {number}   operatorId
  * @param {number|null} icdvId
- * @param {object} operatorUser — req.user, used to check canBypassBatchGate
+ * @param {object}   operatorUser        — req.user, used to check canBypassBatchGate
+ * @param {number[]} companionVehicleIds — optional: additional vehicles riding with the primary (Trellas)
  */
-const confirmTransfer = async (vehicleId, driverId, driverIdCard, notes, operatorId, icdvId, operatorUser = null) =>
+const confirmTransfer = async (vehicleId, driverId, driverIdCard, notes, operatorId, icdvId, operatorUser = null, companionVehicleIds = []) =>
   transaction(async (conn) => {
     const [vehicle] = await connQuery(conn,
       `SELECT v.vehicle_id, v.icdv_id, v.chassis_number, v.workflow_status,
@@ -707,8 +708,6 @@ const confirmTransfer = async (vehicleId, driverId, driverIdCard, notes, operato
     assertTransition(vehicle.workflow_status, WORKFLOW_STATUSES.IN_TRANSIT);
 
     // ── Batch operational readiness gate (migration 008) ──────────────────────
-    // Admin / super_admin / system_admin bypass this check.
-    // All other roles (including transfer_officer) must have batch ready.
     if (vehicle.batch_id && !canBypassBatchGate(operatorUser)) {
       const [batch] = await connQuery(conn,
         'SELECT batch_id, batch_number, operational_status FROM batches WHERE batch_id=? FOR UPDATE',
@@ -723,9 +722,6 @@ const confirmTransfer = async (vehicleId, driverId, driverIdCard, notes, operato
       }
     }
 
-    // Lock driver globally — driver must not be active in any ICDV transfer.
-    // icdv_id for the assignment record comes from the vehicle (vehicle.icdv_id),
-    // not from the driver's home ICDV.
     const effectiveIcdvForDriver = icdvId ?? vehicle.icdv_id;
     if (driverId !== null) {
       const [active] = await connQuery(conn,
@@ -735,16 +731,31 @@ const confirmTransfer = async (vehicleId, driverId, driverIdCard, notes, operato
       if (active) throw new ApiError(httpStatus.CONFLICT, 'Driver already has an active assignment');
     }
 
-    // Create transfer record
+    // ── Validate companion vehicles before creating any records ──────────────
+    const companions = [];
+    for (const cvId of companionVehicleIds) {
+      const [cv] = await connQuery(conn,
+        `SELECT vehicle_id, icdv_id, chassis_number, workflow_status, batch_id, current_location, manifest_id
+         FROM vehicles WHERE vehicle_id=? FOR UPDATE`,
+        [cvId]
+      );
+      if (!cv) throw new ApiError(httpStatus.NOT_FOUND, `Companion vehicle ${cvId} not found`);
+      if (cv.icdv_id !== vehicle.icdv_id)
+        throw new ApiError(httpStatus.CONFLICT, `Companion vehicle ${cv.chassis_number} belongs to a different ICDV`);
+      assertTransition(cv.workflow_status, WORKFLOW_STATUSES.IN_TRANSIT);
+      companions.push(cv);
+    }
+
+    // ── Create PRIMARY transfer record (is_primary = 1) ───────────────────────
     const tr = await connQuery(conn,
       `INSERT INTO transfers
-         (icdv_id, vehicle_id, batch_id, driver_id, driver_id_card, transferred_by, transfer_notes, status)
-       VALUES (?,?,?,?,?,?,?,'active')`,
+         (icdv_id, vehicle_id, batch_id, driver_id, driver_id_card, transferred_by,
+          transfer_notes, status, is_primary, companion_transfer_id)
+       VALUES (?,?,?,?,?,?,?,'active',1,NULL)`,
       [effectiveIcdvForDriver, vehicleId, vehicle.batch_id, driverId, driverIdCard, operatorId, notes]
     );
     const transferId = tr.insertId;
 
-    // Driver assignment — only created when a driver is assigned
     if (driverId !== null) {
       await connQuery(conn,
         `INSERT INTO driver_assignments (icdv_id, driver_id, vehicle_id, transfer_id, assigned_by, status)
@@ -764,7 +775,53 @@ const confirmTransfer = async (vehicleId, driverId, driverIdCard, notes, operato
       notes, performedBy: operatorId,
     });
 
-    return { transfer_id: transferId, vehicle_id: vehicleId, driver_id: driverId };
+    // ── Create COMPANION transfer records (is_primary = 0) ────────────────────
+    const companionTransferIds = [];
+    for (const cv of companions) {
+      const ctr = await connQuery(conn,
+        `INSERT INTO transfers
+           (icdv_id, vehicle_id, batch_id, driver_id, driver_id_card, transferred_by,
+            transfer_notes, status, is_primary, companion_transfer_id)
+         VALUES (?,?,?,?,?,?,?,'active',0,?)`,
+        [effectiveIcdvForDriver, cv.vehicle_id, cv.batch_id ?? vehicle.batch_id,
+         driverId, driverIdCard, operatorId, notes, transferId]
+      );
+      companionTransferIds.push(ctr.insertId);
+
+      // Create a driver_assignment for each companion — same driver, own transfer_id.
+      // This makes lookupForReceive, releaseDriver, and TPA stats all work
+      // consistently without any special companion-specific queries.
+      if (driverId !== null) {
+        await connQuery(conn,
+          `INSERT INTO driver_assignments (icdv_id, driver_id, vehicle_id, transfer_id, assigned_by, status)
+           VALUES (?,?,?,?,?,'active')`,
+          [effectiveIcdvForDriver, driverId, cv.vehicle_id, ctr.insertId, operatorId]
+        );
+      }
+
+      await applyVehicleStatus(conn, cv.vehicle_id, WORKFLOW_STATUSES.IN_TRANSIT, operatorId);
+      await syncManifestStatus(conn, cv.manifest_id);
+      await logOperation(conn, {
+        icdvId: effectiveIcdvForDriver, vehicleId: cv.vehicle_id, chassisNumber: cv.chassis_number,
+        operationType: 'transferred',
+        fromStatus: cv.workflow_status, toStatus: WORKFLOW_STATUSES.IN_TRANSIT,
+        fromLocation: cv.current_location, toLocation: WORKFLOW_TO_LOCATION.in_transit,
+        batchId: cv.batch_id ?? vehicle.batch_id, transferId: ctr.insertId,
+        notes: `Companion to primary transfer #${transferId}`,
+        performedBy: operatorId,
+      });
+    }
+
+    return {
+      transfer_id: transferId,
+      vehicle_id:  vehicleId,
+      driver_id:   driverId,
+      companions:  companions.map((cv, i) => ({
+        transfer_id: companionTransferIds[i],
+        vehicle_id:  cv.vehicle_id,
+        chassis_number: cv.chassis_number,
+      })),
+    };
   });
 
 /**
@@ -852,11 +909,56 @@ const releaseDriver = async (vehicleId, reason, operatorId, icdvId = null) =>
       performedBy: operatorId,
     });
 
+    // ── Release companion vehicles — query driver_assignments directly since
+    // all companions now have their own rows there (same driver, own transfer_id).
+    const companionAssignments = await connQuery(conn,
+      `SELECT da.assignment_id, da.vehicle_id, da.transfer_id
+       FROM driver_assignments da
+       WHERE da.driver_id = ? AND da.status = 'active' AND da.vehicle_id != ?`,
+      [transfer.driver_id, vehicleId]
+    );
+
+    for (const ca of companionAssignments) {
+      const [cv] = await connQuery(conn,
+        `SELECT vehicle_id, icdv_id, chassis_number, workflow_status, batch_id, current_location, manifest_id
+         FROM vehicles WHERE vehicle_id=? FOR UPDATE`,
+        [ca.vehicle_id]
+      );
+      if (!cv) continue;
+
+      await connQuery(conn,
+        `INSERT INTO driver_releases
+           (icdv_id, vehicle_id, chassis_number, original_driver_id, original_transfer_id, reason, released_by)
+         VALUES (?,?,?,?,?,?,?)`,
+        [cv.icdv_id, cv.vehicle_id, cv.chassis_number, transfer.driver_id, ca.transfer_id,
+         `Companion released with primary vehicle ${vehicle.chassis_number}: ${reason.trim()}`, operatorId]
+      );
+
+      await connQuery(conn,
+        "UPDATE driver_assignments SET status='closed', closed_at=NOW() WHERE assignment_id=?",
+        [ca.assignment_id]
+      );
+
+      await connQuery(conn, 'DELETE FROM transfers WHERE transfer_id=?', [ca.transfer_id]);
+      await applyVehicleStatus(conn, cv.vehicle_id, WORKFLOW_STATUSES.BATCHED, operatorId);
+      await syncManifestStatus(conn, cv.manifest_id);
+      await logOperation(conn, {
+        icdvId: cv.icdv_id, vehicleId: cv.vehicle_id, chassisNumber: cv.chassis_number,
+        operationType: 'driver_released',
+        fromStatus: cv.workflow_status, toStatus: WORKFLOW_STATUSES.BATCHED,
+        fromLocation: cv.current_location, toLocation: WORKFLOW_TO_LOCATION.batched,
+        batchId: cv.batch_id, transferId: null,
+        notes: `Companion released with primary vehicle ${vehicle.chassis_number}: ${reason.trim()}`,
+        performedBy: operatorId,
+      });
+    }
+
     return {
       vehicle_id: vehicleId,
       chassis_number: vehicle.chassis_number,
       released_driver: driver?.full_name ?? null,
       new_workflow_status: WORKFLOW_STATUSES.BATCHED,
+      companions_released: companionAssignments.length,
     };
   });
 
@@ -943,131 +1045,145 @@ const getTpaStats = async (icdvId = null) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const lookupForReceive = async (idCard, icdvId) => {
-  // Driver lookup is global — any driver regardless of their home ICDV
   const [driver] = await query('SELECT * FROM drivers WHERE id_number=?', [idCard]);
   if (!driver)
     throw new ApiError(httpStatus.NOT_FOUND, `No driver found with ID card '${idCard}'`);
 
-  // Assignment lookup is global — the assignment's icdv_id is the VEHICLE's ICDV
-  // (not the driver's home ICDV), so we must not filter by driver.icdv_id
-  const [assignment] = await query(
+  // Fetch ALL active assignments for this driver — primary AND companions both
+  // have their own driver_assignments rows, so this naturally returns everything.
+  const assignments = await query(
     `SELECT da.*,
        v.vehicle_id, v.chassis_number, v.brand, v.model, v.color, v.year,
        v.customer_name, v.workflow_status, v.current_location, v.batch_id,
        v.release_status, v.operational_status,
        m.manifest_number, m.manifest_id,
        vs.name AS vessel_name,
-       t.transfer_id, t.transferred_at, t.transfer_notes
+       t.transfer_id, t.transferred_at, t.transfer_notes,
+       t.is_primary, t.companion_transfer_id
      FROM driver_assignments da
-     JOIN vehicles v ON v.vehicle_id = da.vehicle_id
-     LEFT JOIN manifests m ON m.manifest_id = v.manifest_id
-     LEFT JOIN vessels vs ON vs.vessel_id = m.vessel_id
-     LEFT JOIN transfers t ON t.transfer_id = da.transfer_id
-     WHERE da.driver_id=? AND da.status='active'`,
+     JOIN vehicles v  ON v.vehicle_id  = da.vehicle_id
+     LEFT JOIN manifests m  ON m.manifest_id = v.manifest_id
+     LEFT JOIN vessels vs   ON vs.vessel_id  = m.vessel_id
+     LEFT JOIN transfers t  ON t.transfer_id = da.transfer_id
+     WHERE da.driver_id = ? AND da.status = 'active'
+     ORDER BY t.is_primary DESC, da.assignment_id ASC`,
     [driver.driver_id]
   );
-  if (!assignment)
-    throw new ApiError(httpStatus.NOT_FOUND, `Driver ${driver.full_name} has no active vehicle assignment`);
-  if (assignment.workflow_status !== WORKFLOW_STATUSES.IN_TRANSIT)
-    throw new ApiError(httpStatus.CONFLICT,
-      `Vehicle ${assignment.chassis_number} cannot be received. ${statusDescription(assignment.workflow_status)}.`);
 
-  return { driver, assignment };
+  if (!assignments.length)
+    throw new ApiError(httpStatus.NOT_FOUND, `Driver ${driver.full_name} has no active vehicle assignment`);
+
+  for (const a of assignments) {
+    if (a.workflow_status !== WORKFLOW_STATUSES.IN_TRANSIT)
+      throw new ApiError(httpStatus.CONFLICT,
+        `Vehicle ${a.chassis_number} cannot be received. ${statusDescription(a.workflow_status)}.`);
+  }
+
+  // Primary first (is_primary=1), companions follow
+  const primary    = assignments.find(a => a.is_primary === 1) ?? assignments[0];
+  const companions = assignments.filter(a => a.assignment_id !== primary.assignment_id);
+
+  return { driver, assignment: primary, companions };
 };
 
-const confirmReceive = async (driverId, vehicleId, notes, operatorId, icdvId) =>
+/**
+ * confirmReceive — receives ALL vehicles for a driver in one atomic operation.
+ * Accepts the primary vehicleId plus an array of companionVehicleIds (may be empty).
+ * All are set to 'received' and their transfers/assignments are closed together.
+ */
+const confirmReceive = async (driverId, vehicleId, notes, operatorId, icdvId, companionVehicleIds = []) =>
   transaction(async (conn) => {
-    const [vehicle] = await connQuery(conn,
-      `SELECT v.vehicle_id, v.icdv_id, v.chassis_number, v.workflow_status,
-              v.batch_id, v.current_location, v.manifest_id
-       FROM vehicles v WHERE v.vehicle_id=? FOR UPDATE`,
-      [vehicleId]
-    );
-    if (!vehicle) throw new ApiError(httpStatus.NOT_FOUND, 'Vehicle not found');
-    if (icdvId !== null && vehicle.icdv_id !== icdvId)
-      throw new ApiError(httpStatus.FORBIDDEN, 'Vehicle does not belong to your ICDV');
-    assertTransition(vehicle.workflow_status, WORKFLOW_STATUSES.RECEIVED);
-
-    // Resolve the effective icdv_id for all queries below
-    const effectiveIcdvId = icdvId ?? vehicle.icdv_id;
-
-    // Find assignment — global scope: assignment's icdv_id is the vehicle's ICDV
-    // not the driver's home ICDV, so never filter by icdv_id on driver_assignments.
-    let assignment;
-    if (driverId !== null) {
-      [assignment] = await connQuery(conn,
-        "SELECT * FROM driver_assignments WHERE driver_id=? AND vehicle_id=? AND status='active' FOR UPDATE",
-        [driverId, vehicleId]
-      );
-      if (!assignment)
-        throw new ApiError(httpStatus.NOT_FOUND, 'No active driver assignment found');
-    } else {
-      // No driver — look for the active transfer for this vehicle directly
-      [assignment] = await connQuery(conn,
-        "SELECT * FROM driver_assignments WHERE vehicle_id=? AND status='active' FOR UPDATE",
-        [vehicleId]
-      );
-      // No assignment is acceptable when vehicle was transferred without a driver
-    }
-
+    const allVehicleIds = [vehicleId, ...companionVehicleIds];
     const driverIdCard = driverId
       ? (await connQuery(conn, 'SELECT id_number FROM drivers WHERE driver_id=?', [driverId]))[0]?.id_number ?? null
       : null;
 
-    // Look up the transfer record — either from the assignment or directly
-    let transferId = assignment?.transfer_id ?? null;
-    if (!transferId) {
-      const [tr] = await connQuery(conn,
-        "SELECT transfer_id FROM transfers WHERE vehicle_id=? AND status='active' ORDER BY transfer_id DESC LIMIT 1",
-        [vehicleId]
+    const received = [];
+
+    for (const vId of allVehicleIds) {
+      const [vehicle] = await connQuery(conn,
+        `SELECT v.vehicle_id, v.icdv_id, v.chassis_number, v.workflow_status,
+                v.batch_id, v.current_location, v.manifest_id
+         FROM vehicles v WHERE v.vehicle_id=? FOR UPDATE`,
+        [vId]
       );
-      transferId = tr?.transfer_id ?? null;
-    }
+      if (!vehicle) throw new ApiError(httpStatus.NOT_FOUND, `Vehicle ${vId} not found`);
+      if (icdvId !== null && vehicle.icdv_id !== icdvId)
+        throw new ApiError(httpStatus.FORBIDDEN, `Vehicle ${vehicle.chassis_number} does not belong to your ICDV`);
+      assertTransition(vehicle.workflow_status, WORKFLOW_STATUSES.RECEIVED);
 
-    const rl = await connQuery(conn,
-      `INSERT INTO receiving_logs
-         (icdv_id, vehicle_id, transfer_id, driver_id, driver_id_card, received_by, receive_notes)
-       VALUES (?,?,?,?,?,?,?)`,
-      [effectiveIcdvId, vehicleId, transferId, driverId, driverIdCard, operatorId, notes]
-    );
+      const effectiveIcdvId = icdvId ?? vehicle.icdv_id;
 
-    if (assignment) {
+      let assignment;
+      if (driverId !== null) {
+        [assignment] = await connQuery(conn,
+          "SELECT * FROM driver_assignments WHERE driver_id=? AND vehicle_id=? AND status='active' FOR UPDATE",
+          [driverId, vId]
+        );
+      } else {
+        [assignment] = await connQuery(conn,
+          "SELECT * FROM driver_assignments WHERE vehicle_id=? AND status='active' FOR UPDATE",
+          [vId]
+        );
+      }
+
+      let transferId = assignment?.transfer_id ?? null;
+      if (!transferId) {
+        const [tr] = await connQuery(conn,
+          "SELECT transfer_id FROM transfers WHERE vehicle_id=? AND status='active' ORDER BY transfer_id DESC LIMIT 1",
+          [vId]
+        );
+        transferId = tr?.transfer_id ?? null;
+      }
+
+      const rl = await connQuery(conn,
+        `INSERT INTO receiving_logs
+           (icdv_id, vehicle_id, transfer_id, driver_id, driver_id_card, received_by, receive_notes)
+         VALUES (?,?,?,?,?,?,?)`,
+        [effectiveIcdvId, vId, transferId, driverId, driverIdCard, operatorId, notes]
+      );
+
+      if (assignment) {
+        await connQuery(conn,
+          "UPDATE driver_assignments SET status='closed', closed_at=NOW() WHERE assignment_id=?",
+          [assignment.assignment_id]
+        );
+      }
+      if (transferId) {
+        await connQuery(conn,
+          "UPDATE transfers SET status='completed', completed_at=NOW() WHERE transfer_id=?",
+          [transferId]
+        );
+      }
+
       await connQuery(conn,
-        "UPDATE driver_assignments SET status='closed', closed_at=NOW() WHERE assignment_id=?",
-        [assignment.assignment_id]
+        `UPDATE vehicles
+         SET workflow_status    = ?,
+             current_location   = ?,
+             operational_status = 'delivered',
+             release_status     = 'collected',
+             updated_by         = ?,
+             updated_at         = NOW()
+         WHERE vehicle_id = ?`,
+        [WORKFLOW_STATUSES.RECEIVED, WORKFLOW_TO_LOCATION.received, operatorId, vId]
       );
+
+      await syncManifestStatus(conn, vehicle.manifest_id);
+      await logOperation(conn, {
+        icdvId: effectiveIcdvId, vehicleId: vId, chassisNumber: vehicle.chassis_number,
+        operationType: 'received',
+        fromStatus: vehicle.workflow_status, toStatus: WORKFLOW_STATUSES.RECEIVED,
+        fromLocation: vehicle.current_location, toLocation: WORKFLOW_TO_LOCATION.received,
+        batchId: vehicle.batch_id, transferId,
+        notes, performedBy: operatorId,
+      });
+
+      received.push({ receive_id: rl.insertId, vehicle_id: vId, chassis_number: vehicle.chassis_number });
     }
-    if (transferId) {
-      await connQuery(conn,
-        "UPDATE transfers SET status='completed', completed_at=NOW() WHERE transfer_id=?",
-        [transferId]
-      );
-    }
 
-    await connQuery(conn,
-      `UPDATE vehicles
-       SET workflow_status    = ?,
-           current_location   = ?,
-           operational_status = 'delivered',
-           release_status     = 'collected',
-           updated_by         = ?,
-           updated_at         = NOW()
-       WHERE vehicle_id = ?`,
-      [WORKFLOW_STATUSES.RECEIVED, WORKFLOW_TO_LOCATION.received, operatorId, vehicleId]
-    );
-
-    await syncManifestStatus(conn, vehicle.manifest_id);
-    await logOperation(conn, {
-      icdvId: effectiveIcdvId, vehicleId, chassisNumber: vehicle.chassis_number,
-      operationType: 'received',
-      fromStatus: vehicle.workflow_status, toStatus: WORKFLOW_STATUSES.RECEIVED,
-      fromLocation: vehicle.current_location, toLocation: WORKFLOW_TO_LOCATION.received,
-      batchId: vehicle.batch_id, transferId,
-      notes, performedBy: operatorId,
-    });
-
-    return { receive_id: rl.insertId, vehicle_id: vehicleId };
+    return { received };
   });
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 5. CHASSIS SEARCH — full journey with all status fields
@@ -1166,37 +1282,24 @@ const getLiveTransfers = async (icdvId = null) => {
   const scopeW = icdvId ? 'AND v.icdv_id = ?' : '';
   const params = icdvId ? [icdvId] : [];
 
-  return query(
+  const rows = await query(
     `SELECT
-       v.vehicle_id,
-       v.chassis_number,
-       v.brand,
-       v.model,
-       v.color,
-       v.destination,
-       v.delivery_location,
-       v.batch_id,
-       v.manifest_id,
-       m.manifest_number,
-       m.arrival_date    AS manifest_arrival_date,
-       vs.name           AS vessel_name,
-       ic.name           AS icdv_name,
-       ic.code           AS icdv_code,
-       d.full_name       AS driver_name,
-       d.phone           AS driver_phone,
-       d.id_number       AS driver_id_card,
-       d.license_number  AS driver_license,
-       d.photo           AS driver_photo,
-       t.transfer_id,
-       t.transferred_at,
-       t.transfer_notes,
+       v.vehicle_id, v.chassis_number, v.brand, v.model, v.color,
+       v.destination, v.delivery_location, v.batch_id, v.manifest_id,
+       m.manifest_number, m.arrival_date AS manifest_arrival_date,
+       vs.name AS vessel_name,
+       ic.name AS icdv_name, ic.code AS icdv_code,
+       d.full_name AS driver_name, d.phone AS driver_phone,
+       d.id_number AS driver_id_card, d.license_number AS driver_license,
+       d.photo AS driver_photo,
+       t.transfer_id, t.transferred_at, t.transfer_notes,
+       t.is_primary, t.companion_transfer_id,
        TIMESTAMPDIFF(MINUTE, COALESCE(t.transferred_at, v.updated_at), NOW()) AS elapsed_minutes,
-       COALESCE(ttc.normal_minutes, 30)               AS normal_minutes,
-       COALESCE(ttc.max_minutes, 60)                  AS max_minutes,
+       COALESCE(ttc.normal_minutes, 30) AS normal_minutes,
+       COALESCE(ttc.max_minutes, 60)    AS max_minutes,
        CASE
          WHEN TIMESTAMPDIFF(MINUTE, COALESCE(t.transferred_at, v.updated_at), NOW()) >=
-              COALESCE(ttc.max_minutes, 60)
-           THEN 'delayed'
+              COALESCE(ttc.max_minutes, 60) THEN 'delayed'
          WHEN TIMESTAMPDIFF(MINUTE, COALESCE(t.transferred_at, v.updated_at), NOW()) >=
               (COALESCE(ttc.normal_minutes, 30) +
                ((COALESCE(ttc.max_minutes, 60) - COALESCE(ttc.normal_minutes, 30)) * 0.7))
@@ -1204,10 +1307,6 @@ const getLiveTransfers = async (icdvId = null) => {
          ELSE 'on_time'
        END AS delay_status
      FROM vehicles v
-     -- vehicle.workflow_status = 'in_transit' is the primary truth.
-     -- LEFT JOIN on transfers to handle edge cases where transfer record
-     -- status is inconsistent with vehicle status (data anomaly).
-     -- We join on the active transfer first; fall back to most recent any-status.
      LEFT JOIN transfers t ON t.vehicle_id = v.vehicle_id
                           AND t.status IN ('active', 'completed')
                           AND t.transfer_id = (
@@ -1222,10 +1321,36 @@ const getLiveTransfers = async (icdvId = null) => {
      LEFT JOIN icdvs ic         ON ic.icdv_id    = v.icdv_id
      LEFT JOIN transit_time_configs ttc ON ttc.icdv_id = v.icdv_id
      WHERE v.workflow_status = 'in_transit' ${scopeW}
-     ORDER BY elapsed_minutes DESC`,
+     ORDER BY t.is_primary DESC, elapsed_minutes DESC`,
     params
   );
+
+  // Group companion vehicles under their primary card.
+  const primaryMap = new Map();
+  const pendingCompanions = [];
+
+  for (const row of rows) {
+    if (row.is_primary === 1 || row.companion_transfer_id === null) {
+      row.companions = [];
+      primaryMap.set(row.transfer_id, row);
+    } else {
+      pendingCompanions.push(row);
+    }
+  }
+
+  for (const c of pendingCompanions) {
+    const primary = primaryMap.get(c.companion_transfer_id);
+    if (primary) {
+      primary.companions.push(c);
+    } else {
+      c.companions = [];
+      primaryMap.set(c.transfer_id, c);
+    }
+  }
+
+  return Array.from(primaryMap.values());
 };
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TRANSFER PERFORMANCE REPORT (migration 014)
