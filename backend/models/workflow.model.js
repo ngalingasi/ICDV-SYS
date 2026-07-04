@@ -265,7 +265,7 @@ const generateBatchNumber = async (vesselId, icdvId, conn = null) => {
     [vesselId]
   );
   const code = (vessel?.imo_number || vessel?.name || 'VES')
-    .toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
+    .toUpperCase().replace(/[^A-Z0-9]/g, '');
 
   const prefix = `${code}-BATCH-`;
   const [row] = await exec(
@@ -309,12 +309,17 @@ const addToBatch = async (vehicleId, notes, operatorId, icdvId) =>
 
     const vesselId = vehicle.vessel_id;
 
+    // Always use vehicle.icdv_id for DB operations inside the transaction —
+    // the icdvId parameter can be null for super_admin/system_admin calls,
+    // which would break any WHERE icdv_id=? filter.
+    const effectiveIcdvId = vehicle.icdv_id;
+
     // Batch capacity is per-ICDV (set by super_admin on the ICDV profile,
     // default 20). Always resolve from the vehicle's actual ICDV — icdvId
     // here can be null for cross-tenant (super_admin) calls.
     const [icdvRow] = await connQuery(conn,
       `SELECT batch_capacity FROM icdvs WHERE icdv_id=?`,
-      [vehicle.icdv_id]
+      [effectiveIcdvId]
     );
     const batchMax = icdvRow?.batch_capacity || BATCH_MAX_FALLBACK;
 
@@ -322,7 +327,7 @@ const addToBatch = async (vehicleId, notes, operatorId, icdvId) =>
       `SELECT batch_id, vehicle_count, batch_number FROM batches
        WHERE icdv_id=? AND vessel_id=? AND status='open'
        ORDER BY batch_id ASC LIMIT 1 FOR UPDATE`,
-      [icdvId, vesselId]
+      [effectiveIcdvId, vesselId]
     );
 
     let batchId, batchNumber;
@@ -344,12 +349,12 @@ const addToBatch = async (vehicleId, notes, operatorId, icdvId) =>
       }
     } else {
       const today = new Date().toISOString().slice(0, 10);
-      batchNumber = await generateBatchNumber(vesselId, icdvId, conn);
+      batchNumber = await generateBatchNumber(vesselId, effectiveIcdvId, conn);
       const r = await connQuery(conn,
         `INSERT INTO batches
            (icdv_id, batch_number, vessel_id, manifest_id, batch_date, vehicle_count, status, created_by)
          VALUES (?,?,?,?,?,1,'open',?)`,
-        [icdvId, batchNumber, vesselId, vehicle.manifest_id, today, operatorId]
+        [effectiveIcdvId, batchNumber, vesselId, vehicle.manifest_id, today, operatorId]
       );
       batchId = r.insertId;
     }
@@ -377,7 +382,7 @@ const addToBatch = async (vehicleId, notes, operatorId, icdvId) =>
 
     await syncManifestStatus(conn, vehicle.manifest_id);
     await logOperation(conn, {
-      icdvId, vehicleId, chassisNumber: vehicle.chassis_number,
+      icdvId: effectiveIcdvId, vehicleId, chassisNumber: vehicle.chassis_number,
       operationType: 'batched',
       fromStatus: vehicle.workflow_status, toStatus: WORKFLOW_STATUSES.BATCHED,
       fromLocation: vehicle.current_location, toLocation: WORKFLOW_TO_LOCATION.batched,
