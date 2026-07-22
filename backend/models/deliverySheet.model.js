@@ -48,6 +48,8 @@ const buildDriverRows = async (batchId, icdvId) => {
        d.full_name      AS driver_name,
        d.phone          AS driver_phone,
        v.chassis_number,
+       v.destination,
+       v.destination_type,
        t.transferred_at
      FROM transfers t
      JOIN drivers  d ON d.driver_id  = t.driver_id
@@ -67,9 +69,17 @@ const buildDriverRows = async (batchId, icdvId) => {
         full_name:       row.driver_name,
         phone:           row.driver_phone,
         chassis_numbers: [],
+        // Per-vehicle detail incl. destination — kept alongside chassis_numbers
+        // (which stays plain strings for backward-compat length/amount calcs)
+        vehicles:        [],
       });
     }
     driverMap.get(row.driver_id).chassis_numbers.push(row.chassis_number);
+    driverMap.get(row.driver_id).vehicles.push({
+      chassis_number:   row.chassis_number,
+      destination:      row.destination,
+      destination_type: row.destination_type,
+    });
   }
 
   const drivers      = Array.from(driverMap.values());
@@ -303,6 +313,8 @@ const getCombinedDeliverySheet = async (manifestId, icdvId = null) => {
        d.full_name      AS driver_name,
        d.phone          AS driver_phone,
        v.chassis_number,
+       v.destination,
+       v.destination_type,
        t.transferred_at
      FROM transfers t
      JOIN drivers  d ON d.driver_id  = t.driver_id
@@ -324,9 +336,15 @@ const getCombinedDeliverySheet = async (manifestId, icdvId = null) => {
         full_name:       row.driver_name,
         phone:           row.driver_phone,
         chassis_numbers: [],
+        vehicles:        [],
       });
     }
     driverMap.get(row.driver_id).chassis_numbers.push(row.chassis_number);
+    driverMap.get(row.driver_id).vehicles.push({
+      chassis_number:   row.chassis_number,
+      destination:      row.destination,
+      destination_type: row.destination_type,
+    });
   }
 
   const drivers = Array.from(driverMap.values());

@@ -4,6 +4,7 @@ import { vehiclesApi, manifestsApi } from '../../api';
 import type { Manifest } from '../../types';
 import { toast } from '../../components/tpfcs/Toast';
 import BackButton from '../../components/tpfcs/BackButton';
+import { DestinationTypeBadge, computeDestinationType } from '../../components/tpfcs/WorkflowCard';
 
 const RELEASE_STATUSES   = ['unreleased', 'released', 'collected', 'on_hold'];
 const OP_STATUSES        = ['pending', 'in_operation', 'ready', 'delivered', 'cancelled'];
@@ -142,7 +143,20 @@ export default function VehicleForm() {
           {field('Year', 'year', { type: 'number', placeholder: 'e.g. 2023' })}
           {field('Color', 'color', { placeholder: 'e.g. White' })}
           {field('Customer Name', 'customer_name', { placeholder: 'Optional' })}
-          {field('Destination', 'destination', { placeholder: 'Optional' })}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              Destination
+              <DestinationTypeBadge type={computeDestinationType(form.destination)} />
+            </label>
+            <input
+              type="text"
+              value={form.destination}
+              onChange={e => set('destination', e.target.value)}
+              placeholder="e.g. TZDAR, ZMLUN, CDFBM"
+              className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.destination ? 'border-red-400' : 'border-gray-300'}`}
+            />
+            <p className="text-[11px] text-gray-400 mt-1">TZDAR is classified as Local; any other code is Transit.</p>
+          </div>
         </div>
 
         <h2 className="text-sm font-semibold text-gray-700 border-b pb-3 pt-2">Assignment & Status</h2>

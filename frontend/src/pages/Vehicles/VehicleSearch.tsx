@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import { vehiclesApi } from '../../api';
 import type { Vehicle } from '../../types';
 import StatusBadge from '../../components/tpfcs/StatusBadge';
+import { DestinationTypeBadge } from '../../components/tpfcs/WorkflowCard';
 
 export default function VehicleSearch() {
   const [query, setQuery]   = useState('');
@@ -69,7 +70,6 @@ export default function VehicleSearch() {
               { label: 'Color',         value: vehicle.color },
               { label: 'Engine Number', value: vehicle.engine_number },
               { label: 'Customer',      value: vehicle.customer_name },
-              { label: 'Destination',   value: vehicle.destination },
               { label: 'Manifest',      value: vehicle.manifest_number },
               { label: 'Vessel',        value: vehicle.vessel_name },
             ].map(({ label, value }) => (
@@ -78,6 +78,13 @@ export default function VehicleSearch() {
                 <p className="text-sm font-medium text-gray-800 dark:text-white mt-0.5">{value ?? '—'}</p>
               </div>
             ))}
+            <div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Destination</p>
+              <p className="text-sm font-medium text-gray-800 dark:text-white mt-0.5">
+                {vehicle.destination ?? '—'}
+                <DestinationTypeBadge type={vehicle.destination_type} />
+              </p>
+            </div>
             <div>
               <p className="text-xs text-gray-500 dark:text-gray-400">Release Status</p>
               <div className="mt-1"><StatusBadge status={vehicle.release_status} /></div>

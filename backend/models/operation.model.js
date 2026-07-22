@@ -67,7 +67,7 @@ const getOperations = async ({ page, limit, vehicle_id, driver_id, status, opera
 const getOperationById = async (id, icdvId = null) => {
   const [op] = await query(
     `SELECT op.*,
-       vh.chassis_number, vh.brand, vh.model, vh.color, vh.customer_name, vh.destination,
+       vh.chassis_number, vh.brand, vh.model, vh.color, vh.customer_name, vh.destination, vh.destination_type,
        m.manifest_number, v.name AS vessel_name,
        d.full_name AS driver_name, d.license_number, d.phone AS driver_phone,
        u.full_name AS created_by_name

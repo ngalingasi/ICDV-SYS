@@ -62,7 +62,7 @@ const findByChassisLast4 = async (last4, icdvId) => {
   const params      = icdvId ? [`%${last4}`, icdvId] : [`%${last4}`];
   return query(
     `SELECT v.vehicle_id, v.icdv_id, v.chassis_number, v.brand, v.model,
-            v.color, v.year, v.customer_name, v.destination,
+            v.color, v.year, v.customer_name, v.destination, v.destination_type,
             v.workflow_status, v.current_location, v.batch_id,
             v.release_status, v.operational_status,
             v.manifest_id,
@@ -626,6 +626,7 @@ const getBatchPrintData = async (batchId, icdvId) => {
        v.year,
        v.customer_name,
        v.destination,
+       v.destination_type,
        v.delivery_location,
        v.bill_of_lading_no,
        v.workflow_status,
@@ -1201,7 +1202,7 @@ const searchChassis = async (chassis, icdvId) => {
   const vehicles = await query(
     `SELECT
        v.vehicle_id, v.icdv_id, v.chassis_number, v.brand, v.model,
-       v.color, v.year, v.customer_name, v.destination,
+       v.color, v.year, v.customer_name, v.destination, v.destination_type,
        v.workflow_status, v.current_location,
        v.release_status, v.operational_status,
        v.batch_id, v.manifest_id,
@@ -1290,7 +1291,7 @@ const getLiveTransfers = async (icdvId = null) => {
   const rows = await query(
     `SELECT
        v.vehicle_id, v.chassis_number, v.brand, v.model, v.color,
-       v.destination, v.delivery_location, v.batch_id, v.manifest_id,
+       v.destination, v.destination_type, v.delivery_location, v.batch_id, v.manifest_id,
        m.manifest_number, m.arrival_date AS manifest_arrival_date,
        vs.name AS vessel_name,
        ic.name AS icdv_name, ic.code AS icdv_code,
@@ -1406,6 +1407,7 @@ const getTransferPerformance = async ({
        v.brand,
        v.model,
        v.destination,
+       v.destination_type,
        m.manifest_number,
        m.manifest_id,
        d.full_name        AS driver_name,

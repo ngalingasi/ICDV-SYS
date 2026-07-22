@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router';
 import { vehiclesApi, workflowApi, incidentApi } from '../../api';
 import type { Vehicle } from '../../types';
 import StatusBadge from '../../components/tpfcs/StatusBadge';
-import { WorkflowProgress } from '../../components/tpfcs/WorkflowCard';
+import { WorkflowProgress, DestinationTypeBadge } from '../../components/tpfcs/WorkflowCard';
 import { toast } from '../../components/tpfcs/Toast';
 import BackButton from '../../components/tpfcs/BackButton';
 
@@ -124,7 +124,7 @@ export default function VehicleDetail() {
             ['Year',             vehicle.year ?? '—'],
             ['Color',            vehicle.color ?? '—'],
             ['Customer Name',    vehicle.customer_name ?? '—'],
-            ['Destination',      vehicle.destination ?? '—'],
+            ['Destination',      <>{vehicle.destination ?? '—'}<DestinationTypeBadge type={vehicle.destination_type} /></>],
             ['Bill of Lading',   (v.bill_of_lading_no ?? '—')],
             ['Manifest',         vehicle.manifest_id
               ? <Link to={`/manifests/${vehicle.manifest_id}`} className="text-brand-600 hover:underline">

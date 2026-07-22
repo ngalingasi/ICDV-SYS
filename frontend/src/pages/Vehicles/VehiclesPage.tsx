@@ -5,6 +5,7 @@ import { useAuth } from '../../store/authStore';
 import type { Vehicle } from '../../types';
 import StatusBadge from '../../components/tpfcs/StatusBadge';
 import { toast } from '../../components/tpfcs/Toast';
+import { DestinationTypeBadge } from '../../components/tpfcs/WorkflowCard';
 
 export default function VehiclesPage() {
   const [sp] = useSearchParams();
@@ -145,7 +146,10 @@ export default function VehiclesPage() {
                   </td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{v.vessel_name ?? '—'}</td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400 max-w-[100px] truncate">{v.customer_name ?? '—'}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 max-w-[100px] truncate">{v.destination ?? '—'}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 max-w-[140px] truncate">
+                    {v.destination ?? '—'}
+                    <DestinationTypeBadge type={v.destination_type} />
+                  </td>
                   <td className="px-4 py-3"><StatusBadge status={v.release_status} /></td>
                   <td className="px-4 py-3"><StatusBadge status={v.operational_status} /></td>
                   <td className="px-4 py-3">

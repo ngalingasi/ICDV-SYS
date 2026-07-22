@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { workflowApi, manifestsApi } from '../../api';
 import StatusBadge from '../../components/tpfcs/StatusBadge';
+import { DestinationTypeBadge } from '../../components/tpfcs/WorkflowCard';
 import { useAuth } from '../../store/authStore';
 import { toast } from '../../components/tpfcs/Toast';
 import ManifestSelector from '../../components/tpfcs/ManifestSelector';
@@ -480,6 +481,7 @@ export function BatchPrintPage() {
             <tr className="bg-gray-100 border border-gray-300">
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-bold uppercase tracking-wide w-10">#</th>
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-bold uppercase tracking-wide">Chassis Number</th>
+              <th className="border border-gray-300 px-3 py-2 text-left text-xs font-bold uppercase tracking-wide">Destination</th>
               <th className="border border-gray-300 px-3 py-2 text-left text-xs font-bold uppercase tracking-wide">Workflow</th>
             </tr>
           </thead>
@@ -488,6 +490,10 @@ export function BatchPrintPage() {
               <tr key={v.vehicle_id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                 <td className="border border-gray-200 px-3 py-2 text-xs text-gray-400">{idx + 1}</td>
                 <td className="border border-gray-200 px-3 py-2 font-mono text-xs font-semibold">{v.chassis_number}</td>
+                <td className="border border-gray-200 px-3 py-2 text-xs">
+                  {v.destination || '—'}
+                  <DestinationTypeBadge type={v.destination_type} />
+                </td>
                 <td className="border border-gray-200 px-3 py-2 text-xs capitalize">{v.workflow_status?.replace(/_/g,' ') || '—'}</td>
               </tr>
             ))}

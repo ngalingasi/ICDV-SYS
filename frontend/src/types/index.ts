@@ -103,6 +103,8 @@ export type ReleaseStatus     = 'unreleased' | 'released' | 'collected' | 'on_ho
 export type OperationalStatus = 'pending' | 'in_operation' | 'ready' | 'delivered' | 'cancelled';
 export type WorkflowStatus    = 'manifested' | 'discharged' | 'batched' | 'in_transit' | 'received';
 export type VehicleLocation   = 'vessel' | 'holding_ground' | 'tpa_gate' | 'tpa_gate_to_yard' | 'icdv_yard';
+// Derived (DB-generated) from destination: 'local' = TZDAR, 'transit' = any other destination code
+export type DestinationType   = 'local' | 'transit';
 
 export interface Vehicle {
   vehicle_id:          number;
@@ -119,6 +121,7 @@ export interface Vehicle {
   color?:              string | null;
   customer_name?:      string | null;
   destination?:        string | null;
+  destination_type?:   DestinationType | null;
   delivery_location?:  string | null;
   bill_of_lading_no?:  string | null;
   release_status:      ReleaseStatus;

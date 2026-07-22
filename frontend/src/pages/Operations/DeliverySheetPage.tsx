@@ -20,6 +20,12 @@ import { workflowApi, manifestsApi } from '../../api';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+interface DriverVehicle {
+  chassis_number:    string;
+  destination?:      string | null;
+  destination_type?: 'local' | 'transit' | null;
+}
+
 interface DriverRow {
   driver_id:       number;
   id_number:       string;
@@ -27,6 +33,7 @@ interface DriverRow {
   full_name:       string;
   phone:           string | null;
   chassis_numbers: string[];
+  vehicles?:       DriverVehicle[];
 }
 
 function fmtRate(rate: number | undefined | null): string {
@@ -90,6 +97,19 @@ interface CombinedData {
 const fmtDate = (d?: string) =>
   d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
+// Builds the printable "chassis (destination)" string for one driver, e.g.
+// "WVWZZZ1JZ3W386752 (TZDAR · Local) · 1FM5K8FH4HGB24993 (ZMLUN · Transit)".
+// Falls back to plain chassis numbers if per-vehicle destination detail
+// wasn't returned (keeps old data shapes working without breaking).
+function chassisWithDestinationHTML(d: DriverRow, separator: string): string {
+  if (!d.vehicles || !d.vehicles.length) return d.chassis_numbers.join(separator) || '—';
+  return d.vehicles.map(v => {
+    if (!v.destination) return v.chassis_number;
+    const typeLabel = v.destination_type === 'local' ? 'Local' : v.destination_type === 'transit' ? 'Transit' : '';
+    return `${v.chassis_number} (${v.destination}${typeLabel ? ' · ' + typeLabel : ''})`;
+  }).join(separator) || '—';
+}
+
 // ─── Print via iframe (clean, isolated from screen CSS) ───────────────────────
 
 function buildPrintHTML(
@@ -108,7 +128,7 @@ function buildPrintHTML(
             <td>${d.license_number || '—'}</td>
             <td><strong>${d.full_name}</strong></td>
             <td>${d.phone || '—'}</td>
-            <td style="font-size:8pt">${d.chassis_numbers.join(' · ') || '—'}</td>
+            <td style="font-size:8pt">${chassisWithDestinationHTML(d, ' · ')}</td>
             <td style="text-align:center"><strong>${d.chassis_numbers.length}</strong></td>
             <td style="text-align:right;font-size:8pt">TZS ${(meta.transfer_rate ?? 0).toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:0})}</td>
             <td style="text-align:right;font-weight:700">TZS ${amt.toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:0})}</td>
@@ -158,7 +178,7 @@ function buildPrintHTML(
               <th style="width:95px">License No.</th>
               <th style="width:150px">Driver Name</th>
               <th style="width:95px">Mobile</th>
-              <th>Chassis Numbers</th>
+              <th>Chassis Numbers (Destination)</th>
               <th style="width:44px">Total</th>
               <th style="width:75px;text-align:right">Rate</th>
               <th style="width:90px;text-align:right">Amt to Pay</th>
@@ -356,7 +376,7 @@ function buildCombinedPrintHTML(
           <td>${d.license_number || '—'}</td>
           <td><strong>${d.full_name}</strong></td>
           <td>${d.phone || '—'}</td>
-          <td style="font-size:8pt">${d.chassis_numbers.join(', ') || '—'}</td>
+          <td style="font-size:8pt">${chassisWithDestinationHTML(d, ', ')}</td>
           <td style="text-align:center"><strong>${d.chassis_numbers.length}</strong></td>
           <td style="text-align:right;font-size:8pt">TZS ${rate.toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:0})}</td>
           <td style="text-align:right;font-weight:700">TZS ${amt.toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:0})}</td>
@@ -444,7 +464,7 @@ function buildCombinedPrintHTML(
         <th style="width:95px">License No.</th>
         <th style="width:150px">Driver Name</th>
         <th style="width:95px">Mobile</th>
-        <th>Chassis Numbers</th>
+        <th>Chassis Numbers (Destination)</th>
         <th style="width:44px">Total</th>
         <th style="width:80px;text-align:right">Rate</th>
         <th style="width:90px;text-align:right">Amt to Pay</th>
@@ -535,7 +555,7 @@ function ScreenBatchTable({ batch, index, total, icdvName, vesselName, transferR
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #e2e8f0' }}>
-                {['No.', 'Driver ID', 'License No.', 'Driver Name', 'Mobile', 'Chassis Numbers', 'Total', 'Rate', 'Amt to Pay'].map(h => (
+                {['No.', 'Driver ID', 'License No.', 'Driver Name', 'Mobile', 'Chassis Numbers (Destination)', 'Total', 'Rate', 'Amt to Pay'].map(h => (
                   <th key={h} style={{ padding: '8px 12px', textAlign: h === 'Rate' || h === 'Amt to Pay' ? 'right' : 'left', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#64748b', letterSpacing: 0.5, whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -551,7 +571,7 @@ function ScreenBatchTable({ batch, index, total, icdvName, vesselName, transferR
                     <td style={{ padding: '7px 12px', fontFamily: 'monospace', fontSize: 12, fontWeight: 700 }}>{d.license_number || '—'}</td>
                     <td style={{ padding: '7px 12px', fontWeight: 600 }}>{d.full_name}</td>
                     <td style={{ padding: '7px 12px', fontFamily: 'monospace', fontSize: 12 }}>{d.phone || '—'}</td>
-                    <td style={{ padding: '7px 12px', fontFamily: 'monospace', fontSize: 11, color: '#334155' }}>{d.chassis_numbers.join('  ·  ') || '—'}</td>
+                    <td style={{ padding: '7px 12px', fontFamily: 'monospace', fontSize: 11, color: '#334155' }}>{chassisWithDestinationHTML(d, '  ·  ')}</td>
                     <td style={{ padding: '7px 12px', textAlign: 'center', fontWeight: 700, color: '#0f172a' }}>{d.chassis_numbers.length}</td>
                     <td style={{ padding: '7px 12px', textAlign: 'right', fontSize: 12, color: '#64748b' }}>{fmtRate(bRate)}</td>
                     <td style={{ padding: '7px 12px', textAlign: 'right', fontWeight: 700, color: '#0f172a' }}>{calcAmount(d.chassis_numbers.length, bRate).toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:0})}</td>
@@ -764,7 +784,7 @@ export default function DeliverySheetPage() {
       ? manifestData.batches
       : batchData ? [{ ...batchData.batch, drivers: batchData.drivers }] : [];
 
-    rows.push(['Batch', 'Driver Name', 'Driver ID', 'License No.', 'Mobile', 'Chassis Numbers', 'Vehicle Count', 'Rate (TZS)', 'Amount to Pay (TZS)']);
+    rows.push(['Batch', 'Driver Name', 'Driver ID', 'License No.', 'Mobile', 'Chassis Numbers (Destination)', 'Vehicle Count', 'Rate (TZS)', 'Amount to Pay (TZS)']);
 
     for (const batch of batches as any[]) {
       for (const d of (batch.drivers ?? [])) {
@@ -776,7 +796,7 @@ export default function DeliverySheetPage() {
           d.id_number        ?? '',
           d.license_number   ?? '',
           d.phone            ?? '',
-          (d.chassis_numbers ?? []).join(', '),
+          chassisWithDestinationHTML(d, ', '),
           String(count),
           String(rate),
           String(amount),

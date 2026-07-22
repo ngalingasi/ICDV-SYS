@@ -8,6 +8,32 @@ const API_BASE = RAW_API.replace(/\/api(\/v\d+)?$/, '');
 const buildPhotoUrl = (photo?: string | null): string | null =>
   photo ? `${API_BASE}${photo}` : null;
 
+// ── Destination type classification (mirrors the DB-generated column) ─────────
+// Used client-side before a vehicle exists yet (e.g. CSV preview, live form
+// input) — the real source of truth once saved is vehicles.destination_type.
+export const computeDestinationType = (destination?: string | null): 'local' | 'transit' | null => {
+  const d = (destination || '').trim();
+  if (!d) return null;
+  return d.toUpperCase() === 'TZDAR' ? 'local' : 'transit';
+};
+
+// ── Destination type badge (LOCAL = TZDAR, TRANSIT = any other destination) ────
+export function DestinationTypeBadge({ type }: { type?: string | null }) {
+  if (!type) return null;
+  const isLocal = type === 'local';
+  return (
+    <span
+      className={`ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide align-middle ${
+        isLocal
+          ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+          : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+      }`}
+    >
+      {isLocal ? 'Local' : 'Transit'}
+    </span>
+  );
+}
+
 // ── Vehicle info card ─────────────────────────────────────────────────────────
 export function VehicleCard({ v }: { v: any }) {
   const details = [v.brand, v.model, v.year, v.color].filter(Boolean).join(' - ');
@@ -35,7 +61,9 @@ export function VehicleCard({ v }: { v: any }) {
         {v.vessel_name      && <Row label="Vessel"      value={v.vessel_name} />}
         {v.manifest_number  && <Row label="Manifest"    value={v.manifest_number} />}
         {v.customer_name    && <Row label="Customer"    value={v.customer_name} />}
-        {v.destination      && <Row label="Destination" value={v.destination} />}
+        {v.destination      && (
+          <Row label="Destination" value={<>{v.destination}<DestinationTypeBadge type={v.destination_type} /></>} />
+        )}
         {v.current_location && <Row label="Location"    value={v.current_location.replace(/_/g, ' ')} />}
         {v.batch_number     && <Row label="Batch"       value={v.batch_number} />}
       </div>
@@ -43,7 +71,7 @@ export function VehicleCard({ v }: { v: any }) {
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="min-w-0">
       <span className="text-xs text-gray-400 dark:text-gray-500">{label}: </span>

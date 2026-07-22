@@ -6,6 +6,7 @@ import { toast } from '../../components/tpfcs/Toast';
 import BackButton from '../../components/tpfcs/BackButton';
 import { useAuth } from '../../store/authStore';
 import { FormDateInput } from '../../components/tpfcs/FormField';
+import { DestinationTypeBadge, computeDestinationType } from '../../components/tpfcs/WorkflowCard';
 
 interface CsvRow { _rowNum: number; bill_of_lading_no?: string; chassis_no?: string; destination?: string; delivery_location?: string; [k: string]: any; }
 interface PreviewResult { total: number; rows: CsvRow[]; in_file_duplicates: string[]; }
@@ -455,7 +456,10 @@ export default function ManifestForm() {
                       <td className="px-3 py-2 text-gray-400">{row._rowNum}</td>
                       <td className="px-3 py-2 text-gray-600 dark:text-gray-400">{row.bill_of_lading_no || '—'}</td>
                       <td className="px-3 py-2 font-mono font-medium text-gray-800 dark:text-gray-200">{row.chassis_no || <span className="text-red-400">MISSING</span>}</td>
-                      <td className="px-3 py-2 text-gray-600 dark:text-gray-400">{row.destination || '—'}</td>
+                      <td className="px-3 py-2 text-gray-600 dark:text-gray-400">
+                        {row.destination || '—'}
+                        <DestinationTypeBadge type={computeDestinationType(row.destination)} />
+                      </td>
                       <td className="px-3 py-2 text-gray-600 dark:text-gray-400">{row.delivery_location || '—'}</td>
                     </tr>
                   ))}
