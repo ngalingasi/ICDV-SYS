@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
+import * as XLSX from 'xlsx';
 import { vehiclesApi, icdvsApi } from '../../api';
 import { useAuth } from '../../store/authStore';
 import type { Vehicle } from '../../types';
@@ -19,6 +20,7 @@ export default function VehiclesPage() {
   const [icdvFilter, setIcdvFilter]     = useState('');
   const [workflowFilter, setWorkflow]   = useState(sp.get('workflow_status') ?? '');
   const [icdvs,      setIcdvs]          = useState<any[]>([]);
+  const [exporting,  setExporting]      = useState(false);
   // manifest_id from URL — set when navigated from "View all →" on ManifestDetail
   const manifestIdFromUrl               = sp.get('manifest_id') ?? '';
   const limit = 20;
@@ -45,6 +47,81 @@ export default function VehiclesPage() {
     const t = setTimeout(load, 350);
     return () => clearTimeout(t);
   }, [search]);  // eslint-disable-line
+
+  // Export ALL vehicles matching the current filters (not just the visible page) to .xlsx.
+  // The list endpoint caps at 100 rows/request server-side, so a manifest with
+  // hundreds of vehicles needs multiple requests, paged through here before building the file.
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const filters = {
+        release_status: releaseFilter || undefined,
+        operational_status: opFilter || undefined,
+        workflow_status: workflowFilter || undefined,
+        search: search || undefined,
+        icdv_id: icdvFilter || undefined,
+        manifest_id: manifestIdFromUrl || undefined,
+      };
+
+      const exportLimit = 100;
+      let exportPage = 1;
+      let all: Vehicle[] = [];
+      let totalResults = Infinity;
+
+      while (all.length < totalResults) {
+        const r = await vehiclesApi.list({ ...filters, page: exportPage, limit: exportLimit });
+        all = all.concat(r.data.results);
+        totalResults = r.data.totalResults;
+        if (!r.data.results.length) break; // safety net against infinite loop
+        exportPage += 1;
+      }
+
+      if (!all.length) {
+        toast.error('No vehicles to export for the current filters');
+        return;
+      }
+
+      const sheetRows = all.map(v => ({
+        'Chassis Number':     v.chassis_number,
+        'Brand':              v.brand ?? '',
+        'Model':              v.model ?? '',
+        'Year':               v.year ?? '',
+        'Color':              v.color ?? '',
+        'Manifest #':         v.manifest_number ?? '',
+        'Vessel':             v.vessel_name ?? '',
+        'Customer':           v.customer_name ?? '',
+        'Destination':        v.destination ?? '',
+        'Destination Type':   v.destination_type === 'local' ? 'Local' : v.destination_type === 'transit' ? 'Transit' : '',
+        'Release Status':     v.release_status ?? '',
+        'Operational Status': v.operational_status ?? '',
+        'Workflow Status':    v.workflow_status ?? '',
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(sheetRows);
+      ws['!cols'] = [
+        { wch: 20 }, { wch: 14 }, { wch: 14 }, { wch: 8 }, { wch: 10 },
+        { wch: 16 }, { wch: 18 }, { wch: 20 }, { wch: 14 }, { wch: 14 },
+        { wch: 14 }, { wch: 16 }, { wch: 14 },
+      ];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Vehicles');
+
+      const namedParts = [
+        manifestIdFromUrl && `manifest-${manifestIdFromUrl}`,
+        releaseFilter,
+        opFilter,
+        workflowFilter,
+      ].filter(Boolean);
+      const filename = `vehicles${namedParts.length ? '_' + namedParts.join('_') : ''}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+
+      XLSX.writeFile(wb, filename);
+      toast.success(`Exported ${all.length} vehicle${all.length === 1 ? '' : 's'} to Excel`);
+    } catch {
+      toast.error('Failed to export vehicles');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   useEffect(() => {
     if (isCrossTenant) {
@@ -80,7 +157,7 @@ export default function VehiclesPage() {
           <h1 className="text-xl font-bold text-gray-800 dark:text-white">Vehicles</h1>
           <p className="text-sm text-gray-500">{total} vehicles</p>
         </div>
-        <div className="sm:ml-auto flex flex-wrap gap-2">
+        <div className="sm:ml-auto flex flex-wrap items-center gap-2">
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search chassis, brand, customer…"
             className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-500 w-60" />
           <select value={releaseFilter} onChange={e => setRelease(e.target.value)}
@@ -110,6 +187,24 @@ export default function VehiclesPage() {
               ))}
             </select>
           )}
+          <button
+            onClick={handleExport}
+            disabled={exporting || total === 0}
+            title="Export to Excel"
+            aria-label="Export to Excel"
+            className="inline-flex items-center justify-center border border-gray-200 dark:border-gray-700 rounded-lg w-9 h-9 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+          >
+            {exporting ? (
+              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2-8h2a2 2 0 012 2v12a2 2 0 01-2 2H7a2 2 0 01-2-2V4a2 2 0 012-2h5.586a1 1 0 01.707.293L18 6.414a1 1 0 01.293.707V8" />
+              </svg>
+            )}
+          </button>
         </div>
       </div>
 
