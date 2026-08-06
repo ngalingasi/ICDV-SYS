@@ -258,7 +258,8 @@ const createInvoice = async (body, createdBy) => {
   if (!line_items.length) throw new ApiError(httpStatus.BAD_REQUEST, 'At least one line item is required');
 
   const invoice_number = await generateInvoiceNumber();
-  const whtRate = parseFloat(withholding_tax_rate) || 5;
+  const parsedWhtRate  = parseFloat(withholding_tax_rate);
+  const whtRate = Number.isFinite(parsedWhtRate) ? parsedWhtRate : 5; // 0 must be respected — not falsy-coerced back to the default
 
   // Calculate line totals
   const preparedLines = line_items.map((l, idx) => {

@@ -39,6 +39,8 @@ export default function InvoiceForm() {
   const [notes,       setNotes]       = useState('');
   const [notesTouched, setNotesTouched] = useState(false); // user manually edited notes
   const [whtRate,     setWhtRate]     = useState(5);
+  const [whtApplicable, setWhtApplicable] = useState(true); // toggle: some clients don't have WHT deducted
+  const lastWhtRateRef = useRef(5); // remembers rate to restore when toggled back on
   const [saving,      setSaving]      = useState(false);
   const [loading,     setLoading]     = useState(isEdit);
   const [error,       setError]       = useState<string|null>(null);
@@ -89,6 +91,8 @@ export default function InvoiceForm() {
         setNotes(inv.notes ?? '');
         setNotesTouched(true); // don't let the bank-details prefill clobber saved notes
         setWhtRate(Number(inv.withholding_tax_rate));
+        setWhtApplicable(Number(inv.withholding_tax_rate) > 0);
+        if (Number(inv.withholding_tax_rate) > 0) lastWhtRateRef.current = Number(inv.withholding_tax_rate);
         setLines(
           (inv.line_items || []).map((l: any) => ({
             _key: newKey(),
@@ -108,8 +112,9 @@ export default function InvoiceForm() {
   }, [id, isEdit]); // eslint-disable-line
 
   // Totals
-  const subtotal  = lines.reduce((s, l) => s + l.line_total, 0);
-  const whtAmount = parseFloat((subtotal * (whtRate / 100)).toFixed(2));
+  const subtotal      = lines.reduce((s, l) => s + l.line_total, 0);
+  const effectiveWhtRate = whtApplicable ? whtRate : 0;
+  const whtAmount = parseFloat((subtotal * (effectiveWhtRate / 100)).toFixed(2));
   const total     = parseFloat((subtotal - whtAmount).toFixed(2));
 
   const updateLine = (key: number, patch: Partial<LineItem>) => {
@@ -173,7 +178,7 @@ export default function InvoiceForm() {
         const inv = await invoicesApi.update(Number(id), {
           due_date: dueDate || null,
           notes: notes || null,
-          withholding_tax_rate: whtRate,
+          withholding_tax_rate: effectiveWhtRate,
           line_items: lines.map((l, idx) => ({
             item_id:     l.item_id     || null,
             manifest_id: l.manifest_id || null,
@@ -191,7 +196,7 @@ export default function InvoiceForm() {
           issued_date: issuedDate,
           due_date: dueDate || null,
           notes: notes || null,
-          withholding_tax_rate: whtRate,
+          withholding_tax_rate: effectiveWhtRate,
           line_items: lines.map((l, idx) => ({
             item_id:     l.item_id     || null,
             manifest_id: l.manifest_id || null,
@@ -264,10 +269,36 @@ export default function InvoiceForm() {
           </div>
           <FormDateInput label="Due Date" id="due-date" value={dueDate} onChange={setDueDate} placeholder="Optional" />
           <div>
-            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Withholding Tax %</label>
-            <input type="number" min={0} max={100} step={0.5} value={whtRate}
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">Withholding Tax %</label>
+              <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                <span className="text-xs text-gray-500 dark:text-gray-400">Applicable</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={whtApplicable}
+                  onClick={() => {
+                    setWhtApplicable(prev => {
+                      const next = !prev;
+                      if (!next) {
+                        lastWhtRateRef.current = whtRate; // remember rate for when re-enabled
+                        setWhtRate(0);
+                      } else {
+                        setWhtRate(lastWhtRateRef.current || 5);
+                      }
+                      return next;
+                    });
+                  }}
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${whtApplicable ? 'bg-brand-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                >
+                  <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${whtApplicable ? 'translate-x-5' : 'translate-x-1'}`} />
+                </button>
+              </label>
+            </div>
+            <input type="number" min={0} max={100} step={0.5} value={whtRate} disabled={!whtApplicable}
               onChange={e => setWhtRate(parseFloat(e.target.value) || 0)}
-              className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200" />
+              className="w-full border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed" />
+            {!whtApplicable && <p className="mt-1 text-xs text-gray-400">This client is not subject to withholding tax.</p>}
           </div>
         </div>
         <div>
@@ -367,10 +398,12 @@ export default function InvoiceForm() {
             <span>Sub Total</span>
             <span className="font-semibold text-gray-800 dark:text-white">TZS {fmtMoney(subtotal)}</span>
           </div>
-          <div className="flex justify-between text-red-600 dark:text-red-400">
-            <span>Withholding Tax ({whtRate}%)</span>
-            <span>TZS {fmtMoney(whtAmount)}</span>
-          </div>
+          {whtApplicable && (
+            <div className="flex justify-between text-red-600 dark:text-red-400">
+              <span>Withholding Tax ({effectiveWhtRate}%)</span>
+              <span>TZS {fmtMoney(whtAmount)}</span>
+            </div>
+          )}
           <div className="flex justify-between font-bold text-gray-800 dark:text-white text-base border-t border-gray-200 dark:border-gray-700 pt-2">
             <span>TOTAL</span>
             <span>TZS {fmtMoney(total)}</span>

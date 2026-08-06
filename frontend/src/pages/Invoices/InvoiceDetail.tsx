@@ -135,8 +135,8 @@ export default function InvoiceDetail() {
     </table>
     <table class="totals">
       <tr><td>SUB TOTAL</td><td style="text-align:right">${fmtMoney(i.subtotal)}</td></tr>
-      <tr><td>WITHHOLDING TAX (${Number(i.withholding_tax_rate).toFixed(0)}%)</td>
-          <td style="text-align:right">${fmtMoney(i.withholding_tax_amount)}</td></tr>
+      ${Number(i.withholding_tax_rate) > 0 ? `<tr><td>WITHHOLDING TAX (${Number(i.withholding_tax_rate).toFixed(0)}%)</td>
+          <td style="text-align:right">${fmtMoney(i.withholding_tax_amount)}</td></tr>` : ''}
       <tr class="total-row"><td>TOTAL</td><td style="text-align:right">${fmtMoney(i.total_amount)}</td></tr>
     </table>
     ${i.notes ? `<div class="notes">${i.notes.replace(/\n/g,'<br>')}</div>` : ''}
@@ -220,10 +220,12 @@ export default function InvoiceDetail() {
             <span className="text-gray-500 dark:text-gray-400">SUB TOTAL</span>
             <span className="font-semibold w-32 text-right text-gray-800 dark:text-white">{fmtMoney(inv.subtotal)}</span>
           </div>
-          <div className="flex justify-end gap-8">
-            <span className="text-red-500 dark:text-red-400">WITHHOLDING TAX ({Number(inv.withholding_tax_rate).toFixed(0)}%)</span>
-            <span className="text-red-500 dark:text-red-400 w-32 text-right">({fmtMoney(inv.withholding_tax_amount)})</span>
-          </div>
+          {Number(inv.withholding_tax_rate) > 0 && (
+            <div className="flex justify-end gap-8">
+              <span className="text-red-500 dark:text-red-400">WITHHOLDING TAX ({Number(inv.withholding_tax_rate).toFixed(0)}%)</span>
+              <span className="text-red-500 dark:text-red-400 w-32 text-right">({fmtMoney(inv.withholding_tax_amount)})</span>
+            </div>
+          )}
           <div className="flex justify-end gap-8 font-bold text-base border-t border-gray-200 dark:border-gray-700 pt-2">
             <span className="text-gray-800 dark:text-white">TOTAL</span>
             <span className="w-32 text-right text-gray-800 dark:text-white">{fmtMoney(inv.total_amount)}</span>
