@@ -43,6 +43,7 @@ const envVarsSchema = Joi.object()
     TRACEANDFOUND_API_KEY:        Joi.string().description('TraceAndFound API key'),
     TRACEANDFOUND_ORGANIZATION_ID: Joi.string().description('TraceAndFound organization id'),
     TRACEANDFOUND_APPLICATION:    Joi.string().default('icdv').description('TraceAndFound application name'),
+    TRACEANDFOUND_TERMINAL:       Joi.string().description('TraceAndFound terminal id — identifies this server instance/process on the Health screen'),
   })
   .unknown();
 
@@ -99,5 +100,6 @@ module.exports = {
     apiKey:         envVars.TRACEANDFOUND_API_KEY,
     organizationId: envVars.TRACEANDFOUND_ORGANIZATION_ID,
     application:    envVars.TRACEANDFOUND_APPLICATION,
+    terminal:       envVars.TRACEANDFOUND_TERMINAL,
   },
 };

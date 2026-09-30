@@ -43,7 +43,7 @@ let enabled = false;
  * endpoint/apiKey/organizationId aren't all configured.
  */
 function initTraceAndFound() {
-  const { endpoint, apiKey, organizationId, application } = config.traceAndFound;
+  const { endpoint, apiKey, organizationId, application, terminal } = config.traceAndFound;
   if (!endpoint || !apiKey || !organizationId) {
     logger.info('TraceAndFound not configured (endpoint/apiKey/organizationId missing) — skipping.');
     return;
@@ -57,6 +57,7 @@ function initTraceAndFound() {
       organizationId,
       application: application || 'icdv',
       environment: config.env,
+      ...(terminal ? { terminal } : {}), // identifies this server instance/process, optional
     });
     enabled = true;
     logger.info('TraceAndFound initialized');
