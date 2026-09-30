@@ -4,3 +4,4 @@ backend/uploads/*
 backend/.env
 frontend/dist/*
 tpfcs_mobile/*
+frontend/.DS_Store
