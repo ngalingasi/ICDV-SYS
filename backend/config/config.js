@@ -35,6 +35,14 @@ const envVarsSchema = Joi.object()
     // File Upload
     UPLOAD_DIR: Joi.string().default('uploads'),
     MAX_FILE_SIZE: Joi.number().default(10485760), // 10MB
+    // TraceAndFound (error/log/heartbeat tracking) — all optional; when
+    // endpoint/apiKey/organizationId aren't set, tracing is simply skipped
+    // (see config/traceAndFound.js). Also readable directly by the SDK
+    // itself via the same env var names, per its own docs.
+    TRACEANDFOUND_ENDPOINT:       Joi.string().description('TraceAndFound endpoint URL'),
+    TRACEANDFOUND_API_KEY:        Joi.string().description('TraceAndFound API key'),
+    TRACEANDFOUND_ORGANIZATION_ID: Joi.string().description('TraceAndFound organization id'),
+    TRACEANDFOUND_APPLICATION:    Joi.string().default('icdv').description('TraceAndFound application name'),
   })
   .unknown();
 
@@ -85,5 +93,11 @@ module.exports = {
   upload: {
     dir: envVars.UPLOAD_DIR,
     maxSize: envVars.MAX_FILE_SIZE,
+  },
+  traceAndFound: {
+    endpoint:       envVars.TRACEANDFOUND_ENDPOINT,
+    apiKey:         envVars.TRACEANDFOUND_API_KEY,
+    organizationId: envVars.TRACEANDFOUND_ORGANIZATION_ID,
+    application:    envVars.TRACEANDFOUND_APPLICATION,
   },
 };

@@ -8,6 +8,7 @@ const smsModel = require('../models/sms.model');
 const otpModel = require('../models/otp.model');
 const { query } = require('../config/database');
 const config = require('../config/config');
+const { captureError } = require('../config/traceAndFound');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -143,11 +144,20 @@ const sendOtp = catchAsync(async (req, res) => {
 
   if (channel === 'sms') {
     if (!user.mobile) throw new ApiError(httpStatus.BAD_REQUEST, 'No phone number on record for this account');
-    await smsModel.sendSmsBrandBox(
+    const smsResult = await smsModel.sendSmsBrandBox(
       `Your TPFCS login OTP is: ${otp_code}. Valid for ${config.otp.expiryMinutes} minutes. Do not share this code.`,
       [user.mobile],
       getBrandBoxSettings()
     );
+    // sendSmsBrandBox retries internally and resolves (never throws) even when
+    // every attempt for a recipient fails — capture that here, since otherwise
+    // an OTP that silently never arrived would leave no trace anywhere.
+    if (smsResult.failed_count > 0) {
+      captureError(new Error(`OTP SMS delivery failed: ${smsResult.failed.map(f => f.error).join('; ')}`), user.icdv_id ?? null, {
+        module: 'otp', operation: 'sendOtp:sms', errorCode: 'OTP_SMS_DELIVERY_FAILED',
+        metadata: { user_id: user.user_id, failed: smsResult.failed },
+      });
+    }
     return res.status(httpStatus.OK).json({
       status: true, message: 'OTP sent via SMS',
       channel: 'sms', maskedContact: maskPhone(user.mobile),

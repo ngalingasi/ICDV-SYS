@@ -3,6 +3,7 @@ const { query, transaction, connQuery } = require('../config/database');
 const ApiError = require('../utils/ApiError');
 const { buildPagination } = require('../utils/paginate');
 const { getTransferRate } = require('./lookup.model');
+const { captureEvent, captureLog } = require('../config/traceAndFound');
 
 /*const generateManifestNumber = async (icdvId = null) => {
   const year   = new Date().getFullYear();
@@ -235,6 +236,23 @@ const importVehicles = async (manifestId, rows, creatorId, icdvId = null) => {
        WHERE manifest_id=?`,
       [manifestId, manifestId]
     );
+
+    // Per-row failures (e.g. duplicate chassis) are expected/routine and are
+    // already returned to the caller in results.errors — not worth a
+    // captureError each (that would just be noise). The import as a whole,
+    // and whether it had trouble, IS worth a durable record.
+    captureEvent('manifest.imported', effectiveIcdvId, {
+      manifest_id: manifestId,
+      total: results.total,
+      imported: results.imported,
+      failed: results.failed,
+    });
+    if (results.failed > 0) {
+      captureLog('warn', `Manifest import: ${results.failed}/${results.total} rows failed`, effectiveIcdvId, {
+        module: 'manifest', operation: 'importVehicles',
+        metadata: { manifest_id: manifestId, errors: results.errors.slice(0, 20) },
+      });
+    }
 
     return results;
   });

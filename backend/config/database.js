@@ -1,6 +1,7 @@
 const mysql = require('mysql2/promise');
 const config = require('./config');
 const logger = require('./logger');
+const { captureError } = require('./traceAndFound');
 
 let pool;
 
@@ -19,6 +20,14 @@ const getPool = () => {
       charset:          'utf8mb4',
     });
     logger.info('MySQL connection pool created');
+
+    // Pool-level errors (e.g. PROTOCOL_CONNECTION_LOST on an idle connection)
+    // happen outside any request, so they'd never reach the Express error
+    // handler — capture them here, or they'd be invisible.
+    pool.on('error', (err) => {
+      logger.error('MySQL pool error:', err);
+      captureError(err, null, { module: 'database', operation: 'pool', errorCode: err.code || 'DB_POOL_ERROR' });
+    });
   }
   return pool;
 };

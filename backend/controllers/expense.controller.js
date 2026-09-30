@@ -3,6 +3,7 @@
 const httpStatus    = require('http-status');
 const catchAsync    = require('../utils/catchAsync');
 const expenseModel   = require('../models/expense.model');
+const { captureEvent } = require('../config/traceAndFound');
 
 // ── Expense items catalog ───────────────────────────────────────────────────
 const createExpenseItem = catchAsync(async (req, res) => {
@@ -30,6 +31,10 @@ const deleteExpenseItem = catchAsync(async (req, res) => {
 // ── Expenses ─────────────────────────────────────────────────────────────────
 const createExpense = catchAsync(async (req, res) => {
   const exp = await expenseModel.createExpense(req.body, req.user.user_id);
+  captureEvent('expense.created', exp.icdv_id, {
+    expense_id: exp.expense_id, expense_number: exp.expense_number,
+    total_amount: exp.total_amount, manifest_id: exp.manifest_id, user_id: req.user.user_id,
+  });
   res.status(httpStatus.CREATED).json(exp);
 });
 
@@ -46,7 +51,11 @@ const updateExpense = catchAsync(async (req, res) => {
 });
 
 const deleteExpense = catchAsync(async (req, res) => {
+  const existing = await expenseModel.getExpenseById(req.params.expenseId);
   await expenseModel.deleteExpense(req.params.expenseId);
+  captureEvent('expense.deleted', existing.icdv_id, {
+    expense_id: existing.expense_id, expense_number: existing.expense_number, user_id: req.user.user_id,
+  });
   res.status(httpStatus.NO_CONTENT).send();
 });
 

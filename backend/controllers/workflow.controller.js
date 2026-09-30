@@ -21,6 +21,7 @@ const httpStatus = require('http-status');
 const catchAsync = require('../utils/catchAsync');
 const wf         = require('../models/workflow.model');
 const { query }  = require('../config/database');
+const { captureEvent } = require('../config/traceAndFound');
 const {
   BATCH_DOCUMENT_STATUSES,
   BATCH_GC_STATUSES,
@@ -52,6 +53,7 @@ const dischargeConfirm = catchAsync(async (req, res) => {
   if (!vehicle_id) return res.status(400).json({ message: 'vehicle_id is required' });
   const effectiveIcdvId = await resolveEffectiveIcdvId(req.icdvId, Number(vehicle_id));
   const result = await wf.discharge(Number(vehicle_id), notes || null, req.user.user_id, effectiveIcdvId);
+  captureEvent('vehicle.discharged', effectiveIcdvId, { vehicle_id: Number(vehicle_id), user_id: req.user.user_id });
   res.json(result);
 });
 
@@ -70,6 +72,7 @@ const batchConfirm = catchAsync(async (req, res) => {
   if (!vehicle_id) return res.status(400).json({ message: 'vehicle_id is required' });
   const effectiveIcdvId = await resolveEffectiveIcdvId(req.icdvId, Number(vehicle_id));
   const result = await wf.addToBatch(Number(vehicle_id), notes || null, req.user.user_id, effectiveIcdvId);
+  captureEvent('vehicle.batched', effectiveIcdvId, { vehicle_id: Number(vehicle_id), batch_id: result?.batch_id, user_id: req.user.user_id });
   res.json(result);
 });
 
@@ -112,6 +115,9 @@ const updateBatchStatus = catchAsync(async (req, res) => {
     req.user.user_id,
     req.icdvId
   );
+  captureEvent('batch.status_updated', req.icdvId, {
+    batch_id: batchId, document_status, gc_status, user_id: req.user.user_id,
+  });
   res.json(result);
 });
 
@@ -169,6 +175,12 @@ const transferConfirm = catchAsync(async (req, res) => {
     req.user,    // batch gate bypass check
     companionIds // companion vehicles (Trellas riding with the primary truck)
   );
+  captureEvent('vehicle.transferred', effectiveIcdvId, {
+    vehicle_id: Number(vehicle_id),
+    driver_id: driver_id ? Number(driver_id) : null,
+    companion_vehicle_ids: companionIds,
+    user_id: req.user.user_id,
+  });
   res.json(result);
 });
 
@@ -187,6 +199,7 @@ const releaseDriverConfirm = catchAsync(async (req, res) => {
   if (!reason || !reason.trim()) return res.status(400).json({ message: 'A reason is required to release a driver' });
   const effectiveIcdvId = await resolveEffectiveIcdvId(req.icdvId, Number(vehicle_id));
   const result = await wf.releaseDriver(Number(vehicle_id), reason.trim(), req.user.user_id, effectiveIcdvId);
+  captureEvent('driver.released', effectiveIcdvId, { vehicle_id: Number(vehicle_id), reason: reason.trim(), user_id: req.user.user_id });
   res.json(result);
 });
 
@@ -229,6 +242,12 @@ const receiveConfirm = catchAsync(async (req, res) => {
     effectiveIcdvId,
     companionIds
   );
+  captureEvent('vehicle.delivered', effectiveIcdvId, {
+    vehicle_id: Number(vehicle_id),
+    driver_id: driver_id ? Number(driver_id) : null,
+    companion_vehicle_ids: companionIds,
+    user_id: req.user.user_id,
+  });
   res.json(result);
 });
 
@@ -287,11 +306,17 @@ const upsertTransitConfig = catchAsync(async (req, res) => {
     { icdvId: effectiveIcdvId, normal_minutes: Number(normal_minutes), max_minutes: Number(max_minutes), notes },
     req.user.user_id
   );
+  // These thresholds drive "slowest transfers" monitoring/alerting — a wrong
+  // value here silently breaks transfer-movement anomaly detection.
+  captureEvent('transit_time_config.updated', effectiveIcdvId, {
+    normal_minutes: Number(normal_minutes), max_minutes: Number(max_minutes), user_id: req.user.user_id,
+  });
   res.json(result);
 });
 
 const deleteTransitConfig = catchAsync(async (req, res) => {
   await wf.deleteTransitConfig(Number(req.params.configId), req.icdvId);
+  captureEvent('transit_time_config.deleted', req.icdvId, { config_id: Number(req.params.configId), user_id: req.user.user_id });
   res.json({ message: 'Transit time config deleted' });
 });
 

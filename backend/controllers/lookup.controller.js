@@ -1,6 +1,7 @@
 const httpStatus = require('http-status');
 const catchAsync = require('../utils/catchAsync');
 const lookupModel = require('../models/lookup.model');
+const { captureEvent } = require('../config/traceAndFound');
 
 // ─── Sectors ──────────────────────────────────────────────
 const createSector = catchAsync(async (req, res) => {
@@ -43,6 +44,9 @@ const updateTransferRate = catchAsync(async (req, res) => {
   if (rate === undefined || isNaN(parseFloat(rate)) || parseFloat(rate) < 0)
     return res.status(400).json({ message: 'rate must be a non-negative number' });
   const row = await lookupModel.upsertSetting('transfer_rate', parseFloat(rate), req.user.user_id);
+  // Platform-wide setting (not tenant-scoped) — affects every future invoice,
+  // worth tracking since a wrong value here silently mis-bills everyone.
+  captureEvent('lookup.transfer_rate_updated', null, { new_rate: parseFloat(row.setting_value), user_id: req.user.user_id });
   res.json({ setting_key: 'transfer_rate', setting_value: row.setting_value, rate: parseFloat(row.setting_value) });
 });
 
@@ -52,7 +56,9 @@ const getOperatorConfig = catchAsync(async (req, res) => {
   res.json(await invoiceModel.getOperatorConfig());
 });
 const updateOperatorConfig = catchAsync(async (req, res) => {
-  res.json(await invoiceModel.updateOperatorConfig(req.body, req.user.user_id));
+  const config = await invoiceModel.updateOperatorConfig(req.body, req.user.user_id);
+  captureEvent('lookup.operator_config_updated', null, { changed_keys: Object.keys(req.body), user_id: req.user.user_id });
+  res.json(config);
 });
 
 module.exports = {

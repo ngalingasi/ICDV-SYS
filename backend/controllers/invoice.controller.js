@@ -4,6 +4,7 @@ const httpStatus   = require('http-status');
 const catchAsync   = require('../utils/catchAsync');
 const invoiceModel = require('../models/invoice.model');
 const path         = require('path');
+const { captureEvent } = require('../config/traceAndFound'); // also used below for approve/cancel/pay
 
 // ── Operator config ───────────────────────────────────────────────────────────
 const getOperatorConfig = catchAsync(async (req, res) => {
@@ -40,6 +41,12 @@ const deleteInvoiceItem = catchAsync(async (req, res) => {
 // ── Invoices ──────────────────────────────────────────────────────────────────
 const createInvoice = catchAsync(async (req, res) => {
   const inv = await invoiceModel.createInvoice(req.body, req.user.user_id);
+  captureEvent('invoice.created', inv.icdv_id, {
+    invoice_id: inv.invoice_id,
+    invoice_number: inv.invoice_number,
+    total_amount: inv.total_amount,
+    user_id: req.user.user_id,
+  });
   res.status(httpStatus.CREATED).json(inv);
 });
 
@@ -60,13 +67,19 @@ const updateInvoice = catchAsync(async (req, res) => {
 
 const approveInvoice = catchAsync(async (req, res) => {
   const scopeIcdvId = req.isSuperAdmin ? null : (req.icdvId ?? null);
-  res.json(await invoiceModel.approveInvoice(req.params.invoiceId, req.user.user_id, scopeIcdvId));
+  const inv = await invoiceModel.approveInvoice(req.params.invoiceId, req.user.user_id, scopeIcdvId);
+  captureEvent('invoice.approved', inv.icdv_id, { invoice_id: inv.invoice_id, invoice_number: inv.invoice_number, user_id: req.user.user_id });
+  res.json(inv);
 });
 
 const cancelInvoice = catchAsync(async (req, res) => {
-  res.json(await invoiceModel.cancelInvoice(
+  const inv = await invoiceModel.cancelInvoice(
     req.params.invoiceId, req.user.user_id, req.body.reason || null
-  ));
+  );
+  captureEvent('invoice.cancelled', inv.icdv_id, {
+    invoice_id: inv.invoice_id, invoice_number: inv.invoice_number, reason: req.body.reason || null, user_id: req.user.user_id,
+  });
+  res.json(inv);
 });
 
 const getInvoicePrintData = catchAsync(async (req, res) => {
@@ -77,7 +90,9 @@ const getInvoicePrintData = catchAsync(async (req, res) => {
 // ── Billing (ICDV side) ───────────────────────────────────────────────────────
 const markAsPaid = catchAsync(async (req, res) => {
   const scopeIcdvId = req.isSuperAdmin ? null : (req.icdvId ?? null);
-  res.json(await invoiceModel.markAsPaid(req.params.invoiceId, req.user.user_id, scopeIcdvId));
+  const inv = await invoiceModel.markAsPaid(req.params.invoiceId, req.user.user_id, scopeIcdvId);
+  captureEvent('invoice.paid', inv.icdv_id, { invoice_id: inv.invoice_id, invoice_number: inv.invoice_number, user_id: req.user.user_id });
+  res.json(inv);
 });
 
 // Cashier (or ICDV admin) uploads proof of payment when marking an invoice paid

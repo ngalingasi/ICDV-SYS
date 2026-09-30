@@ -4,6 +4,7 @@ const authModel  = require('../models/auth.model');
 const tokenModel = require('../models/token.model');
 const emailModel = require('../models/email.model');
 const { query }  = require('../config/database');
+const { captureEvent } = require('../config/traceAndFound');
 
 // Always include these fields in the response (null if not set)
 const SAFE_USER_FIELDS = [
@@ -38,8 +39,18 @@ const enrichUser = async (user) => {
 };
 
 const login = catchAsync(async (req, res) => {
-  const { login, password } = req.body;
-  const user   = await authModel.loginUser(login, password);
+  const { login: loginId, password } = req.body;
+  let user;
+  try {
+    user = await authModel.loginUser(loginId, password);
+  } catch (err) {
+    // Incorrect-credentials is an operational 401 — it would never reach the
+    // centralized error handler's capture. Security-relevant on its own
+    // (brute-force visibility), so tracked explicitly here. Never log the
+    // password itself — only which identifier was attempted.
+    captureEvent('auth.login_failed', null, { attempted_login: loginId });
+    throw err;
+  }
   await enrichUser(user);
   const tokens = await tokenModel.generateAuthTokens(user);
   res.status(httpStatus.OK).json({
