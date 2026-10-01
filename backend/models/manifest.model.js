@@ -3,7 +3,7 @@ const { query, transaction, connQuery } = require('../config/database');
 const ApiError = require('../utils/ApiError');
 const { buildPagination } = require('../utils/paginate');
 const { getTransferRate } = require('./lookup.model');
-const { captureEvent, captureLog } = require('../config/traceAndFound');
+const { captureEvent, captureMetric, captureLog } = require('../config/traceAndFound');
 
 /*const generateManifestNumber = async (icdvId = null) => {
   const year   = new Date().getFullYear();
@@ -247,6 +247,10 @@ const importVehicles = async (manifestId, rows, creatorId, icdvId = null) => {
       imported: results.imported,
       failed: results.failed,
     });
+    captureMetric('manifest.vehicles_imported', effectiveIcdvId, results.imported, { unit: 'vehicles' });
+    if (results.failed > 0) {
+      captureMetric('manifest.import_failed', effectiveIcdvId, results.failed, { unit: 'rows' });
+    }
     if (results.failed > 0) {
       captureLog('warn', `Manifest import: ${results.failed}/${results.total} rows failed`, effectiveIcdvId, {
         module: 'manifest', operation: 'importVehicles',

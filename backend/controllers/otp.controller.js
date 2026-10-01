@@ -8,7 +8,7 @@ const smsModel = require('../models/sms.model');
 const otpModel = require('../models/otp.model');
 const { query } = require('../config/database');
 const config = require('../config/config');
-const { captureError } = require('../config/traceAndFound');
+const { captureError, captureMetric } = require('../config/traceAndFound');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -136,6 +136,7 @@ const sendOtp = catchAsync(async (req, res) => {
 
   if (channel === 'email') {
     await emailModel.sendOtpEmail(user.email, otp_code);
+    captureMetric('otp.sent.count', user.icdv_id ?? null, 1, { unit: 'otps', metadata: { channel: 'email' } });
     return res.status(httpStatus.OK).json({
       status: true, message: 'OTP sent to your email',
       channel: 'email', maskedContact: maskEmail(user.email),
@@ -157,6 +158,10 @@ const sendOtp = catchAsync(async (req, res) => {
         module: 'otp', operation: 'sendOtp:sms', errorCode: 'OTP_SMS_DELIVERY_FAILED',
         metadata: { user_id: user.user_id, failed: smsResult.failed },
       });
+      captureMetric('otp.send_failed.count', user.icdv_id ?? null, smsResult.failed_count, { unit: 'otps', metadata: { channel: 'sms' } });
+    }
+    if (smsResult.sent > 0) {
+      captureMetric('otp.sent.count', user.icdv_id ?? null, smsResult.sent, { unit: 'otps', metadata: { channel: 'sms' } });
     }
     return res.status(httpStatus.OK).json({
       status: true, message: 'OTP sent via SMS',

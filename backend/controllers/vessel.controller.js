@@ -1,11 +1,12 @@
 const httpStatus = require('http-status');
 const catchAsync = require('../utils/catchAsync');
 const vesselModel = require('../models/vessel.model');
-const { captureEvent } = require('../config/traceAndFound');
+const { captureEvent, captureMetric } = require('../config/traceAndFound');
 
 const createVessel = catchAsync(async (req, res) => {
   const vessel = await vesselModel.createVessel(req.body, req.user.user_id, req.icdvId);
   captureEvent('vessel.created', vessel.icdv_id, { vessel_id: vessel.vessel_id, name: vessel.name, user_id: req.user.user_id });
+  captureMetric('vessel.created.count', vessel.icdv_id, 1, { unit: 'vessels' });
   res.status(httpStatus.CREATED).json(vessel);
 });
 const getVessels = catchAsync(async (req, res) => {
@@ -25,6 +26,7 @@ const updateVesselStatus = catchAsync(async (req, res) => {
 const deleteVessel = catchAsync(async (req, res) => {
   const vessel = await vesselModel.deleteVessel(Number(req.params.vesselId), req.icdvId);
   captureEvent('vessel.deleted', vessel.icdv_id, { vessel_id: vessel.vessel_id, name: vessel.name, user_id: req.user.user_id });
+  captureMetric('vessel.deleted.count', vessel.icdv_id, 1, { unit: 'vessels' });
   res.status(httpStatus.NO_CONTENT).send();
 });
 

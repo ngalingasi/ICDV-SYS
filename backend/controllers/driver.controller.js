@@ -3,7 +3,7 @@ const catchAsync  = require('../utils/catchAsync');
 const driverModel = require('../models/driver.model');
 const path        = require('path');
 const config      = require('../config/config');
-const { captureEvent } = require('../config/traceAndFound');
+const { captureEvent, captureMetric } = require('../config/traceAndFound');
 
 const toRelativePath = (filePath) => {
   if (!filePath) return null;
@@ -18,6 +18,7 @@ const createDriver = catchAsync(async (req, res) => {
   // icdvId may be null for super_admin — that creates a global driver
   const driver = await driverModel.createDriver(req.body, req.user.user_id, photo, req.icdvId);
   captureEvent('driver.created', driver.icdv_id, { driver_id: driver.driver_id, full_name: driver.full_name, user_id: req.user.user_id });
+  captureMetric('driver.created.count', driver.icdv_id, 1, { unit: 'drivers' });
   res.status(httpStatus.CREATED).json(driver);
 });
 
@@ -53,6 +54,7 @@ const releaseDriver = catchAsync(async (req, res) => {
 const deleteDriver = catchAsync(async (req, res) => {
   const driver = await driverModel.deleteDriver(Number(req.params.driverId), req.icdvId);
   captureEvent('driver.deleted', driver.icdv_id, { driver_id: driver.driver_id, full_name: driver.full_name, user_id: req.user.user_id });
+  captureMetric('driver.deleted.count', driver.icdv_id, 1, { unit: 'drivers' });
   res.status(httpStatus.NO_CONTENT).send();
 });
 

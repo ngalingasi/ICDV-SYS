@@ -2,12 +2,13 @@ const httpStatus = require('http-status');
 const catchAsync = require('../utils/catchAsync');
 const icdvModel  = require('../models/icdv.model');
 const userModel  = require('../models/user.model');
-const { captureEvent } = require('../config/traceAndFound');
+const { captureEvent, captureMetric } = require('../config/traceAndFound');
 
 const createIcdv       = catchAsync(async (req, res) => {
   const icdv = await icdvModel.createIcdv(req.body, req.user.user_id);
   // A brand-new tenant onboarding — its own event is the icdv itself, so tag with its own id.
   captureEvent('icdv.created', icdv.icdv_id, { icdv_id: icdv.icdv_id, name: icdv.name, code: icdv.code, user_id: req.user.user_id });
+  captureMetric('icdv.created.count', icdv.icdv_id, 1, { unit: 'tenants' });
   res.status(httpStatus.CREATED).json(icdv);
 });
 const getIcdvs         = catchAsync(async (req, res) => { res.json(await icdvModel.getIcdvs(req.query)); });
@@ -18,6 +19,7 @@ const deleteIcdv       = catchAsync(async (req, res) => {
   const existing = await icdvModel.getIcdvById(icdvId);
   await icdvModel.deleteIcdv(icdvId);
   captureEvent('icdv.deleted', icdvId, { icdv_id: icdvId, name: existing.name, user_id: req.user.user_id });
+  captureMetric('icdv.deleted.count', icdvId, 1, { unit: 'tenants' });
   res.status(httpStatus.NO_CONTENT).send();
 });
 const getPlatformStats = catchAsync(async (req, res) => { res.json(await icdvModel.getPlatformStats()); });

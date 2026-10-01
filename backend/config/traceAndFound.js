@@ -143,6 +143,27 @@ function captureEvent(name, icdvId, data = {}) {
 }
 
 /**
+ * Capture a numeric metric (a count, a duration, a stock level, etc.) worth
+ * charting over time, tagged to its ICDV tenant.
+ * @param {string} name
+ * @param {number|null} icdvId
+ * @param {number} value
+ * @param {object} options - unit/metadata
+ */
+function captureMetric(name, icdvId, value, options = {}) {
+  if (!enabled || !sdk) return;
+  try {
+    sdk.captureMetric(name, value, {
+      ...options,
+      client: getTenantClientName(icdvId),
+      metadata: { ...(options.metadata || {}), icdv_id: icdvId },
+    });
+  } catch {
+    // tracing must never break the app
+  }
+}
+
+/**
  * Capture a plain log line, tagged to its ICDV tenant.
  * @param {'debug'|'info'|'warn'|'error'} level
  * @param {string} message
@@ -166,6 +187,7 @@ module.exports = {
   shutdownTraceAndFound,
   captureError,
   captureEvent,
+  captureMetric,
   captureLog,
   isEnabled: () => enabled,
 };

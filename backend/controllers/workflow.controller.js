@@ -21,7 +21,7 @@ const httpStatus = require('http-status');
 const catchAsync = require('../utils/catchAsync');
 const wf         = require('../models/workflow.model');
 const { query }  = require('../config/database');
-const { captureEvent } = require('../config/traceAndFound');
+const { captureEvent, captureMetric } = require('../config/traceAndFound');
 const {
   BATCH_DOCUMENT_STATUSES,
   BATCH_GC_STATUSES,
@@ -54,6 +54,7 @@ const dischargeConfirm = catchAsync(async (req, res) => {
   const effectiveIcdvId = await resolveEffectiveIcdvId(req.icdvId, Number(vehicle_id));
   const result = await wf.discharge(Number(vehicle_id), notes || null, req.user.user_id, effectiveIcdvId);
   captureEvent('vehicle.discharged', effectiveIcdvId, { vehicle_id: Number(vehicle_id), user_id: req.user.user_id });
+  captureMetric('vehicle.discharged.count', effectiveIcdvId, 1, { unit: 'vehicles' });
   res.json(result);
 });
 
@@ -73,6 +74,7 @@ const batchConfirm = catchAsync(async (req, res) => {
   const effectiveIcdvId = await resolveEffectiveIcdvId(req.icdvId, Number(vehicle_id));
   const result = await wf.addToBatch(Number(vehicle_id), notes || null, req.user.user_id, effectiveIcdvId);
   captureEvent('vehicle.batched', effectiveIcdvId, { vehicle_id: Number(vehicle_id), batch_id: result?.batch_id, user_id: req.user.user_id });
+  captureMetric('vehicle.batched.count', effectiveIcdvId, 1, { unit: 'vehicles' });
   res.json(result);
 });
 
@@ -181,6 +183,8 @@ const transferConfirm = catchAsync(async (req, res) => {
     companion_vehicle_ids: companionIds,
     user_id: req.user.user_id,
   });
+  // 1 primary vehicle + any companions (Trellas riding along) in the same trip
+  captureMetric('vehicle.transferred.count', effectiveIcdvId, 1 + companionIds.length, { unit: 'vehicles' });
   res.json(result);
 });
 
@@ -200,6 +204,7 @@ const releaseDriverConfirm = catchAsync(async (req, res) => {
   const effectiveIcdvId = await resolveEffectiveIcdvId(req.icdvId, Number(vehicle_id));
   const result = await wf.releaseDriver(Number(vehicle_id), reason.trim(), req.user.user_id, effectiveIcdvId);
   captureEvent('driver.released', effectiveIcdvId, { vehicle_id: Number(vehicle_id), reason: reason.trim(), user_id: req.user.user_id });
+  captureMetric('driver.released.count', effectiveIcdvId, 1, { unit: 'releases' });
   res.json(result);
 });
 
@@ -248,6 +253,7 @@ const receiveConfirm = catchAsync(async (req, res) => {
     companion_vehicle_ids: companionIds,
     user_id: req.user.user_id,
   });
+  captureMetric('vehicle.delivered.count', effectiveIcdvId, 1 + companionIds.length, { unit: 'vehicles' });
   res.json(result);
 });
 

@@ -3,7 +3,7 @@ const catchAsync = require('../utils/catchAsync');
 const userModel  = require('../models/user.model');
 const emailModel = require('../models/email.model');
 const crypto     = require('crypto');
-const { captureEvent } = require('../config/traceAndFound');
+const { captureEvent, captureMetric } = require('../config/traceAndFound');
 
 // When an admin creates a user, auto-scope to their own icdv_id
 // Super admin can pass icdv_id explicitly in body
@@ -21,10 +21,12 @@ const createUser = catchAsync(async (req, res) => {
     const user = await userModel.createUser(body, req.user.user_id);
     await emailModel.sendWelcomeEmail(user.email, user.full_name, user.username, body.password).catch(() => {});
     captureEvent('user.created', user.icdv_id, { user_id: user.user_id, username: user.username, role: user.role, created_by: req.user.user_id });
+    captureMetric('user.created.count', user.icdv_id, 1, { unit: 'users' });
     return res.status(httpStatus.CREATED).send(user);
   }
   const user = await userModel.createUser(body, req.user.user_id);
   captureEvent('user.created', user.icdv_id, { user_id: user.user_id, username: user.username, role: user.role, created_by: req.user.user_id });
+  captureMetric('user.created.count', user.icdv_id, 1, { unit: 'users' });
   res.status(httpStatus.CREATED).send(user);
 });
 
@@ -61,6 +63,7 @@ const deleteUser = catchAsync(async (req, res) => {
   const existing = await userModel.getUserById(req.params.userId);
   await userModel.deleteUser(req.params.userId);
   captureEvent('user.deleted', existing.icdv_id, { user_id: existing.user_id, username: existing.username, deleted_by: req.user.user_id });
+  captureMetric('user.deleted.count', existing.icdv_id, 1, { unit: 'users' });
   res.status(httpStatus.NO_CONTENT).send();
 });
 
